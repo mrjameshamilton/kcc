@@ -42,6 +42,11 @@ fun compile(file: File): File {
     val tokens = scanner.scanTokens()
     println(tokens)
     if (lex) exitProcess(0)
+    val parser = Parser(tokens)
+    val parsed = parser.parse()
+    println(parsed)
+    if (parse) exitProcess(0)
+    if (codegen) exitProcess(0)
 
     val output = File.createTempFile(file.name.removeSuffix(".i"), ".s")
     output.deleteOnExit()
