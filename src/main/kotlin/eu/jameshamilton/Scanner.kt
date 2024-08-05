@@ -45,6 +45,8 @@ class Scanner(private val source: String) {
             '[' -> addToken(LEFT_BRACKET)
             ']' -> addToken(RIGHT_BRACKET)
             ';' -> addToken(SEMICOLON)
+            '~' -> addToken(TILDE)
+            '-' -> addToken(if (match('-')) DECREMENT else MINUS)
             '"' -> string()
             ' ', '\t', '\r' -> { }
             '\n' -> line++

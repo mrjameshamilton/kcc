@@ -5,6 +5,8 @@ enum class TokenType {
 
     SEMICOLON,
 
+    TILDE, MINUS, DECREMENT,
+
     IDENTIFIER, STRING, INT, VOID, RETURN,
 
     CONSTANT,
