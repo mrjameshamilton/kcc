@@ -69,11 +69,11 @@ class Scanner(private val source: String) {
     private fun number() {
         while (isDigit(peek())) advance()
 
-        if (peek() == '.' && isDigit(peekNext())) {
-            advance()
+        //if (peek() == '.' && isDigit(peekNext())) {
+        //    advance()
 
-            while (isDigit(peek())) advance()
-        }
+        //    while (isDigit(peek())) advance()
+        //}
 
         if (isAlpha(peek())) {
             identifier()
@@ -81,7 +81,7 @@ class Scanner(private val source: String) {
             return
         }
 
-        addToken(CONSTANT, source.substring(start, current).toDouble())
+        addToken(CONSTANT, source.substring(start, current).toInt())
     }
 
     private fun string() {

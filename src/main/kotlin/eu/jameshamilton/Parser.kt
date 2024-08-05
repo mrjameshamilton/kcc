@@ -1,5 +1,6 @@
 package eu.jameshamilton
 
+import eu.jameshamilton.TokenType.*
 import kotlin.math.roundToInt
 
 class Parser(private val tokens: List<Token>) {
@@ -12,31 +13,31 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun function(): FunctionDef {
-        val returnType = expect(TokenType.INT, "Function return type expected.")
-        val name = expect(TokenType.IDENTIFIER, "Function name expected.")
-        expect(TokenType.LEFT_PAREN, "( expected.")
-        val parameters = expect(TokenType.VOID, "Expected void.")
-        expect(TokenType.RIGHT_PAREN, ") expected.")
-        expect(TokenType.LEFT_BRACE, "{ expected.")
+        val returnType = expect(INT, "Function return type expected.")
+        val name = expect(IDENTIFIER, "Function name expected.")
+        expect(LEFT_PAREN, "( expected.")
+        val parameters = expect(VOID, "Expected void.")
+        expect(RIGHT_PAREN, ") expected.")
+        expect(LEFT_BRACE, "{ expected.")
         val statements = mutableListOf<Statement>()
         statements.add(statement())
-        expect(TokenType.RIGHT_BRACE, "} expected.")
+        expect(RIGHT_BRACE, "} expected.")
 
         return FunctionDef(name, statements)
     }
 
     private fun statement(): Statement {
         return when {
-            match(TokenType.RETURN) -> ReturnStatement(expression())
+            match(RETURN) -> ReturnStatement(expression())
             else -> throw error(previous(), "Unexpected statement.")
         }.also {
-            expect(TokenType.SEMICOLON, "Expected semicolon.")
+            expect(SEMICOLON, "Expected semicolon.")
         }
     }
 
     private fun expression(): Expression {
         return when {
-            match(TokenType.CONSTANT) -> Constant((previous().literal as Double).roundToInt())
+            match(CONSTANT) -> Constant(previous().literal as Int)
             else -> throw error(previous(), "Unexpected expression '${peek().literal}'.")
         }
     }
@@ -53,10 +54,10 @@ class Parser(private val tokens: List<Token>) {
     private fun synchronize() {
         advance()
         while (!isAtEnd()) {
-            if (previous().type == TokenType.SEMICOLON) return
+            if (previous().type == SEMICOLON) return
 
             when (peek().type) {
-                TokenType.RETURN -> return
+                RETURN -> return
                 else -> advance()
             }
         }
@@ -92,7 +93,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun checkNext(type: TokenType): Boolean = when {
         isAtEnd() -> false
-        tokens[current + 1].type == TokenType.EOF -> false
+        tokens[current + 1].type == EOF -> false
         else -> tokens[current + 1].type == type
     }
 
@@ -106,7 +107,7 @@ class Parser(private val tokens: List<Token>) {
         return previous()
     }
 
-    private fun isAtEnd() = peek().type == TokenType.EOF
+    private fun isAtEnd() = peek().type == EOF
 
     private fun peek(): Token = tokens[current]
 
