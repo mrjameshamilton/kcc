@@ -38,12 +38,10 @@ class Parser(private val tokens: List<Token>) {
     private fun expression(): Expression {
         return when {
             match(CONSTANT) -> Constant(previous().literal as Int)
-            match(LEFT_PAREN) -> {
-                val expr = expression()
+            match(LEFT_PAREN) -> expression().also {
                 expect(RIGHT_PAREN, "Expected closing ')' after expression.")
-                expr
             }
-            else -> unary()//throw error(previous(), "Unexpected expression '${peek().literal}'.")
+            else -> unary()
         }
     }
 
