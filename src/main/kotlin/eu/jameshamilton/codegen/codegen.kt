@@ -48,7 +48,7 @@ fun emit(x86program: x86Program): String = buildString {
         }
     }
 
-    fun emit(functionDef: eu.jameshamilton.codegen.FunctionDef) {
+    fun emit(functionDef: x86FunctionDef) {
         appendLine("""
             |    .globl ${functionDef.name}
             |${functionDef.name}:
