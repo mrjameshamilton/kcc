@@ -1,7 +1,7 @@
 package eu.jameshamilton
 
 import eu.jameshamilton.TokenType.*
-import kotlin.math.roundToInt
+import eu.jameshamilton.UnaryOp.*
 
 class Parser(private val tokens: List<Token>) {
     private var current = 0
@@ -38,6 +38,19 @@ class Parser(private val tokens: List<Token>) {
     private fun expression(): Expression {
         return when {
             match(CONSTANT) -> Constant(previous().literal as Int)
+            match(LEFT_PAREN) -> {
+                val expr = expression()
+                expect(RIGHT_PAREN, "Expected closing ')' after expression.")
+                expr
+            }
+            else -> unary()//throw error(previous(), "Unexpected expression '${peek().literal}'.")
+        }
+    }
+
+    private fun unary(): UnaryExpr {
+        return when {
+            match(MINUS) -> UnaryExpr(Negate, expression())
+            match(TILDE) -> UnaryExpr(Complement, expression())
             else -> throw error(previous(), "Unexpected expression '${peek().literal}'.")
         }
     }

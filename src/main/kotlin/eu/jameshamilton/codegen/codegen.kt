@@ -6,6 +6,7 @@ import eu.jameshamilton.FunctionDef
 import eu.jameshamilton.Program
 import eu.jameshamilton.ReturnStatement
 import eu.jameshamilton.Statement
+import eu.jameshamilton.UnaryExpr
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Program as x86Program
 
@@ -17,6 +18,7 @@ fun generate(functionDef: FunctionDef): x86FunctionDef {
     fun convert(expression: Expression): Operand {
         return when (expression) {
             is Constant -> Imm(expression.value)
+            is UnaryExpr -> TODO()
         }
     }
 
