@@ -1,22 +1,6 @@
 package eu.jameshamilton.frontend
 
-import eu.jameshamilton.frontend.TokenType.CONSTANT
-import eu.jameshamilton.frontend.TokenType.DECREMENT
-import eu.jameshamilton.frontend.TokenType.EOF
-import eu.jameshamilton.frontend.TokenType.IDENTIFIER
-import eu.jameshamilton.frontend.TokenType.INT
-import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
-import eu.jameshamilton.frontend.TokenType.LEFT_BRACKET
-import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
-import eu.jameshamilton.frontend.TokenType.MINUS
-import eu.jameshamilton.frontend.TokenType.RETURN
-import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
-import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
-import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
-import eu.jameshamilton.frontend.TokenType.SEMICOLON
-import eu.jameshamilton.frontend.TokenType.STRING
-import eu.jameshamilton.frontend.TokenType.TILDE
-import eu.jameshamilton.frontend.TokenType.VOID
+import eu.jameshamilton.frontend.TokenType.*
 import kotlin.system.exitProcess
 
 
@@ -63,6 +47,10 @@ class Scanner(private val source: String) {
             ';' -> addToken(SEMICOLON)
             '~' -> addToken(TILDE)
             '-' -> addToken(if (match('-')) DECREMENT else MINUS)
+            '+' -> addToken(if (match('+')) INCREMENT else PLUS)
+            '*' -> addToken(ASTERISK)
+            '/' -> addToken(SLASH)
+            '%' -> addToken(PERCENT)
             '"' -> string()
             ' ', '\t', '\r' -> {}
             '\n' -> line++
