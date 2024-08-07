@@ -21,6 +21,7 @@ fun replacePseudoRegisters(program: Program): Program {
                 Mov(src, dst)
             }
         }
+
         is Unary -> Unary(instruction.op, convert(instruction.operand))
         is AllocateStack -> AllocateStack(instruction.i)
         is MultiInstruction -> MultiInstruction(instruction.instructions.map(::convert))

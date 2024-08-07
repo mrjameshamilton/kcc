@@ -66,12 +66,11 @@ fun compile(file: File): File {
     val x86AST = convert(tackye)
     if (printTacky) println(x86AST)
     val reg = replacePseudoRegisters(x86AST)
-    println(reg)
     if (codegen) exitProcess(0)
 
     val output = File.createTempFile(file.name.removeSuffix(".i"), ".s")
     output.deleteOnExit()
-    val text = emit(x86AST)
+    val text = emit(reg)
     output.writeText(text)
     if (printAssembly) println(text)
     return output
