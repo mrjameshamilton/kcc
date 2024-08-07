@@ -1,14 +1,27 @@
 package eu.jameshamilton.frontend
 
-import eu.jameshamilton.frontend.TokenType.*
-import eu.jameshamilton.frontend.UnaryOp.*
+import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.IDENTIFIER
+import eu.jameshamilton.frontend.TokenType.INT
+import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
+import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
+import eu.jameshamilton.frontend.TokenType.MINUS
+import eu.jameshamilton.frontend.TokenType.RETURN
+import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
+import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
+import eu.jameshamilton.frontend.TokenType.SEMICOLON
+import eu.jameshamilton.frontend.TokenType.TILDE
+import eu.jameshamilton.frontend.TokenType.VOID
+import eu.jameshamilton.frontend.UnaryOp.Complement
+import eu.jameshamilton.frontend.UnaryOp.Negate
 
 class Parser(private val tokens: List<Token>) {
     private var current = 0
 
     fun parse(): Program {
         return Program(function()).also {
-           if (!isAtEnd()) error(previous(), "Expected end of program.")
+            if (!isAtEnd()) error(previous(), "Expected end of program.")
         }
     }
 
@@ -41,6 +54,7 @@ class Parser(private val tokens: List<Token>) {
             match(LEFT_PAREN) -> expression().also {
                 expect(RIGHT_PAREN, "Expected closing ')' after expression.")
             }
+
             else -> unary()
         }
     }

@@ -1,7 +1,8 @@
 package eu.jameshamilton
 
+import eu.jameshamilton.codegen.convert
 import eu.jameshamilton.codegen.emit
-import eu.jameshamilton.codegen.generate
+import eu.jameshamilton.codegen.replacePseudoRegisters
 import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
 import eu.jameshamilton.tacky.convert
@@ -14,11 +15,18 @@ import kotlin.system.exitProcess
 val parser = ArgParser("kcc")
 val input by parser.argument(ArgType.String, description = "C source code")
 val lex by parser.option(ArgType.Boolean, fullName = "lex", description = "Only run the lexer").default(false)
-val parse by parser.option(ArgType.Boolean, fullName = "parse", description = "Only run the lexer + parser").default(false)
-val tacky by parser.option(ArgType.Boolean, fullName = "tacky", description = "Only run the lexer + parser + tacky").default(false)
-val codegen by parser.option(ArgType.Boolean, fullName = "codegen", description = "Only run the lexer + parser + tacky + codegen").default(false)
+val parse by parser.option(ArgType.Boolean, fullName = "parse", description = "Only run the lexer + parser")
+    .default(false)
+val tacky by parser.option(ArgType.Boolean, fullName = "tacky", description = "Only run the lexer + parser + tacky")
+    .default(false)
+val codegen by parser.option(
+    ArgType.Boolean,
+    fullName = "codegen",
+    description = "Only run the lexer + parser + tacky + codegen"
+).default(false)
 val emitAssembly by parser.option(ArgType.Boolean, shortName = "S", description = "Emit assembly").default(false)
 val printTokens by parser.option(ArgType.Boolean, description = "Print tokens").default(false)
+val printTacky by parser.option(ArgType.Boolean, description = "Print tacky").default(false)
 val printAssembly by parser.option(ArgType.Boolean, description = "Print assembly").default(false)
 
 
@@ -54,9 +62,11 @@ fun compile(file: File): File {
     val parsed = parser.parse()
     if (parse) exitProcess(0)
     val tackye = convert(parsed)
-    println(tackye)
     if (tacky) exitProcess(0)
-    val x86AST = generate(parsed)
+    val x86AST = convert(tackye)
+    if (printTacky) println(x86AST)
+    val reg = replacePseudoRegisters(x86AST)
+    println(reg)
     if (codegen) exitProcess(0)
 
     val output = File.createTempFile(file.name.removeSuffix(".i"), ".s")

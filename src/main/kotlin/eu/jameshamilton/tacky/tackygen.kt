@@ -28,7 +28,7 @@ fun convert(program: FunctionDef): TackyFunctionDef {
     fun maketemporary(): String = "tmp.${count++}"
 
     fun convert(expression: Expression): Value = when (expression) {
-       is Constant -> TackyConstant(expression.value)
+        is Constant -> TackyConstant(expression.value)
         is UnaryExpr -> {
             val src = convert(expression.expression)
             val dst = Var(maketemporary())

@@ -12,6 +12,7 @@ data class Unary(val op: UnaryOp, val src: Value, val dst: Value) : Instruction(
 enum class UnaryOp {
     Complement, Negate
 }
+
 sealed class Value
 data class Constant(val value: Int) : Value()
 data class Var(val name: String) : Value()

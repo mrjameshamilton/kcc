@@ -19,7 +19,7 @@ fun generate(functionDef: FunctionDef): x86FunctionDef {
     }
 
     fun convert(statement: Statement): List<Instruction> = when (statement) {
-        is ReturnStatement -> listOf(Mov(convert(statement.value), Register), Ret)
+        is ReturnStatement -> listOf(Mov(convert(statement.value), Register(TODO())), Ret)
     }
 
     fun convert(statements: List<Statement>): List<Instruction> = statements.flatMap(::convert)
@@ -30,7 +30,13 @@ fun generate(functionDef: FunctionDef): x86FunctionDef {
 fun emit(x86program: x86Program): String = buildString {
     fun format(operand: Operand): String = when (operand) {
         is Imm -> "$${operand.value}"
-        Register -> "%eax"
+        is Register -> when (operand.name) {
+            RegisterName.AX -> "%eax"
+            RegisterName.R10 -> TODO()
+        }
+
+        is Pseudo -> TODO()
+        is Stack -> TODO()
     }
 
     fun emit(instructions: List<Instruction>) {
@@ -38,15 +44,20 @@ fun emit(x86program: x86Program): String = buildString {
             when (it) {
                 is Mov -> appendLine("    movl ${format(it.src)}, ${format(it.dst)}")
                 Ret -> appendLine("    ret")
+                is Unary -> TODO()
+                is AllocateStack -> TODO()
+                is MultiInstruction -> TODO()
             }
         }
     }
 
     fun emit(functionDef: x86FunctionDef) {
-        appendLine("""
+        appendLine(
+            """
             |    .globl ${functionDef.name}
             |${functionDef.name}:
-        """.trimMargin())
+        """.trimMargin()
+        )
 
         emit(functionDef.instructions)
     }
