@@ -1,6 +1,6 @@
-package eu.jameshamilton
+package eu.jameshamilton.frontend
 
-import eu.jameshamilton.TokenType.*
+import eu.jameshamilton.frontend.TokenType.*
 import kotlin.system.exitProcess
 
 

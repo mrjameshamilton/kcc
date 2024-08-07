@@ -1,31 +1,25 @@
 package eu.jameshamilton.codegen
 
-import eu.jameshamilton.Constant
-import eu.jameshamilton.Expression
-import eu.jameshamilton.FunctionDef
-import eu.jameshamilton.Program
-import eu.jameshamilton.ReturnStatement
-import eu.jameshamilton.Statement
-import eu.jameshamilton.UnaryExpr
+import eu.jameshamilton.frontend.Constant
+import eu.jameshamilton.frontend.Expression
+import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.Program
+import eu.jameshamilton.frontend.ReturnStatement
+import eu.jameshamilton.frontend.Statement
+import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Program as x86Program
 
-fun generate(program: Program): x86Program {
-    return x86Program(generate(program.function))
-}
+fun generate(program: Program): x86Program = x86Program(generate(program.function))
 
 fun generate(functionDef: FunctionDef): x86FunctionDef {
-    fun convert(expression: Expression): Operand {
-        return when (expression) {
-            is Constant -> Imm(expression.value)
-            is UnaryExpr -> TODO()
-        }
+    fun convert(expression: Expression): Operand = when (expression) {
+        is Constant -> Imm(expression.value)
+        is UnaryExpr -> TODO()
     }
 
-    fun convert(statement: Statement): List<Instruction> {
-        return when (statement) {
-            is ReturnStatement -> listOf(Mov(convert(statement.value), Register), Ret)
-        }
+    fun convert(statement: Statement): List<Instruction> = when (statement) {
+        is ReturnStatement -> listOf(Mov(convert(statement.value), Register), Ret)
     }
 
     fun convert(statements: List<Statement>): List<Instruction> = statements.flatMap(::convert)

@@ -1,7 +1,7 @@
-package eu.jameshamilton
+package eu.jameshamilton.frontend
 
-import eu.jameshamilton.TokenType.*
-import eu.jameshamilton.UnaryOp.*
+import eu.jameshamilton.frontend.TokenType.*
+import eu.jameshamilton.frontend.UnaryOp.*
 
 class Parser(private val tokens: List<Token>) {
     private var current = 0
@@ -76,7 +76,7 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun error(token: Token, message: String): ParseError {
-        eu.jameshamilton.error(token, message)
+        eu.jameshamilton.frontend.error(token, message)
         return ParseError()
     }
 

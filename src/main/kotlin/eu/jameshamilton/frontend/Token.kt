@@ -1,4 +1,4 @@
-package eu.jameshamilton
+package eu.jameshamilton.frontend
 
 enum class TokenType {
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,

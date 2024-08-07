@@ -1,4 +1,4 @@
-package eu.jameshamilton
+package eu.jameshamilton.frontend
 
 class Program(val function: FunctionDef)
 
