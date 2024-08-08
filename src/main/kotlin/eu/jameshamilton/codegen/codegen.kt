@@ -1,5 +1,8 @@
 package eu.jameshamilton.codegen
 
+import eu.jameshamilton.codegen.BinaryOp.Add
+import eu.jameshamilton.codegen.BinaryOp.Mul
+import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
@@ -18,6 +21,12 @@ fun emit(x86program: x86Program): String = buildString {
         Not -> "notl"
     }
 
+    fun format(op: BinaryOp): String = when (op) {
+        Add -> "addl"
+        Sub -> "subl"
+        Mul -> "imull"
+    }
+
     fun emit(instructions: List<Instruction>) {
         instructions.forEach {
             when (it) {
@@ -33,6 +42,9 @@ fun emit(x86program: x86Program): String = buildString {
                 is Unary -> appendLine("    ${format(it.op)} ${format(it.operand)}")
                 is AllocateStack -> appendLine("    subq $${it.i}, %rsp")
                 is MultiInstruction -> emit(it.instructions)
+                is Binary -> appendLine("    ${format(it.op)} ${format(it.src)}, ${format(it.dst)}")
+                is IDiv -> appendLine("    idivl ${format(it.operand)}")
+                Cdq -> appendLine("    cdq")
             }
         }
     }

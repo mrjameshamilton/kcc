@@ -14,13 +14,20 @@ enum class UnaryOp {
     Neg, Not
 }
 
+data class Binary(val op: BinaryOp, val src: Operand, val dst: Operand) : Instruction()
+enum class BinaryOp {
+    Add, Sub, Mul
+}
+
+data class IDiv(val operand: Operand) : Instruction()
+data object Cdq : Instruction()
 data class AllocateStack(val i: Int) : Instruction()
 
 sealed class Operand
 data class Imm(val value: Int) : Operand()
 data class Register(val name: RegisterName) : Operand()
 enum class RegisterName(private val s: String) {
-    AX("%eax"), R10("%r10");
+    AX("%eax"), R10("%r10d"), DX("%edx"), R11("%r11d");
 
     override fun toString(): String {
         return s
@@ -29,3 +36,6 @@ enum class RegisterName(private val s: String) {
 
 data class Pseudo(val identifier: String) : Operand()
 data class Stack(val loc: Int) : Operand()
+
+operator fun Instruction.plus(other: Instruction) = listOf(this, other)
+operator fun Instruction.plus(other: List<Instruction>) = listOf(this) + other
