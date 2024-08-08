@@ -1,5 +1,7 @@
 package eu.jameshamilton.codegen
 
+import eu.jameshamilton.codegen.RegisterName.AX
+import eu.jameshamilton.tacky.Binary
 import eu.jameshamilton.tacky.TackyReturn
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Instruction as x86Instruction
@@ -34,8 +36,9 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
     }
 
     when (it) {
-        is TackyReturn -> listOf(Mov(convert(it.value), Register(RegisterName.AX)), Ret)
+        is TackyReturn -> listOf(Mov(convert(it.value), Register(AX)), Ret)
         is TackyUnary -> listOf(Mov(convert(it.src), convert(it.dst)), x86Unary(convert(it.op), convert(it.dst)))
+        is Binary -> TODO()
     }
 }
 

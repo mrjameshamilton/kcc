@@ -13,6 +13,11 @@ enum class UnaryOp {
     Complement, Negate
 }
 
+data class Binary(val op: BinaryOp, val src1: Value, val src2: Value, val dst: Value) : Instruction()
+enum class BinaryOp {
+    Add, Subtract, Multiply, Divide, Remainder
+}
+
 sealed class Value
 data class Constant(val value: Int) : Value()
 data class Var(val name: String) : Value()

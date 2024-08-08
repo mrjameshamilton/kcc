@@ -1,6 +1,27 @@
 package eu.jameshamilton.frontend
 
-import eu.jameshamilton.frontend.TokenType.*
+import eu.jameshamilton.frontend.TokenType.ASTERISK
+import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.DECREMENT
+import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.IDENTIFIER
+import eu.jameshamilton.frontend.TokenType.INCREMENT
+import eu.jameshamilton.frontend.TokenType.INT
+import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
+import eu.jameshamilton.frontend.TokenType.LEFT_BRACKET
+import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
+import eu.jameshamilton.frontend.TokenType.MINUS
+import eu.jameshamilton.frontend.TokenType.PERCENT
+import eu.jameshamilton.frontend.TokenType.PLUS
+import eu.jameshamilton.frontend.TokenType.RETURN
+import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
+import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
+import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
+import eu.jameshamilton.frontend.TokenType.SEMICOLON
+import eu.jameshamilton.frontend.TokenType.SLASH
+import eu.jameshamilton.frontend.TokenType.STRING
+import eu.jameshamilton.frontend.TokenType.TILDE
+import eu.jameshamilton.frontend.TokenType.VOID
 import kotlin.system.exitProcess
 
 
