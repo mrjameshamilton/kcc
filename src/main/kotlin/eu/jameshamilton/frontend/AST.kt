@@ -15,11 +15,12 @@ data class Constant(val value: Int) : Expression()
 data class UnaryExpr(val op: UnaryOp, val expression: Expression) : Expression()
 
 enum class UnaryOp {
-    Complement, Negate
+    Complement, Negate, Not
 }
 
 data class BinaryExpr(val left: Expression, val operator: BinaryOp, val right: Expression) : Expression()
 enum class BinaryOp {
     Add, Subtract, Multiply, Divide, Remainder,
-    And, Or, Xor, LeftShift, RightShift
+    And, Or, Xor, LeftShift, RightShift,
+    LogicalAnd, LogicalOr, Equal, NotEqual, LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual
 }

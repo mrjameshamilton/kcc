@@ -3,8 +3,16 @@ package eu.jameshamilton.frontend
 import eu.jameshamilton.frontend.BinaryOp.Add
 import eu.jameshamilton.frontend.BinaryOp.And
 import eu.jameshamilton.frontend.BinaryOp.Divide
+import eu.jameshamilton.frontend.BinaryOp.Equal
+import eu.jameshamilton.frontend.BinaryOp.GreaterThan
+import eu.jameshamilton.frontend.BinaryOp.GreaterThanOrEqual
 import eu.jameshamilton.frontend.BinaryOp.LeftShift
+import eu.jameshamilton.frontend.BinaryOp.LessThan
+import eu.jameshamilton.frontend.BinaryOp.LessThanOrEqual
+import eu.jameshamilton.frontend.BinaryOp.LogicalAnd
+import eu.jameshamilton.frontend.BinaryOp.LogicalOr
 import eu.jameshamilton.frontend.BinaryOp.Multiply
+import eu.jameshamilton.frontend.BinaryOp.NotEqual
 import eu.jameshamilton.frontend.BinaryOp.Or
 import eu.jameshamilton.frontend.BinaryOp.Remainder
 import eu.jameshamilton.frontend.BinaryOp.RightShift
@@ -13,14 +21,23 @@ import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
+import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
+import eu.jameshamilton.frontend.TokenType.DOUBLE_PIPE
 import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.EXCLAMATION
+import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
+import eu.jameshamilton.frontend.TokenType.GREATER
+import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
 import eu.jameshamilton.frontend.TokenType.INT
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
+import eu.jameshamilton.frontend.TokenType.LESS
+import eu.jameshamilton.frontend.TokenType.LESS_EQUAL
 import eu.jameshamilton.frontend.TokenType.MINUS
 import eu.jameshamilton.frontend.TokenType.PERCENT
 import eu.jameshamilton.frontend.TokenType.PIPE
@@ -68,9 +85,13 @@ class Parser(private val tokens: List<Token>) {
 
     private fun expression(minPrecedence: Int = 0): Expression {
         fun precedence(op: Token): Int = when (op.type) {
+            DOUBLE_PIPE -> 5
+            DOUBLE_AMPERSAND -> 10
             PIPE -> 25
-            HAT -> 30
+            EXCLAMATION_EQUAL, DOUBLE_EQUAL -> 30
+            HAT -> 31
             AMPERSAND -> 35
+            LESS, GREATER, LESS_EQUAL, GREATER_EQUAL -> 36
             DOUBLE_LESS, DOUBLE_GREATER -> 40
             PLUS, MINUS -> 45
             ASTERISK, SLASH, PERCENT -> 50
@@ -78,7 +99,10 @@ class Parser(private val tokens: List<Token>) {
         }
 
         var left = factor()
-        while (checkAny(PLUS, MINUS, ASTERISK, SLASH, PERCENT, AMPERSAND, PIPE, HAT, DOUBLE_LESS, DOUBLE_GREATER)
+        while (checkAny(
+                PLUS, MINUS, ASTERISK, SLASH, PERCENT, AMPERSAND, PIPE, HAT, DOUBLE_LESS, DOUBLE_GREATER,
+                DOUBLE_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, EXCLAMATION_EQUAL, DOUBLE_AMPERSAND, DOUBLE_PIPE
+            )
             && precedence(peek()) >= minPrecedence
         ) {
             val opToken = advance()
@@ -93,6 +117,14 @@ class Parser(private val tokens: List<Token>) {
                 HAT -> Xor
                 DOUBLE_LESS -> LeftShift
                 DOUBLE_GREATER -> RightShift
+                LESS -> LessThan
+                LESS_EQUAL -> LessThanOrEqual
+                GREATER -> GreaterThan
+                GREATER_EQUAL -> GreaterThanOrEqual
+                DOUBLE_EQUAL -> Equal
+                EXCLAMATION_EQUAL -> NotEqual
+                DOUBLE_AMPERSAND -> LogicalAnd
+                DOUBLE_PIPE -> LogicalOr
                 else -> throw error(opToken, "Unexpected operator.")
             }
             val right = expression(precedence(opToken) + 1)
@@ -104,18 +136,13 @@ class Parser(private val tokens: List<Token>) {
 
     private fun factor(): Expression = when {
         match(CONSTANT) -> Constant(previous().literal as Int)
-        check(TILDE) -> unary()
-        check(MINUS) -> unary()
+        match(MINUS) -> UnaryExpr(Negate, factor())
+        match(TILDE) -> UnaryExpr(Complement, factor())
+        match(EXCLAMATION) -> UnaryExpr(Negate, factor())
         match(LEFT_PAREN) -> expression().also {
             expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
 
-        else -> throw error(previous(), "Unexpected expression.")
-    }
-
-    private fun unary(): UnaryExpr = when {
-        match(MINUS) -> UnaryExpr(Negate, factor())
-        match(TILDE) -> UnaryExpr(Complement, factor())
         else -> throw error(previous(), "Unexpected expression '${peek().literal}'.")
     }
 

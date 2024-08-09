@@ -26,6 +26,7 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
     fun convert(op: UnaryOp): eu.jameshamilton.tacky.UnaryOp = when (op) {
         UnaryOp.Complement -> eu.jameshamilton.tacky.UnaryOp.Complement
         UnaryOp.Negate -> eu.jameshamilton.tacky.UnaryOp.Negate
+        UnaryOp.Not -> TODO()
     }
 
     var count = 0
@@ -42,6 +43,14 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         BinaryOp.Xor -> TackyBinaryOp.Xor
         BinaryOp.LeftShift -> TackyBinaryOp.LeftShift
         BinaryOp.RightShift -> TackyBinaryOp.RightShift
+        BinaryOp.LogicalAnd -> TODO()
+        BinaryOp.LogicalOr -> TODO()
+        BinaryOp.Equal -> TODO()
+        BinaryOp.NotEqual -> TODO()
+        BinaryOp.LessThan -> TODO()
+        BinaryOp.GreaterThan -> TODO()
+        BinaryOp.LessThanOrEqual -> TODO()
+        BinaryOp.GreaterThanOrEqual -> TODO()
     }
 
     fun convert(expression: Expression): Value = when (expression) {
