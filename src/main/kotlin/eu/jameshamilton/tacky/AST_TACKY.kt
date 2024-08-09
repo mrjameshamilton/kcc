@@ -15,7 +15,8 @@ enum class UnaryOp {
 
 data class Binary(val op: BinaryOp, val src1: Value, val src2: Value, val dst: Value) : Instruction()
 enum class BinaryOp {
-    Add, Subtract, Multiply, Divide, Remainder
+    Add, Subtract, Multiply, Divide, Remainder,
+    And, Or, Xor, LeftShift, RightShift
 }
 
 sealed class Value

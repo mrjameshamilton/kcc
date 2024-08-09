@@ -1,19 +1,29 @@
 package eu.jameshamilton.frontend
 
 import eu.jameshamilton.frontend.BinaryOp.Add
+import eu.jameshamilton.frontend.BinaryOp.And
 import eu.jameshamilton.frontend.BinaryOp.Divide
+import eu.jameshamilton.frontend.BinaryOp.LeftShift
 import eu.jameshamilton.frontend.BinaryOp.Multiply
+import eu.jameshamilton.frontend.BinaryOp.Or
 import eu.jameshamilton.frontend.BinaryOp.Remainder
+import eu.jameshamilton.frontend.BinaryOp.RightShift
 import eu.jameshamilton.frontend.BinaryOp.Subtract
+import eu.jameshamilton.frontend.BinaryOp.Xor
+import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
+import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
 import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.HAT
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
 import eu.jameshamilton.frontend.TokenType.INT
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
 import eu.jameshamilton.frontend.TokenType.MINUS
 import eu.jameshamilton.frontend.TokenType.PERCENT
+import eu.jameshamilton.frontend.TokenType.PIPE
 import eu.jameshamilton.frontend.TokenType.PLUS
 import eu.jameshamilton.frontend.TokenType.RETURN
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
@@ -58,16 +68,17 @@ class Parser(private val tokens: List<Token>) {
 
     private fun expression(minPrecedence: Int = 0): Expression {
         fun precedence(op: Token): Int = when (op.type) {
-            PLUS -> 45
-            MINUS -> 45
-            ASTERISK -> 50
-            SLASH -> 50
-            PERCENT -> 50
+            PIPE -> 25
+            HAT -> 30
+            AMPERSAND -> 35
+            DOUBLE_LESS, DOUBLE_GREATER -> 40
+            PLUS, MINUS -> 45
+            ASTERISK, SLASH, PERCENT -> 50
             else -> throw error(op, "Unexpected token.")
         }
 
         var left = factor()
-        while (checkAny(PLUS, MINUS, ASTERISK, SLASH, PERCENT)
+        while (checkAny(PLUS, MINUS, ASTERISK, SLASH, PERCENT, AMPERSAND, PIPE, HAT, DOUBLE_LESS, DOUBLE_GREATER)
             && precedence(peek()) >= minPrecedence
         ) {
             val opToken = advance()
@@ -77,6 +88,11 @@ class Parser(private val tokens: List<Token>) {
                 ASTERISK -> Multiply
                 SLASH -> Divide
                 PERCENT -> Remainder
+                AMPERSAND -> And
+                PIPE -> Or
+                HAT -> Xor
+                DOUBLE_LESS -> LeftShift
+                DOUBLE_GREATER -> RightShift
                 else -> throw error(opToken, "Unexpected operator.")
             }
             val right = expression(precedence(opToken) + 1)

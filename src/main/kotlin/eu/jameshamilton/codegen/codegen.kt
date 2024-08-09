@@ -1,8 +1,13 @@
 package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.BinaryOp.Add
+import eu.jameshamilton.codegen.BinaryOp.And
+import eu.jameshamilton.codegen.BinaryOp.LeftShift
 import eu.jameshamilton.codegen.BinaryOp.Mul
+import eu.jameshamilton.codegen.BinaryOp.Or
+import eu.jameshamilton.codegen.BinaryOp.RightShift
 import eu.jameshamilton.codegen.BinaryOp.Sub
+import eu.jameshamilton.codegen.BinaryOp.Xor
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
@@ -25,6 +30,11 @@ fun emit(x86program: x86Program): String = buildString {
         Add -> "addl"
         Sub -> "subl"
         Mul -> "imull"
+        And -> "andl"
+        Or -> "orl"
+        Xor -> "xorl"
+        LeftShift -> "sall"
+        RightShift -> "sarl"
     }
 
     fun emit(instructions: List<Instruction>) {

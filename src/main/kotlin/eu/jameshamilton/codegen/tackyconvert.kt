@@ -4,10 +4,15 @@ import eu.jameshamilton.codegen.RegisterName.AX
 import eu.jameshamilton.codegen.RegisterName.DX
 import eu.jameshamilton.tacky.Binary
 import eu.jameshamilton.tacky.BinaryOp.Add
+import eu.jameshamilton.tacky.BinaryOp.And
 import eu.jameshamilton.tacky.BinaryOp.Divide
+import eu.jameshamilton.tacky.BinaryOp.LeftShift
 import eu.jameshamilton.tacky.BinaryOp.Multiply
+import eu.jameshamilton.tacky.BinaryOp.Or
 import eu.jameshamilton.tacky.BinaryOp.Remainder
+import eu.jameshamilton.tacky.BinaryOp.RightShift
 import eu.jameshamilton.tacky.BinaryOp.Subtract
+import eu.jameshamilton.tacky.BinaryOp.Xor
 import eu.jameshamilton.tacky.TackyReturn
 import eu.jameshamilton.codegen.BinaryOp as x86BinaryOp
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
@@ -47,8 +52,12 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         Add -> x86BinaryOp.Add
         Subtract -> x86BinaryOp.Sub
         Multiply -> x86BinaryOp.Mul
-        Divide -> TODO()
-        Remainder -> TODO()
+        Divide, Remainder -> unreachable("special case below")
+        And -> x86BinaryOp.And
+        Or -> x86BinaryOp.Or
+        Xor -> x86BinaryOp.Xor
+        LeftShift -> x86BinaryOp.LeftShift
+        RightShift -> x86BinaryOp.RightShift
     }
 
     when (it) {
@@ -68,3 +77,6 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
     }
 }
 
+fun unreachable(reason: String): Nothing {
+    throw RuntimeException("unreachable: $reason")
+}

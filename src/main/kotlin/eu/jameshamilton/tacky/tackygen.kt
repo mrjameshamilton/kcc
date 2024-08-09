@@ -37,6 +37,11 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         BinaryOp.Multiply -> TackyBinaryOp.Multiply
         BinaryOp.Divide -> TackyBinaryOp.Divide
         BinaryOp.Remainder -> TackyBinaryOp.Remainder
+        BinaryOp.And -> TackyBinaryOp.And
+        BinaryOp.Or -> TackyBinaryOp.Or
+        BinaryOp.Xor -> TackyBinaryOp.Xor
+        BinaryOp.LeftShift -> TackyBinaryOp.LeftShift
+        BinaryOp.RightShift -> TackyBinaryOp.RightShift
     }
 
     fun convert(expression: Expression): Value = when (expression) {

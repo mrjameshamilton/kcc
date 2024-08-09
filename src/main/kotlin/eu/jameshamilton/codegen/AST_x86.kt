@@ -16,7 +16,7 @@ enum class UnaryOp {
 
 data class Binary(val op: BinaryOp, val src: Operand, val dst: Operand) : Instruction()
 enum class BinaryOp {
-    Add, Sub, Mul
+    Add, Sub, Mul, And, Or, Xor, LeftShift, RightShift
 }
 
 data class IDiv(val operand: Operand) : Instruction()
@@ -27,7 +27,7 @@ sealed class Operand
 data class Imm(val value: Int) : Operand()
 data class Register(val name: RegisterName) : Operand()
 enum class RegisterName(private val s: String) {
-    AX("%eax"), R10("%r10d"), DX("%edx"), R11("%r11d");
+    AX("%eax"), R10("%r10d"), DX("%edx"), R11("%r11d"), CX("%ecx");
 
     override fun toString(): String {
         return s

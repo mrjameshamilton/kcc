@@ -20,5 +20,6 @@ enum class UnaryOp {
 
 data class BinaryExpr(val left: Expression, val operator: BinaryOp, val right: Expression) : Expression()
 enum class BinaryOp {
-    Add, Subtract, Multiply, Divide, Remainder
+    Add, Subtract, Multiply, Divide, Remainder,
+    And, Or, Xor, LeftShift, RightShift
 }

@@ -1,8 +1,14 @@
 package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.BinaryOp.Add
+import eu.jameshamilton.codegen.BinaryOp.And
+import eu.jameshamilton.codegen.BinaryOp.LeftShift
 import eu.jameshamilton.codegen.BinaryOp.Mul
+import eu.jameshamilton.codegen.BinaryOp.Or
+import eu.jameshamilton.codegen.BinaryOp.RightShift
 import eu.jameshamilton.codegen.BinaryOp.Sub
+import eu.jameshamilton.codegen.BinaryOp.Xor
+import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
 
@@ -35,8 +41,8 @@ fun replacePseudoRegisters(program: Program): Program {
             val left = allocate(instruction.src)
             val right = allocate(instruction.dst)
             when (instruction.op) {
-                // add, sub can't have both operands constant.
-                Add, Sub -> if (left is Stack && right is Stack) {
+                // These can't have both operands constant.
+                Add, Sub, And, Or, Xor -> if (left is Stack && right is Stack) {
                     MultiInstruction(Mov(left, Register(R10)) + Binary(instruction.op, Register(R10), right))
                 } else {
                     Binary(instruction.op, left, right)
@@ -48,6 +54,16 @@ fun replacePseudoRegisters(program: Program): Program {
                         Mov(right, Register(R11)) +
                                 Binary(instruction.op, left, Register(R11)) +
                                 Mov(Register(R11), right)
+                    )
+                } else {
+                    Binary(instruction.op, left, right)
+                }
+
+                LeftShift, RightShift -> if (left is Stack) {
+                    MultiInstruction(
+                        Mov(left, Register(CX)) +
+                                Binary(instruction.op, Register(CX), right) +
+                                Mov(Register(CX), left)
                     )
                 } else {
                     Binary(instruction.op, left, right)
@@ -66,7 +82,7 @@ fun replacePseudoRegisters(program: Program): Program {
         }
     }
 
-    fun fixup(functionDef: FunctionDef): FunctionDef = with (functionDef.instructions.map(::fixup)) {
+    fun fixup(functionDef: FunctionDef): FunctionDef = with(functionDef.instructions.map(::fixup)) {
         return FunctionDef(functionDef.name, AllocateStack(registers.size * 4) + this)
     }
 

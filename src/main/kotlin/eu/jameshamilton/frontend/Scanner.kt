@@ -1,17 +1,24 @@
 package eu.jameshamilton.frontend
 
+import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.DECREMENT
+import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
+import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
 import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.GREATER
+import eu.jameshamilton.frontend.TokenType.HAT
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
 import eu.jameshamilton.frontend.TokenType.INCREMENT
 import eu.jameshamilton.frontend.TokenType.INT
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACKET
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
+import eu.jameshamilton.frontend.TokenType.LESS
 import eu.jameshamilton.frontend.TokenType.MINUS
 import eu.jameshamilton.frontend.TokenType.PERCENT
+import eu.jameshamilton.frontend.TokenType.PIPE
 import eu.jameshamilton.frontend.TokenType.PLUS
 import eu.jameshamilton.frontend.TokenType.RETURN
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
@@ -72,6 +79,11 @@ class Scanner(private val source: String) {
             '*' -> addToken(ASTERISK)
             '/' -> addToken(SLASH)
             '%' -> addToken(PERCENT)
+            '&' -> addToken(AMPERSAND)
+            '|' -> addToken(PIPE)
+            '^' -> addToken(HAT)
+            '<' -> if (match('<')) addToken(DOUBLE_LESS) else addToken(LESS)
+            '>' -> if (match('>')) addToken(DOUBLE_GREATER) else addToken(GREATER)
             '"' -> string()
             ' ', '\t', '\r' -> {}
             '\n' -> line++
