@@ -1,3 +1,3 @@
 int main(void) {
-    return 5 << 1;
+    return !(1==1);
 }

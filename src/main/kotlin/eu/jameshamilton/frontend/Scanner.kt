@@ -4,10 +4,16 @@ import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.DECREMENT
+import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
+import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
+import eu.jameshamilton.frontend.TokenType.DOUBLE_PIPE
 import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.EXCLAMATION
+import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
 import eu.jameshamilton.frontend.TokenType.GREATER
+import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
 import eu.jameshamilton.frontend.TokenType.INCREMENT
@@ -16,6 +22,7 @@ import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACKET
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
 import eu.jameshamilton.frontend.TokenType.LESS
+import eu.jameshamilton.frontend.TokenType.LESS_EQUAL
 import eu.jameshamilton.frontend.TokenType.MINUS
 import eu.jameshamilton.frontend.TokenType.PERCENT
 import eu.jameshamilton.frontend.TokenType.PIPE
@@ -79,18 +86,37 @@ class Scanner(private val source: String) {
             '*' -> addToken(ASTERISK)
             '/' -> addToken(SLASH)
             '%' -> addToken(PERCENT)
-            '&' -> addToken(AMPERSAND)
-            '|' -> addToken(PIPE)
+            '&' -> addToken(if (match('&')) DOUBLE_AMPERSAND else AMPERSAND)
+            '|' -> addToken(if (match('|')) DOUBLE_PIPE else PIPE)
             '^' -> addToken(HAT)
-            '<' -> if (match('<')) addToken(DOUBLE_LESS) else addToken(LESS)
-            '>' -> if (match('>')) addToken(DOUBLE_GREATER) else addToken(GREATER)
+            '<' -> when {
+                match('<') -> addToken(DOUBLE_LESS)
+                match('=') -> addToken(LESS_EQUAL)
+                else -> addToken(LESS)
+            }
+
+            '>' -> when {
+                match('>') -> addToken(DOUBLE_GREATER)
+                match('=') -> addToken(GREATER_EQUAL)
+                else -> addToken(GREATER)
+            }
+
+            '=' -> when {
+                match('=') -> addToken(DOUBLE_EQUAL)
+            }
+
+            '!' -> when {
+                match('=') -> addToken(EXCLAMATION_EQUAL)
+                else -> addToken(EXCLAMATION)
+            }
+
             '"' -> string()
             ' ', '\t', '\r' -> {}
             '\n' -> line++
-            else -> {
-                if (isDigit(c)) number()
-                else if (isAlpha(c)) identifier()
-                else error(line, "Unexpected character.")
+            else -> when {
+                isDigit(c) -> number()
+                isAlpha(c) -> identifier()
+                else -> error(line, "Unexpected character.")
             }
         }
     }
