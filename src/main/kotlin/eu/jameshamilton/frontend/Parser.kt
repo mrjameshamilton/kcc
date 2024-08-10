@@ -51,6 +51,7 @@ import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.VOID
 import eu.jameshamilton.frontend.UnaryOp.Complement
 import eu.jameshamilton.frontend.UnaryOp.Negate
+import eu.jameshamilton.frontend.UnaryOp.Not
 
 class Parser(private val tokens: List<Token>) {
     private var current = 0
@@ -138,7 +139,7 @@ class Parser(private val tokens: List<Token>) {
         match(CONSTANT) -> Constant(previous().literal as Int)
         match(MINUS) -> UnaryExpr(Negate, factor())
         match(TILDE) -> UnaryExpr(Complement, factor())
-        match(EXCLAMATION) -> UnaryExpr(Negate, factor())
+        match(EXCLAMATION) -> UnaryExpr(Not, factor())
         match(LEFT_PAREN) -> expression().also {
             expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
