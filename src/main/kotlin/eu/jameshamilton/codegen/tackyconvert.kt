@@ -24,6 +24,10 @@ import eu.jameshamilton.tacky.JumpIfNotZero
 import eu.jameshamilton.tacky.JumpIfZero
 import eu.jameshamilton.tacky.Label
 import eu.jameshamilton.tacky.TackyReturn
+import eu.jameshamilton.tacky.UnaryOp.Complement
+import eu.jameshamilton.tacky.UnaryOp.Negate
+import eu.jameshamilton.tacky.UnaryOp.Not
+import eu.jameshamilton.unreachable
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Instruction as x86Instruction
 import eu.jameshamilton.codegen.Program as x86Program
@@ -33,7 +37,6 @@ import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
 import eu.jameshamilton.tacky.Instruction as TackyInstruction
 import eu.jameshamilton.tacky.Program as TackyProgram
 import eu.jameshamilton.tacky.Unary as TackyUnary
-import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
 import eu.jameshamilton.tacky.Value as TackyValue
 import eu.jameshamilton.tacky.Var as TackyVar
 
@@ -53,7 +56,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
     buildX86 {
         when (tacky) {
             is TackyReturn -> {
-                mov(convert(tacky.value), AX)
+                val src = convert(tacky.value)
+                mov(src, AX)
                 ret()
             }
 
@@ -62,9 +66,14 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val dst = convert(tacky.dst)
                 mov(src, dst)
                 when (tacky.op) {
-                    TackyUnaryOp.Complement -> not(dst)
-                    TackyUnaryOp.Negate -> neg(dst)
-                    TackyUnaryOp.Not -> TODO()
+                    Complement -> not(dst)
+                    Negate -> neg(dst)
+                    Not -> {
+                        cmp(0, src)
+                        // zero out register, as set instructions take 1 byte operands
+                        mov(0, dst)
+                        sete(dst)
+                    }
                 }
             }
 
@@ -82,6 +91,20 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         mov(if (tacky.op == Divide) AX else DX, dst)
                     }
 
+                    LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal, NotEqual -> {
+                        cmp(src1, src2)
+                        mov(0, dst)
+                        when (tacky.op) {
+                            LessThan -> setl(dst)
+                            LessThanOrEqual -> setle(dst)
+                            GreaterThan -> setg(dst)
+                            GreaterThanOrEqual -> setge(dst)
+                            Equal -> sete(dst)
+                            NotEqual -> setne(dst)
+                            else -> throw RuntimeException("Invalid comparison operator ${tacky.op}.")
+                        }
+                    }
+
                     else -> {
                         mov(src1, dst)
                         when (tacky.op) {
@@ -93,27 +116,35 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                             Xor -> xor(src2, dst)
                             LeftShift -> sal(src2, dst)
                             RightShift -> sar(src2, dst)
-                            LessThan -> TODO()
-                            LessThanOrEqual -> TODO()
-                            GreaterThan -> TODO()
-                            GreaterThanOrEqual -> TODO()
-                            Equal -> TODO()
-                            NotEqual -> TODO()
-                            Divide, Remainder -> unreachable("special case")
+                            LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal, NotEqual, Divide, Remainder -> unreachable(
+                                "special case"
+                            )
                         }
                     }
                 }
             }
 
-            is Copy -> TODO()
-            is Jump -> TODO()
-            is JumpIfNotZero -> TODO()
-            is JumpIfZero -> TODO()
-            is Label -> TODO()
+            is Copy -> {
+                val src = convert(tacky.src)
+                val dst = convert(tacky.dst)
+                mov(src, dst)
+            }
+
+            is Jump -> {
+                jmp(tacky.target)
+            }
+
+            is JumpIfNotZero -> {
+                cmp(0, convert(tacky.condition))
+                je(tacky.target)
+            }
+
+            is JumpIfZero -> {
+                cmp(0, convert(tacky.condition))
+                jne(tacky.target)
+            }
+
+            is Label -> label(tacky.identifier)
         }
     }
-}
-
-fun unreachable(reason: String): Nothing {
-    throw RuntimeException("unreachable: $reason")
 }

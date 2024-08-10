@@ -27,6 +27,7 @@ val codegen by parser.option(
 val emitAssembly by parser.option(ArgType.Boolean, shortName = "S", description = "Emit assembly").default(false)
 val printTokens by parser.option(ArgType.Boolean, description = "Print tokens").default(false)
 val printTacky by parser.option(ArgType.Boolean, description = "Print tacky").default(false)
+val printX86 by parser.option(ArgType.Boolean, description = "Print x86").default(false)
 val printAssembly by parser.option(ArgType.Boolean, description = "Print assembly").default(false)
 
 
@@ -65,8 +66,9 @@ fun compile(file: File): File {
     if (printTacky) println(tackye)
     if (tacky) exitProcess(0)
     val x86AST = convert(tackye)
-    if (printTacky) println(x86AST)
+    if (printX86) println(x86AST)
     val reg = replacePseudoRegisters(x86AST)
+    if (printX86) println(reg)
     if (codegen) exitProcess(0)
 
     val output = File.createTempFile(file.name.removeSuffix(".i"), ".s")

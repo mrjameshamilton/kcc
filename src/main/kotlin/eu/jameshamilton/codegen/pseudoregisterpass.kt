@@ -11,6 +11,7 @@ import eu.jameshamilton.codegen.BinaryOp.Xor
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
+import eu.jameshamilton.unreachable
 
 fun replacePseudoRegisters(program: Program): Program {
     val registers = mutableMapOf<Pseudo, Stack>()
@@ -79,6 +80,25 @@ fun replacePseudoRegisters(program: Program): Program {
                     idiv(operand)
                 }
             }
+
+            is Cmp -> {
+                val src1 = allocate(instruction.src1)
+                val src2 = allocate(instruction.src2)
+                if (src1 is Stack && src2 is Stack) {
+                    mov(src1, R10)
+                    cmp(R10, src2)
+                } else if (src2 is Imm) {
+                    mov(src2, R11)
+                    cmp(src1, R11)
+                } else {
+                    cmp(src1, src2)
+                }
+            }
+
+            is Jmp -> jmp(instruction.identifier)
+            is JmpCC -> jcc(instruction.conditionCode, instruction.identifier)
+            is Label -> label(instruction.identifier)
+            is SetCC -> setcc(instruction.conditionCode, allocate(instruction.operand))
         }
     }
 

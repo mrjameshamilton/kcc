@@ -18,8 +18,17 @@ enum class BinaryOp {
     Add, Sub, Mul, And, Or, Xor, LeftShift, RightShift
 }
 
+data class Cmp(val src1: Operand, val src2: Operand) : Instruction()
 data class IDiv(val operand: Operand) : Instruction()
 data object Cdq : Instruction()
+data class Jmp(val identifier: String) : Instruction()
+data class JmpCC(val conditionCode: ConditionCode, val identifier: String) : Instruction()
+data class SetCC(val conditionCode: ConditionCode, val operand: Operand) : Instruction()
+data class Label(val identifier: String) : Instruction()
+enum class ConditionCode {
+    E, NE, G, GE, L, LE
+}
+
 data class AllocateStack(val i: Int) : Instruction()
 
 sealed class Operand

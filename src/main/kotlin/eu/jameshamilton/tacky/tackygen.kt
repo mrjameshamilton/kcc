@@ -1,6 +1,6 @@
 package eu.jameshamilton.tacky
 
-import eu.jameshamilton.codegen.unreachable
+import eu.jameshamilton.unreachable
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp
 import eu.jameshamilton.frontend.BinaryOp.Add
@@ -29,7 +29,6 @@ import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
-import eu.jameshamilton.tacky.Binary
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.Constant as TackyConstant
