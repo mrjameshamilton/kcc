@@ -3,6 +3,7 @@ package eu.jameshamilton.codegen
 import eu.jameshamilton.codegen.RegisterName.AX
 import eu.jameshamilton.codegen.RegisterName.DX
 import eu.jameshamilton.tacky.Binary
+import eu.jameshamilton.tacky.BinaryOp
 import eu.jameshamilton.tacky.BinaryOp.Add
 import eu.jameshamilton.tacky.BinaryOp.And
 import eu.jameshamilton.tacky.BinaryOp.Divide
@@ -13,6 +14,11 @@ import eu.jameshamilton.tacky.BinaryOp.Remainder
 import eu.jameshamilton.tacky.BinaryOp.RightShift
 import eu.jameshamilton.tacky.BinaryOp.Subtract
 import eu.jameshamilton.tacky.BinaryOp.Xor
+import eu.jameshamilton.tacky.Copy
+import eu.jameshamilton.tacky.Jump
+import eu.jameshamilton.tacky.JumpIfNotZero
+import eu.jameshamilton.tacky.JumpIfZero
+import eu.jameshamilton.tacky.Label
 import eu.jameshamilton.tacky.TackyReturn
 import eu.jameshamilton.codegen.BinaryOp as x86BinaryOp
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
@@ -46,6 +52,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
     fun convert(op: TackyUnaryOp): x86UnaryOp = when (op) {
         TackyUnaryOp.Complement -> x86UnaryOp.Not
         TackyUnaryOp.Negate -> x86UnaryOp.Neg
+        TackyUnaryOp.Not -> TODO()
     }
 
     fun convert(op: TackyBinaryOp): x86BinaryOp = when (op) {
@@ -58,6 +65,12 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         Xor -> x86BinaryOp.Xor
         LeftShift -> x86BinaryOp.LeftShift
         RightShift -> x86BinaryOp.RightShift
+        BinaryOp.LessThan -> TODO()
+        BinaryOp.LessThanOrEqual -> TODO()
+        BinaryOp.GreaterThan -> TODO()
+        BinaryOp.GreaterThanOrEqual -> TODO()
+        BinaryOp.Equal -> TODO()
+        BinaryOp.NotEqual -> TODO()
     }
 
     when (it) {
@@ -74,6 +87,12 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
             else -> Mov(convert(it.src1), convert(it.dst)) + Binary(convert(it.op), convert(it.src2), convert(it.dst))
         }
+
+        is Copy -> TODO()
+        is Jump -> TODO()
+        is JumpIfNotZero -> TODO()
+        is JumpIfZero -> TODO()
+        is Label -> TODO()
     }
 }
 

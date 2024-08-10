@@ -62,6 +62,7 @@ fun compile(file: File): File {
     val parsed = parser.parse()
     if (parse) exitProcess(0)
     val tackye = convert(parsed)
+    if (printTacky) println(tackye)
     if (tacky) exitProcess(0)
     val x86AST = convert(tackye)
     if (printTacky) println(x86AST)
