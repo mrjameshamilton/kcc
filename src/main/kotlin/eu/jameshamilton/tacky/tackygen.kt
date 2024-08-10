@@ -1,6 +1,5 @@
 package eu.jameshamilton.tacky
 
-import eu.jameshamilton.unreachable
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp
 import eu.jameshamilton.frontend.BinaryOp.Add
@@ -29,6 +28,7 @@ import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
+import eu.jameshamilton.unreachable
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.Constant as TackyConstant
@@ -76,50 +76,55 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
 
     fun convert(expression: Expression): Value = when (expression) {
         is Constant -> TackyConstant(expression.value)
-        is UnaryExpr -> {
+        is UnaryExpr -> buildTacky(instructions) {
             val src = convert(expression.expression)
             val dst = Var(maketemporary())
             val op = convert(expression.op)
-            instructions += buildTacky {
-                unaryOp(op, src, dst)
-            }
+            unaryOp(op, src, dst)
             dst
         }
 
-        is BinaryExpr -> {
-            if (expression.operator == LogicalAnd || expression.operator == LogicalOr) {
+        is BinaryExpr -> when (expression.operator) {
+            LogicalAnd -> buildTacky(instructions) {
                 val dst = Var(maketemporary())
-                instructions += buildTacky {
-                    val falseLabel = makelabel("false_label")
-                    val endLabel = makelabel("end_label")
+                val falseLabel = makelabel("false_label")
+                val endLabel = makelabel("end_label")
 
-                    val v1 = convert(expression.left)
-                    if (expression.operator == LogicalAnd)
-                        jumpIfZero(v1, falseLabel)
-                    else
-                        jumpIfNotZero(v1, falseLabel)
-
-                    val v2 = convert(expression.right)
-                    if (expression.operator == LogicalAnd)
-                        jumpIfZero(v2, falseLabel)
-                    else
-                        jumpIfNotZero(v2, falseLabel)
-
-                    copy(1, dst)
-                    jump(endLabel)
-                    label(falseLabel)
-                    copy(0, dst)
-                    label(endLabel)
-                }
+                val v1 = convert(expression.left)
+                jumpIfZero(v1, falseLabel)
+                val v2 = convert(expression.right)
+                jumpIfZero(v2, falseLabel)
+                copy(1, dst)
+                jump(endLabel)
+                label(falseLabel)
+                copy(0, dst)
+                label(endLabel)
                 dst
-            } else {
+            }
+
+            LogicalOr -> buildTacky(instructions) {
+                val dst = Var(maketemporary())
+                val falseLabel = makelabel("false_label")
+                val endLabel = makelabel("end_label")
+
+                val v1 = convert(expression.left)
+                jumpIfNotZero(v1, falseLabel)
+                val v2 = convert(expression.right)
+                jumpIfNotZero(v2, falseLabel)
+                copy(0, dst)
+                jump(endLabel)
+                label(falseLabel)
+                copy(1, dst)
+                label(endLabel)
+                dst
+            }
+
+            else -> buildTacky(instructions) {
                 val v1 = convert(expression.left)
                 val v2 = convert(expression.right)
                 val dst = Var(maketemporary())
                 val tackyOp = convert(expression.operator)
-                instructions += buildTacky {
-                    binaryOp(tackyOp, v1, v2, dst)
-                }
+                binaryOp(tackyOp, v1, v2, dst)
                 dst
             }
         }
@@ -137,7 +142,7 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
     return TackyFunctionDef(program.name.lexeme, convert(program.body))
 }
 
-class Builder(val instructions: MutableList<Instruction> = mutableListOf()) {
+class Builder(private val instructions: MutableList<Instruction> = mutableListOf()) {
     fun jump(target: String) {
         instructions += Jump(target)
     }
@@ -171,7 +176,7 @@ class Builder(val instructions: MutableList<Instruction> = mutableListOf()) {
     }
 }
 
-fun buildTacky(block: Builder.() -> Unit): List<Instruction> = with(Builder()) {
-    block(this)
-    return instructions
-}
+fun buildTacky(instructions: MutableList<Instruction>, block: Builder.() -> Value): Value =
+    with(Builder(instructions)) {
+        return block(this)
+    }

@@ -8,6 +8,11 @@ import eu.jameshamilton.codegen.BinaryOp.Or
 import eu.jameshamilton.codegen.BinaryOp.RightShift
 import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
+import eu.jameshamilton.codegen.RegisterName.AX
+import eu.jameshamilton.codegen.RegisterName.CX
+import eu.jameshamilton.codegen.RegisterName.DX
+import eu.jameshamilton.codegen.RegisterName.R10
+import eu.jameshamilton.codegen.RegisterName.R11
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
 import eu.jameshamilton.unreachable
@@ -17,7 +22,33 @@ import eu.jameshamilton.codegen.Program as x86Program
 fun emit(x86program: x86Program): String = buildString {
     fun format(operand: Operand): String = when (operand) {
         is Imm -> "$${operand.value}"
-        is Register -> operand.name.toString()
+        is Register -> when (operand.name) {
+            AX -> when (operand.size) {
+                4 -> "%eax"
+                1 -> "%al"
+                else -> TODO()
+            }
+
+            CX -> when (operand.size) {
+                4 -> "%ecx"
+                1 -> "%cl"
+                else -> TODO()
+            }
+
+            DX -> when (operand.size) {
+                4 -> "%edx"
+                1 -> "%dl"
+                else -> TODO()
+            }
+
+            R10, R11 -> when (operand.size) {
+                4 -> "%${operand.name.toString().lowercase()}d"
+                1 -> "%${operand.name.toString().lowercase()}b"
+                else -> TODO()
+            }
+
+        }
+
         is Pseudo -> unreachable("pseudo instruction not emitted")
         is Stack -> "${operand.loc}(%rbp)"
     }
@@ -55,11 +86,11 @@ fun emit(x86program: x86Program): String = buildString {
                 is Binary -> appendLine("    ${format(it.op)} ${format(it.src)}, ${format(it.dst)}")
                 is IDiv -> appendLine("    idivl ${format(it.operand)}")
                 Cdq -> appendLine("    cdq")
-                is Cmp -> TODO()
-                is Jmp -> TODO()
-                is JmpCC -> TODO()
-                is Label -> TODO()
-                is SetCC -> TODO()
+                is Cmp -> appendLine("    cmpl ${format(it.src1)}, ${format(it.src2)}")
+                is Jmp -> appendLine("    jmp .L${it.identifier}")
+                is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} .L${it.identifier}")
+                is Label -> appendLine(".L${it.identifier}:")
+                is SetCC -> appendLine("    set${it.conditionCode.toString().lowercase()} ${format(it.operand)}")
             }
         }
     }

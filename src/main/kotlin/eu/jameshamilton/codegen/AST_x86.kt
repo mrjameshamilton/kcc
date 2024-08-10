@@ -33,13 +33,9 @@ data class AllocateStack(val i: Int) : Instruction()
 
 sealed class Operand
 data class Imm(val value: Int) : Operand()
-data class Register(val name: RegisterName) : Operand()
-enum class RegisterName(private val s: String) {
-    AX("%eax"), R10("%r10d"), DX("%edx"), R11("%r11d"), CX("%ecx");
-
-    override fun toString(): String {
-        return s
-    }
+data class Register(val name: RegisterName, val size: Int = 4) : Operand()
+enum class RegisterName {
+    AX, DX, R10, R11, CX;
 }
 
 data class Pseudo(val identifier: String) : Operand()

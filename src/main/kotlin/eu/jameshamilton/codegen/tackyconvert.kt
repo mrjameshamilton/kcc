@@ -92,7 +92,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     }
 
                     LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal, NotEqual -> {
-                        cmp(src1, src2)
+                        cmp(src2, src1)
                         mov(0, dst)
                         when (tacky.op) {
                             LessThan -> setl(dst)
@@ -136,12 +136,12 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
             is JumpIfNotZero -> {
                 cmp(0, convert(tacky.condition))
-                je(tacky.target)
+                jne(tacky.target)
             }
 
             is JumpIfZero -> {
                 cmp(0, convert(tacky.condition))
-                jne(tacky.target)
+                je(tacky.target)
             }
 
             is Label -> label(tacky.identifier)
