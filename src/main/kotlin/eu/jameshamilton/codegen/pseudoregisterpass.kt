@@ -20,70 +20,70 @@ fun replacePseudoRegisters(program: Program): Program {
         else -> op
     }
 
-    fun fixup(instruction: Instruction): Instruction = when (instruction) {
-        is Mov -> {
-            val src = allocate(instruction.src)
-            val dst = allocate(instruction.dst)
+    fun fixup(instruction: Instruction): List<Instruction> = buildX86 {
+        when (instruction) {
+            is Mov -> {
+                val src = allocate(instruction.src)
+                val dst = allocate(instruction.dst)
 
-            // movl can't have both operands constant.
-            if (src is Stack && dst is Stack) {
-                MultiInstruction(Mov(src, Register(R10)) + Mov(Register(R10), dst))
-            } else {
-                Mov(src, dst)
-            }
-        }
-
-        is Unary -> Unary(instruction.op, allocate(instruction.operand))
-        is AllocateStack -> AllocateStack(instruction.i)
-        is MultiInstruction -> MultiInstruction(instruction.instructions.map(::fixup))
-        Ret -> Ret
-        is Binary -> {
-            val left = allocate(instruction.src)
-            val right = allocate(instruction.dst)
-            when (instruction.op) {
-                // These can't have both operands constant.
-                Add, Sub, And, Or, Xor -> if (left is Stack && right is Stack) {
-                    MultiInstruction(Mov(left, Register(R10)) + Binary(instruction.op, Register(R10), right))
+                // mov can't have both operands as stack locations.
+                if (src is Stack && dst is Stack) {
+                    mov(src, R10)
+                    mov(R10, dst)
                 } else {
-                    Binary(instruction.op, left, right)
-                }
-
-                Mul -> if (right is Stack) {
-                    // imul can't use memory address as its destination.
-                    MultiInstruction(
-                        Mov(right, Register(R11)) +
-                                Binary(instruction.op, left, Register(R11)) +
-                                Mov(Register(R11), right)
-                    )
-                } else {
-                    Binary(instruction.op, left, right)
-                }
-
-                LeftShift, RightShift -> if (left is Stack) {
-                    MultiInstruction(
-                        Mov(left, Register(CX)) +
-                                Binary(instruction.op, Register(CX), right) +
-                                Mov(Register(CX), left)
-                    )
-                } else {
-                    Binary(instruction.op, left, right)
+                    mov(src, dst)
                 }
             }
-        }
 
-        Cdq -> Cdq
-        is IDiv -> {
-            val operand = allocate(instruction.operand)
-            if (operand is Imm) {
-                MultiInstruction(Mov(operand, Register(R10)) + IDiv(Register(R10)))
-            } else {
-                IDiv(operand)
+            is Unary -> unary(instruction.op, allocate(instruction.operand))
+            is AllocateStack -> unreachable("should not exist yet")
+            Ret -> ret()
+            is Binary -> {
+                val left = allocate(instruction.src)
+                val right = allocate(instruction.dst)
+                when (instruction.op) {
+                    // These can't have both operands as stack locations.
+                    Add, Sub, And, Or, Xor -> if (left is Stack && right is Stack) {
+                        mov(left, R10)
+                        binary(instruction.op, R10, right)
+                    } else {
+                        binary(instruction.op, left, right)
+                    }
+
+                    Mul -> if (right is Stack) {
+                        // imul can't use memory address as its destination.
+                        mov(right, R11)
+                        imul(left, R11)
+                        mov(R11, right)
+                    } else {
+                        binary(instruction.op, left, right)
+                    }
+
+                    LeftShift, RightShift -> if (left is Stack) {
+                        mov(left, CX)
+                        binary(instruction.op, CX, right)
+                        mov(CX, left)
+                    } else {
+                        binary(instruction.op, left, right)
+                    }
+                }
+            }
+
+            Cdq -> cdq()
+            is IDiv -> {
+                val operand = allocate(instruction.operand)
+                if (operand is Imm) {
+                    mov(operand, R10)
+                    idiv(R10)
+                } else {
+                    idiv(operand)
+                }
             }
         }
     }
 
-    fun fixup(functionDef: FunctionDef): FunctionDef = with(functionDef.instructions.map(::fixup)) {
-        return FunctionDef(functionDef.name, AllocateStack(registers.size * 4) + this)
+    fun fixup(functionDef: FunctionDef): FunctionDef = with(functionDef.instructions.flatMap(::fixup)) {
+        return FunctionDef(functionDef.name, listOf(AllocateStack(registers.size * 4)) + this)
     }
 
     return Program(fixup(program.functionDef))

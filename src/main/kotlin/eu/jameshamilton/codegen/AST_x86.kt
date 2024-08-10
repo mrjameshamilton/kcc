@@ -6,7 +6,6 @@ data class FunctionDef(val name: String, val instructions: List<Instruction>)
 
 sealed class Instruction
 
-data class MultiInstruction(val instructions: List<Instruction>) : Instruction()
 data class Mov(val src: Operand, val dst: Operand) : Instruction()
 data object Ret : Instruction()
 data class Unary(val op: UnaryOp, val operand: Operand) : Instruction()

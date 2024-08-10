@@ -51,7 +51,6 @@ fun emit(x86program: x86Program): String = buildString {
 
                 is Unary -> appendLine("    ${format(it.op)} ${format(it.operand)}")
                 is AllocateStack -> appendLine("    subq $${it.i}, %rsp")
-                is MultiInstruction -> emit(it.instructions)
                 is Binary -> appendLine("    ${format(it.op)} ${format(it.src)}, ${format(it.dst)}")
                 is IDiv -> appendLine("    idivl ${format(it.operand)}")
                 Cdq -> appendLine("    cdq")

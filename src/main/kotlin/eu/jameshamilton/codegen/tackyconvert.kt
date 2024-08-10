@@ -2,13 +2,17 @@ package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.RegisterName.AX
 import eu.jameshamilton.codegen.RegisterName.DX
-import eu.jameshamilton.tacky.Binary
-import eu.jameshamilton.tacky.BinaryOp
 import eu.jameshamilton.tacky.BinaryOp.Add
 import eu.jameshamilton.tacky.BinaryOp.And
 import eu.jameshamilton.tacky.BinaryOp.Divide
+import eu.jameshamilton.tacky.BinaryOp.Equal
+import eu.jameshamilton.tacky.BinaryOp.GreaterThan
+import eu.jameshamilton.tacky.BinaryOp.GreaterThanOrEqual
 import eu.jameshamilton.tacky.BinaryOp.LeftShift
+import eu.jameshamilton.tacky.BinaryOp.LessThan
+import eu.jameshamilton.tacky.BinaryOp.LessThanOrEqual
 import eu.jameshamilton.tacky.BinaryOp.Multiply
+import eu.jameshamilton.tacky.BinaryOp.NotEqual
 import eu.jameshamilton.tacky.BinaryOp.Or
 import eu.jameshamilton.tacky.BinaryOp.Remainder
 import eu.jameshamilton.tacky.BinaryOp.RightShift
@@ -20,13 +24,10 @@ import eu.jameshamilton.tacky.JumpIfNotZero
 import eu.jameshamilton.tacky.JumpIfZero
 import eu.jameshamilton.tacky.Label
 import eu.jameshamilton.tacky.TackyReturn
-import eu.jameshamilton.codegen.BinaryOp as x86BinaryOp
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Instruction as x86Instruction
 import eu.jameshamilton.codegen.Program as x86Program
-import eu.jameshamilton.codegen.Unary as x86Unary
-import eu.jameshamilton.codegen.UnaryOp as x86UnaryOp
-import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
+import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.Constant as TackyConstant
 import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
 import eu.jameshamilton.tacky.Instruction as TackyInstruction
@@ -42,57 +43,74 @@ fun convert(tackyProgram: TackyProgram): x86Program =
 private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef =
     x86FunctionDef(tackyFunctionDef.name, convert(tackyFunctionDef.instructions))
 
-private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap {
+private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap { tacky ->
 
     fun convert(value: TackyValue): Operand = when (value) {
         is TackyConstant -> Imm(value.value)
         is TackyVar -> Pseudo(value.name)
     }
 
-    fun convert(op: TackyUnaryOp): x86UnaryOp = when (op) {
-        TackyUnaryOp.Complement -> x86UnaryOp.Not
-        TackyUnaryOp.Negate -> x86UnaryOp.Neg
-        TackyUnaryOp.Not -> TODO()
-    }
+    buildX86 {
+        when (tacky) {
+            is TackyReturn -> {
+                mov(convert(tacky.value), AX)
+                ret()
+            }
 
-    fun convert(op: TackyBinaryOp): x86BinaryOp = when (op) {
-        Add -> x86BinaryOp.Add
-        Subtract -> x86BinaryOp.Sub
-        Multiply -> x86BinaryOp.Mul
-        Divide, Remainder -> unreachable("special case below")
-        And -> x86BinaryOp.And
-        Or -> x86BinaryOp.Or
-        Xor -> x86BinaryOp.Xor
-        LeftShift -> x86BinaryOp.LeftShift
-        RightShift -> x86BinaryOp.RightShift
-        BinaryOp.LessThan -> TODO()
-        BinaryOp.LessThanOrEqual -> TODO()
-        BinaryOp.GreaterThan -> TODO()
-        BinaryOp.GreaterThanOrEqual -> TODO()
-        BinaryOp.Equal -> TODO()
-        BinaryOp.NotEqual -> TODO()
-    }
+            is TackyUnary -> {
+                val src = convert(tacky.src)
+                val dst = convert(tacky.dst)
+                mov(src, dst)
+                when (tacky.op) {
+                    TackyUnaryOp.Complement -> not(dst)
+                    TackyUnaryOp.Negate -> neg(dst)
+                    TackyUnaryOp.Not -> TODO()
+                }
+            }
 
-    when (it) {
-        is TackyReturn -> Mov(convert(it.value), Register(AX)) + Ret
-        is TackyUnary -> Mov(convert(it.src), convert(it.dst)) + x86Unary(convert(it.op), convert(it.dst))
-        is Binary -> when (it.op) {
-            Divide, Remainder ->
-                // division / remainder use EAX + EDX together:
-                // the division result is stored in EAX; the remainder in EDX.
-                Mov(convert(it.src1), Register(AX)) +
-                        Cdq +
-                        IDiv(convert(it.src2)) +
-                        Mov(Register(if (it.op == Remainder) DX else AX), convert(it.dst))
+            is TackyBinary -> {
+                val src1 = convert(tacky.src1)
+                val src2 = convert(tacky.src2)
+                val dst = convert(tacky.dst)
+                when (tacky.op) {
+                    Divide, Remainder -> {
+                        // division / remainder use EAX + EDX together:
+                        // the division result is stored in EAX; the remainder in EDX.
+                        mov(src1, AX)
+                        cdq()
+                        idiv(src2)
+                        mov(if (tacky.op == Divide) AX else DX, dst)
+                    }
 
-            else -> Mov(convert(it.src1), convert(it.dst)) + Binary(convert(it.op), convert(it.src2), convert(it.dst))
+                    else -> {
+                        mov(src1, dst)
+                        when (tacky.op) {
+                            Add -> add(src2, dst)
+                            Subtract -> sub(src2, dst)
+                            Multiply -> imul(src2, dst)
+                            And -> and(src2, dst)
+                            Or -> or(src2, dst)
+                            Xor -> xor(src2, dst)
+                            LeftShift -> sal(src2, dst)
+                            RightShift -> sar(src2, dst)
+                            LessThan -> TODO()
+                            LessThanOrEqual -> TODO()
+                            GreaterThan -> TODO()
+                            GreaterThanOrEqual -> TODO()
+                            Equal -> TODO()
+                            NotEqual -> TODO()
+                            Divide, Remainder -> unreachable("special case")
+                        }
+                    }
+                }
+            }
+
+            is Copy -> TODO()
+            is Jump -> TODO()
+            is JumpIfNotZero -> TODO()
+            is JumpIfZero -> TODO()
+            is Label -> TODO()
         }
-
-        is Copy -> TODO()
-        is Jump -> TODO()
-        is JumpIfNotZero -> TODO()
-        is JumpIfZero -> TODO()
-        is Label -> TODO()
     }
 }
 

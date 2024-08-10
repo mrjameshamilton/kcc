@@ -29,6 +29,7 @@ import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
+import eu.jameshamilton.tacky.Binary
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.Constant as TackyConstant
@@ -79,7 +80,10 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         is UnaryExpr -> {
             val src = convert(expression.expression)
             val dst = Var(maketemporary())
-            instructions += TackyUnary(convert(expression.op), src, dst)
+            val op = convert(expression.op)
+            instructions += buildTacky {
+                unaryOp(op, src, dst)
+            }
             dst
         }
 
@@ -114,7 +118,9 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                 val v2 = convert(expression.right)
                 val dst = Var(maketemporary())
                 val tackyOp = convert(expression.operator)
-                instructions += TackyBinary(tackyOp, v1, v2, dst)
+                instructions += buildTacky {
+                    binaryOp(tackyOp, v1, v2, dst)
+                }
                 dst
             }
         }
@@ -155,6 +161,14 @@ class Builder(val instructions: MutableList<Instruction> = mutableListOf()) {
 
     fun copy(i: Int, dst: Value) {
         instructions += Copy(TackyConstant(i), dst)
+    }
+
+    fun binaryOp(binaryOp: TackyBinaryOp, src1: Value, src2: Value, dst: Value) {
+        instructions += TackyBinary(binaryOp, src1, src2, dst)
+    }
+
+    fun unaryOp(unaryOp: TackyUnaryOp, src: Value, dst: Value) {
+        instructions += TackyUnary(unaryOp, src, dst)
     }
 }
 
