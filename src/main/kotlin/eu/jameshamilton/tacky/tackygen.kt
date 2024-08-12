@@ -32,6 +32,7 @@ import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
+import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
@@ -40,12 +41,11 @@ import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
 import eu.jameshamilton.tacky.Program as TackyProgram
 import eu.jameshamilton.tacky.Unary as TackyUnary
 import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
+import eu.jameshamilton.tacky.Var as TackyVar
 
 fun convert(program: Program): TackyProgram = TackyProgram(convert(program.function))
 
 private fun convert(program: FunctionDef): TackyFunctionDef {
-
-    val instructions = mutableListOf<Instruction>()
 
     fun convert(op: UnaryOp): TackyUnaryOp = when (op) {
         UnaryOp.Complement -> TackyUnaryOp.Complement
@@ -78,11 +78,11 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         GreaterThanOrEqual -> TackyBinaryOp.GreaterThanOrEqual
     }
 
-    fun convert(expression: Expression): Value = when (expression) {
+    fun convert(instructions: MutableList<Instruction>, expression: Expression): Value = when (expression) {
         is Constant -> TackyConstant(expression.value)
         is UnaryExpr -> buildTacky(instructions) {
-            val src = convert(expression.expression)
-            val dst = Var(maketemporary())
+            val src = convert(instructions, expression.expression)
+            val dst = TackyVar(maketemporary())
             val op = convert(expression.op)
             unaryOp(op, src, dst)
             dst
@@ -90,13 +90,13 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
 
         is BinaryExpr -> when (expression.operator) {
             LogicalAnd -> buildTacky(instructions) {
-                val dst = Var(maketemporary())
-                val falseLabel = makelabel("false_label")
-                val endLabel = makelabel("end_label")
+                val dst = TackyVar(maketemporary())
+                val falseLabel = makelabel("and_false_label")
+                val endLabel = makelabel("and_end_label")
 
-                val v1 = convert(expression.left)
+                val v1 = convert(instructions, expression.left)
                 jumpIfZero(v1, falseLabel)
-                val v2 = convert(expression.right)
+                val v2 = convert(instructions, expression.right)
                 jumpIfZero(v2, falseLabel)
                 copy(1, dst)
                 jump(endLabel)
@@ -107,13 +107,13 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
             }
 
             LogicalOr -> buildTacky(instructions) {
-                val dst = Var(maketemporary())
-                val falseLabel = makelabel("false_label")
-                val endLabel = makelabel("end_label")
+                val dst = TackyVar(maketemporary())
+                val falseLabel = makelabel("or_false_label")
+                val endLabel = makelabel("or_end_label")
 
-                val v1 = convert(expression.left)
+                val v1 = convert(instructions, expression.left)
                 jumpIfNotZero(v1, falseLabel)
-                val v2 = convert(expression.right)
+                val v2 = convert(instructions, expression.right)
                 jumpIfNotZero(v2, falseLabel)
                 copy(0, dst)
                 jump(endLabel)
@@ -124,32 +124,48 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
             }
 
             else -> buildTacky(instructions) {
-                val v1 = convert(expression.left)
-                val v2 = convert(expression.right)
-                val dst = Var(maketemporary())
+                val v1 = convert(instructions, expression.left)
+                val v2 = convert(instructions, expression.right)
+                val dst = TackyVar(maketemporary())
                 val tackyOp = convert(expression.operator)
                 binaryOp(tackyOp, v1, v2, dst)
                 dst
             }
         }
 
-        is Assignment -> TODO()
-        is eu.jameshamilton.frontend.Var -> TODO()
+        is Assignment -> buildTacky(instructions) {
+            val value = convert(instructions, expression.value)
+            val lvalue = convert(instructions, expression.lvalue)
+            copy(value, lvalue)
+            value
+        }
+
+        is Var -> TackyVar(expression.identifier.identifier)
     }
 
     fun convert(statement: BlockItem): List<Instruction> {
-        when (statement) {
-            is ReturnStatement -> instructions += TackyReturn(convert(statement.value))
-            is ExpressionStatement -> TODO()
-            is NullStatement -> TODO()
-            is Declaration -> TODO()
+        val instructions = mutableListOf<Instruction>()
+        buildTacky(instructions) {
+            when (statement) {
+                is ReturnStatement -> ret(convert(instructions, statement.value))
+                is ExpressionStatement -> convert(instructions, statement.expression)
+                is NullStatement -> emptyList<Instruction>()
+                is Declaration -> if (statement.initializer != null) {
+                    val src = convert(instructions, statement.initializer)
+                    val dst = TackyVar(statement.identifier.identifier)
+                    copy(src, dst)
+                }
+            }
+            nop()
         }
         return instructions
     }
 
-    fun convert(statements: List<BlockItem>): List<Instruction> = statements.flatMap(::convert)
+    fun convert(statements: List<BlockItem>): List<Instruction> {
+        return statements.flatMap { convert(it) }
+    }
 
-    return TackyFunctionDef(program.name.identifier, convert(program.body))
+    return TackyFunctionDef(program.name.identifier, convert(program.body) + listOf(TackyReturn(TackyConstant(0))))
 }
 
 class Builder(private val instructions: MutableList<Instruction> = mutableListOf()) {
@@ -184,6 +200,12 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     fun unaryOp(unaryOp: TackyUnaryOp, src: Value, dst: Value) {
         instructions += TackyUnary(unaryOp, src, dst)
     }
+
+    fun ret(value: Value) {
+        instructions += TackyReturn(value)
+    }
+
+    fun nop(): Value = TackyConstant(0)
 }
 
 fun buildTacky(instructions: MutableList<Instruction>, block: Builder.() -> Value): Value =
