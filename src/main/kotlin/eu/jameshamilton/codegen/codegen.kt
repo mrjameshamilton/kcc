@@ -13,6 +13,10 @@ import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.DX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
+import eu.jameshamilton.codegen.Size.BYTE
+import eu.jameshamilton.codegen.Size.LONG
+import eu.jameshamilton.codegen.Size.QUAD
+import eu.jameshamilton.codegen.Size.WORD
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
 import eu.jameshamilton.unreachable
@@ -22,31 +26,17 @@ import eu.jameshamilton.codegen.Program as x86Program
 fun emit(x86program: x86Program): String = buildString {
     fun format(operand: Operand): String = when (operand) {
         is Imm -> "$${operand.value}"
+
+
         is Register -> when (operand.name) {
-            AX -> when (operand.size) {
-                4 -> "%eax"
-                1 -> "%al"
-                else -> TODO()
+            AX, CX, DX -> when (operand.size) {
+                BYTE -> "%${operand.name.name.lowercase().first()}l"
+                WORD -> "%${operand.name.name.lowercase()}"
+                LONG -> "%e${operand.name.name.lowercase()}"
+                QUAD -> "%r${operand.name.name.lowercase()}"
             }
 
-            CX -> when (operand.size) {
-                4 -> "%ecx"
-                1 -> "%cl"
-                else -> TODO()
-            }
-
-            DX -> when (operand.size) {
-                4 -> "%edx"
-                1 -> "%dl"
-                else -> TODO()
-            }
-
-            R10, R11 -> when (operand.size) {
-                4 -> "%${operand.name.toString().lowercase()}d"
-                1 -> "%${operand.name.toString().lowercase()}b"
-                else -> TODO()
-            }
-
+            R10, R11 -> "%${operand.name.name.lowercase()}${operand.size.suffix}"
         }
 
         is Pseudo -> unreachable("pseudo instruction not emitted")

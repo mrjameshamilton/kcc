@@ -33,9 +33,19 @@ data class AllocateStack(val i: Int) : Instruction()
 
 sealed class Operand
 data class Imm(val value: Int) : Operand()
-data class Register(val name: RegisterName, val size: Int = 4) : Operand()
+data class Register(val name: RegisterName, val size: Size = Size.LONG) : Operand()
+
+// EAX is the full 32-bit value
+// AX is the lower 16-bits
+// AL is the lower 8 bits
+// AH is the bits 8 through 15 (zero-based), the top half of AX
+// RAX is the full 64-bits on x86_64
 enum class RegisterName {
     AX, DX, R10, R11, CX;
+}
+
+enum class Size(val bytes: Int, val suffix: String) {
+    BYTE(1, "b"), WORD(2, "w"), LONG(4, "d"), QUAD(8, "")
 }
 
 data class Pseudo(val identifier: String) : Operand()

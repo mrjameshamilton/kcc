@@ -98,7 +98,15 @@ fun replacePseudoRegisters(program: Program): Program {
             is Jmp -> jmp(instruction.identifier)
             is JmpCC -> jcc(instruction.conditionCode, instruction.identifier)
             is Label -> label(instruction.identifier)
-            is SetCC -> setcc(instruction.conditionCode, allocate(instruction.operand))
+            is SetCC -> {
+                val operand = allocate(instruction.operand)
+                // setcc uses 1 byte registers.
+                if (operand is Register && operand.size != Size.BYTE) {
+                    setcc(instruction.conditionCode, Register(operand.name, Size.BYTE))
+                } else {
+                    setcc(instruction.conditionCode, operand)
+                }
+            }
         }
     }
 
