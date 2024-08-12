@@ -1,5 +1,6 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp
 import eu.jameshamilton.frontend.BinaryOp.Add
@@ -20,12 +21,15 @@ import eu.jameshamilton.frontend.BinaryOp.Remainder
 import eu.jameshamilton.frontend.BinaryOp.RightShift
 import eu.jameshamilton.frontend.BinaryOp.Subtract
 import eu.jameshamilton.frontend.BinaryOp.Xor
+import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Constant
+import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.Expression
+import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
-import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
 import eu.jameshamilton.unreachable
@@ -128,16 +132,22 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                 dst
             }
         }
+
+        is Assignment -> TODO()
+        is eu.jameshamilton.frontend.Var -> TODO()
     }
 
-    fun convert(statement: Statement): List<Instruction> {
+    fun convert(statement: BlockItem): List<Instruction> {
         when (statement) {
             is ReturnStatement -> instructions += TackyReturn(convert(statement.value))
+            is ExpressionStatement -> TODO()
+            is NullStatement -> TODO()
+            is Declaration -> TODO()
         }
         return instructions
     }
 
-    fun convert(statements: List<Statement>): List<Instruction> = statements.flatMap(::convert)
+    fun convert(statements: List<BlockItem>): List<Instruction> = statements.flatMap(::convert)
 
     return TackyFunctionDef(program.name.lexeme, convert(program.body))
 }

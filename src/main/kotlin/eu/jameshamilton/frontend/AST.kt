@@ -2,11 +2,14 @@ package eu.jameshamilton.frontend
 
 data class Program(val function: FunctionDef)
 
-data class FunctionDef(val name: Token, val body: List<Statement>)
+data class FunctionDef(val name: Token, val body: List<BlockItem>)
 
-sealed class Statement
+interface BlockItem
+sealed class Statement : BlockItem
 
 data class ReturnStatement(val value: Expression) : Statement()
+data class ExpressionStatement(val expression: Expression) : Statement()
+data object NullStatement : Statement()
 
 sealed class Expression
 
@@ -24,3 +27,8 @@ enum class BinaryOp {
     And, Or, Xor, LeftShift, RightShift,
     LogicalAnd, LogicalOr, Equal, NotEqual, LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual
 }
+
+data class Var(val identifier: String) : Expression()
+data class Assignment(val lvalue: Expression, val value: Expression) : Expression()
+
+data class Declaration(val identifier: String, val initializer: Expression? = null) : BlockItem

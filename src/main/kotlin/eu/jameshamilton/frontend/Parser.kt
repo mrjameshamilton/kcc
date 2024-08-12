@@ -27,6 +27,7 @@ import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
 import eu.jameshamilton.frontend.TokenType.DOUBLE_PIPE
 import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
 import eu.jameshamilton.frontend.TokenType.GREATER
@@ -69,23 +70,46 @@ class Parser(private val tokens: List<Token>) {
         val parameters = expect(VOID, "Expected void.")
         expect(RIGHT_PAREN, ") expected.")
         expect(LEFT_BRACE, "{ expected.")
-        val statements = mutableListOf<Statement>()
-        statements.add(statement())
+        val statements = mutableListOf<BlockItem>()
+        while (!check(RIGHT_BRACE)) {
+            statements += blockItem()
+        }
         expect(RIGHT_BRACE, "} expected.")
 
         return FunctionDef(name, statements)
     }
 
+    private fun blockItem(): BlockItem = when {
+        check(INT) -> declaration()
+        else -> statement()
+    }
+
     private fun statement(): Statement = when {
         match(RETURN) -> ReturnStatement(expression())
-        else -> throw error(previous(), "Unexpected statement.")
+        check(SEMICOLON) -> NullStatement // Don't consume, because the "also" below will consume it.
+        else -> ExpressionStatement(expression())
     }.also {
         expect(SEMICOLON, "Expected semicolon.")
     }
 
+    private fun declaration(): Declaration = when {
+        match(INT) -> {
+            val identifier = expect(IDENTIFIER, "Variable name expected.").lexeme
+            if (match(EQUAL)) {
+                Declaration(identifier, expression())
+            } else {
+                Declaration(identifier)
+            }
+        }
+
+        else -> throw error(previous(), "Unexpected declaration.")
+    }.also {
+        expect(SEMICOLON, "Expected semicolon.")
+    }
 
     private fun expression(minPrecedence: Int = 0): Expression {
         fun precedence(op: Token): Int = when (op.type) {
+            EQUAL -> 1
             DOUBLE_PIPE -> 5
             DOUBLE_AMPERSAND -> 10
             PIPE -> 25
@@ -101,35 +125,41 @@ class Parser(private val tokens: List<Token>) {
 
         var left = factor()
         while (checkAny(
-                PLUS, MINUS, ASTERISK, SLASH, PERCENT, AMPERSAND, PIPE, HAT, DOUBLE_LESS, DOUBLE_GREATER,
+                EQUAL, PLUS, MINUS, ASTERISK, SLASH, PERCENT, AMPERSAND, PIPE, HAT, DOUBLE_LESS, DOUBLE_GREATER,
                 DOUBLE_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, EXCLAMATION_EQUAL, DOUBLE_AMPERSAND, DOUBLE_PIPE
             )
             && precedence(peek()) >= minPrecedence
         ) {
             val opToken = advance()
-            val op = when (opToken.type) {
-                PLUS -> Add
-                MINUS -> Subtract
-                ASTERISK -> Multiply
-                SLASH -> Divide
-                PERCENT -> Remainder
-                AMPERSAND -> And
-                PIPE -> Or
-                HAT -> Xor
-                DOUBLE_LESS -> LeftShift
-                DOUBLE_GREATER -> RightShift
-                LESS -> LessThan
-                LESS_EQUAL -> LessThanOrEqual
-                GREATER -> GreaterThan
-                GREATER_EQUAL -> GreaterThanOrEqual
-                DOUBLE_EQUAL -> Equal
-                EXCLAMATION_EQUAL -> NotEqual
-                DOUBLE_AMPERSAND -> LogicalAnd
-                DOUBLE_PIPE -> LogicalOr
-                else -> throw error(opToken, "Unexpected operator.")
+            if (opToken.type == EQUAL) {
+                val right = expression(precedence(opToken))
+                left = Assignment(left, right)
+            } else {
+                val op = when (opToken.type) {
+                    PLUS -> Add
+                    MINUS -> Subtract
+                    ASTERISK -> Multiply
+                    SLASH -> Divide
+                    PERCENT -> Remainder
+                    AMPERSAND -> And
+                    PIPE -> Or
+                    HAT -> Xor
+                    DOUBLE_LESS -> LeftShift
+                    DOUBLE_GREATER -> RightShift
+                    LESS -> LessThan
+                    LESS_EQUAL -> LessThanOrEqual
+                    GREATER -> GreaterThan
+                    GREATER_EQUAL -> GreaterThanOrEqual
+                    DOUBLE_EQUAL -> Equal
+                    EXCLAMATION_EQUAL -> NotEqual
+                    DOUBLE_AMPERSAND -> LogicalAnd
+                    DOUBLE_PIPE -> LogicalOr
+                    else -> throw error(opToken, "Unexpected operator.")
+                }
+
+                val right = expression(precedence(opToken) + 1)
+                left = BinaryExpr(left, op, right)
             }
-            val right = expression(precedence(opToken) + 1)
-            left = BinaryExpr(left, op, right)
         }
 
         return left
@@ -143,6 +173,8 @@ class Parser(private val tokens: List<Token>) {
         match(LEFT_PAREN) -> expression().also {
             expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
+
+        match(IDENTIFIER) -> Var(previous().lexeme)
 
         else -> throw error(previous(), "Unexpected expression '${peek().literal}'.")
     }

@@ -10,6 +10,7 @@ import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
 import eu.jameshamilton.frontend.TokenType.DOUBLE_PIPE
 import eu.jameshamilton.frontend.TokenType.EOF
+import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
 import eu.jameshamilton.frontend.TokenType.GREATER
@@ -103,6 +104,7 @@ class Scanner(private val source: String) {
 
             '=' -> when {
                 match('=') -> addToken(DOUBLE_EQUAL)
+                else -> addToken(EQUAL)
             }
 
             '!' -> when {
