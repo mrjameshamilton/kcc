@@ -2,7 +2,7 @@ package eu.jameshamilton.frontend
 
 data class Program(val function: FunctionDef)
 
-data class FunctionDef(val name: Token, val body: List<BlockItem>)
+data class FunctionDef(val name: Identifier, val body: List<BlockItem>)
 
 interface BlockItem
 sealed class Statement : BlockItem
@@ -28,7 +28,9 @@ enum class BinaryOp {
     LogicalAnd, LogicalOr, Equal, NotEqual, LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual
 }
 
-data class Var(val identifier: String) : Expression()
+data class Var(val identifier: Identifier) : Expression()
 data class Assignment(val lvalue: Expression, val value: Expression) : Expression()
 
-data class Declaration(val identifier: String, val initializer: Expression? = null) : BlockItem
+data class Declaration(val identifier: Identifier, val initializer: Expression? = null) : BlockItem
+
+data class Identifier(val identifier: String, val line: Int)

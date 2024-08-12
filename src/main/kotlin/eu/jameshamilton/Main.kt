@@ -5,6 +5,7 @@ import eu.jameshamilton.codegen.emit
 import eu.jameshamilton.codegen.replacePseudoRegisters
 import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
+import eu.jameshamilton.frontend.resolve
 import eu.jameshamilton.tacky.convert
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
@@ -17,6 +18,7 @@ val input by parser.argument(ArgType.String, description = "C source code")
 val lex by parser.option(ArgType.Boolean, fullName = "lex", description = "Only run the lexer").default(false)
 val parse by parser.option(ArgType.Boolean, fullName = "parse", description = "Only run the lexer + parser")
     .default(false)
+val validate by parser.option(ArgType.Boolean, fullName = "validate").default(false)
 val tacky by parser.option(ArgType.Boolean, fullName = "tacky", description = "Only run the lexer + parser + tacky")
     .default(false)
 val codegen by parser.option(
@@ -26,6 +28,7 @@ val codegen by parser.option(
 ).default(false)
 val emitAssembly by parser.option(ArgType.Boolean, shortName = "S", description = "Emit assembly").default(false)
 val printTokens by parser.option(ArgType.Boolean, description = "Print tokens").default(false)
+val printResolved by parser.option(ArgType.Boolean, description = "Resolved tokens").default(false)
 val printTacky by parser.option(ArgType.Boolean, description = "Print tacky").default(false)
 val printX86 by parser.option(ArgType.Boolean, description = "Print x86").default(false)
 val printAssembly by parser.option(ArgType.Boolean, description = "Print assembly").default(false)
@@ -62,7 +65,10 @@ fun compile(file: File): File {
     val parser = Parser(tokens)
     val parsed = parser.parse()
     if (parse) exitProcess(0)
-    val tackye = convert(parsed)
+    val resolved = resolve(parsed)
+    if (printResolved) println(resolved)
+    if (validate) exitProcess(0)
+    val tackye = convert(resolved)
     if (printTacky) println(tackye)
     if (tacky) exitProcess(0)
     val x86AST = convert(tackye)

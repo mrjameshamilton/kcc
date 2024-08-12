@@ -149,7 +149,7 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
 
     fun convert(statements: List<BlockItem>): List<Instruction> = statements.flatMap(::convert)
 
-    return TackyFunctionDef(program.name.lexeme, convert(program.body))
+    return TackyFunctionDef(program.name.identifier, convert(program.body))
 }
 
 class Builder(private val instructions: MutableList<Instruction> = mutableListOf()) {

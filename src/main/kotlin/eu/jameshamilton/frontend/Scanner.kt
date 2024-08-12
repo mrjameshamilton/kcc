@@ -40,7 +40,7 @@ import eu.jameshamilton.frontend.TokenType.VOID
 import kotlin.system.exitProcess
 
 
-fun error(line: Int, message: String) {
+fun error(line: Int, message: String): Nothing {
     System.err.println("[line ${line}] Error${if ("at end".isNotBlank()) " " else ""}${"at end"}: $message")
     exitProcess(-1)
 }

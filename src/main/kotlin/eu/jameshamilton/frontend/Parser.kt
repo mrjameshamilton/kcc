@@ -76,7 +76,7 @@ class Parser(private val tokens: List<Token>) {
         }
         expect(RIGHT_BRACE, "} expected.")
 
-        return FunctionDef(name, statements)
+        return FunctionDef(Identifier(name.lexeme, previous().line), statements)
     }
 
     private fun blockItem(): BlockItem = when {
@@ -96,9 +96,9 @@ class Parser(private val tokens: List<Token>) {
         match(INT) -> {
             val identifier = expect(IDENTIFIER, "Variable name expected.").lexeme
             if (match(EQUAL)) {
-                Declaration(identifier, expression())
+                Declaration(Identifier(identifier, previous().line), expression())
             } else {
-                Declaration(identifier)
+                Declaration(Identifier(identifier, previous().line))
             }
         }
 
@@ -174,7 +174,7 @@ class Parser(private val tokens: List<Token>) {
             expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
 
-        match(IDENTIFIER) -> Var(previous().lexeme)
+        match(IDENTIFIER) -> Var(Identifier(previous().lexeme, previous().line))
 
         else -> throw error(previous(), "Unexpected expression '${peek().literal}'.")
     }
