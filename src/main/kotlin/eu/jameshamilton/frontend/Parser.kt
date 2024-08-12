@@ -89,14 +89,14 @@ class Parser(private val tokens: List<Token>) {
             DOUBLE_PIPE -> 5
             DOUBLE_AMPERSAND -> 10
             PIPE -> 25
-            EXCLAMATION_EQUAL, DOUBLE_EQUAL -> 30
             HAT -> 31
             AMPERSAND -> 35
-            LESS, GREATER, LESS_EQUAL, GREATER_EQUAL -> 36
+            EXCLAMATION_EQUAL, DOUBLE_EQUAL -> 36
+            LESS, GREATER, LESS_EQUAL, GREATER_EQUAL -> 38
             DOUBLE_LESS, DOUBLE_GREATER -> 40
             PLUS, MINUS -> 45
             ASTERISK, SLASH, PERCENT -> 50
-            else -> throw error(op, "Unexpected token.")
+            else -> throw error(op, "Unexpected token ${op}.")
         }
 
         var left = factor()
