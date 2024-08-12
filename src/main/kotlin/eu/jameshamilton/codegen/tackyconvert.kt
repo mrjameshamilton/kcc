@@ -27,7 +27,6 @@ import eu.jameshamilton.tacky.TackyReturn
 import eu.jameshamilton.tacky.UnaryOp.Complement
 import eu.jameshamilton.tacky.UnaryOp.Negate
 import eu.jameshamilton.tacky.UnaryOp.Not
-import eu.jameshamilton.unreachable
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Instruction as x86Instruction
 import eu.jameshamilton.codegen.Program as x86Program
@@ -105,22 +104,14 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         }
                     }
 
-                    else -> {
-                        mov(src1, dst)
-                        when (tacky.op) {
-                            Add -> add(src2, dst)
-                            Subtract -> sub(src2, dst)
-                            Multiply -> imul(src2, dst)
-                            And -> and(src2, dst)
-                            Or -> or(src2, dst)
-                            Xor -> xor(src2, dst)
-                            LeftShift -> sal(src2, dst)
-                            RightShift -> sar(src2, dst)
-                            LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal, NotEqual, Divide, Remainder -> unreachable(
-                                "special case"
-                            )
-                        }
-                    }
+                    Add -> mov(src1, dst).add(src2, dst)
+                    Subtract -> mov(src1, dst).sub(src2, dst)
+                    Multiply -> mov(src1, dst).imul(src2, dst)
+                    And -> mov(src1, dst).and(src2, dst)
+                    Or -> mov(src1, dst).or(src2, dst)
+                    Xor -> mov(src1, dst).xor(src2, dst)
+                    LeftShift -> mov(src1, dst).sal(src2, dst)
+                    RightShift -> mov(src1, dst).sar(src2, dst)
                 }
             }
 
