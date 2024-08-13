@@ -1,5 +1,10 @@
 package eu.jameshamilton.frontend
 
+import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
+
 fun resolve(program: Program): Program = Program(resolve(program.function))
 
 fun resolve(functionDef: FunctionDef): FunctionDef {
@@ -25,7 +30,17 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
 
         is BinaryExpr -> BinaryExpr(resolve(expression.left), expression.operator, resolve(expression.right))
         is Constant -> Constant(expression.value)
-        is UnaryExpr -> UnaryExpr(expression.op, resolve(expression.expression))
+        is UnaryExpr -> {
+            when (expression.op) {
+                PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement ->
+                    if (expression.expression !is Var) {
+                        error(0, "Expression is not assignable.")
+                    }
+
+                else -> {}
+            }
+            UnaryExpr(expression.op, resolve(expression.expression))
+        }
     }
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {

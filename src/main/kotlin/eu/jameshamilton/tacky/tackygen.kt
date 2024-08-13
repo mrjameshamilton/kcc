@@ -32,10 +32,15 @@ import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
+import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
+import eu.jameshamilton.tacky.BinaryOp.Add as TackyBinaryOpAdd
 import eu.jameshamilton.tacky.Constant as TackyConstant
 import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
 import eu.jameshamilton.tacky.Program as TackyProgram
@@ -51,6 +56,10 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         UnaryOp.Complement -> TackyUnaryOp.Complement
         UnaryOp.Negate -> TackyUnaryOp.Negate
         UnaryOp.Not -> TackyUnaryOp.Not
+        PrefixIncrement -> TODO()
+        PostfixIncrement -> TODO()
+        UnaryOp.PrefixDecrement -> TODO()
+        PostfixDecrement -> TODO()
     }
 
     var count = 0
@@ -82,10 +91,29 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         is Constant -> TackyConstant(expression.value)
         is UnaryExpr -> buildTacky(instructions) {
             val src = convert(instructions, expression.expression)
-            val dst = TackyVar(maketemporary())
-            val op = convert(expression.op)
-            unaryOp(op, src, dst)
-            dst
+            when (expression.op) {
+                PostfixIncrement -> {
+                    val dst = TackyVar(maketemporary())
+                    copy(src, dst)
+                    increment(src)
+                    dst
+                }
+
+                PostfixDecrement -> {
+                    val dst = TackyVar(maketemporary())
+                    copy(src, dst)
+                    increment(src, -1)
+                    dst
+                }
+
+                PrefixIncrement -> increment(src)
+                PrefixDecrement -> increment(src, -1)
+                else -> {
+                    val dst = TackyVar(maketemporary())
+                    val op = convert(expression.op)
+                    unaryOp(op, src, dst)
+                }
+            }
         }
 
         is BinaryExpr -> when (expression.operator) {
@@ -185,20 +213,33 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         instructions += Label(label)
     }
 
-    fun copy(src: Value, dst: Value) {
+    fun copy(src: Value, dst: Value): Value {
         instructions += Copy(src, dst)
+        return dst
     }
 
-    fun copy(i: Int, dst: Value) {
+    fun copy(i: Int, dst: Value): Value {
         instructions += Copy(TackyConstant(i), dst)
+        return dst
     }
 
-    fun binaryOp(binaryOp: TackyBinaryOp, src1: Value, src2: Value, dst: Value) {
+    fun binaryOp(binaryOp: TackyBinaryOp, src1: Value, src2: Value, dst: Value): Value {
         instructions += TackyBinary(binaryOp, src1, src2, dst)
+        return dst
     }
 
-    fun unaryOp(unaryOp: TackyUnaryOp, src: Value, dst: Value) {
+    fun increment(src: Value, amount: Int = 1): Value {
+        return increment(src, TackyConstant(amount))
+    }
+
+    fun increment(src: Value, amount: Value): Value {
+        instructions += TackyBinary(TackyBinaryOpAdd, src, amount, src);
+        return src
+    }
+
+    fun unaryOp(unaryOp: TackyUnaryOp, src: Value, dst: Value): Value {
         instructions += TackyUnary(unaryOp, src, dst)
+        return dst
     }
 
     fun ret(value: Value) {

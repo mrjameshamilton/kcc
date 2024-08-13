@@ -21,6 +21,7 @@ import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
@@ -34,6 +35,7 @@ import eu.jameshamilton.frontend.TokenType.GREATER
 import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
+import eu.jameshamilton.frontend.TokenType.INCREMENT
 import eu.jameshamilton.frontend.TokenType.INT
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
@@ -53,6 +55,10 @@ import eu.jameshamilton.frontend.TokenType.VOID
 import eu.jameshamilton.frontend.UnaryOp.Complement
 import eu.jameshamilton.frontend.UnaryOp.Negate
 import eu.jameshamilton.frontend.UnaryOp.Not
+import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 
 class Parser(private val tokens: List<Token>) {
     private var current = 0
@@ -107,6 +113,45 @@ class Parser(private val tokens: List<Token>) {
         expect(SEMICOLON, "Expected semicolon.")
     }
 
+    private fun primary(): Expression = when {
+        match(CONSTANT) -> Constant(previous().literal as Int)
+        match(LEFT_PAREN) -> expression().also {
+            expect(RIGHT_PAREN, "Expected closing ')' after expression.")
+        }
+
+        match(IDENTIFIER) -> Var(Identifier(previous().lexeme, previous().line))
+
+        else -> throw error(previous(), "Unexpected expression '${peek()}'.")
+    }
+
+    private fun prefix(): Expression {
+        if (match(INCREMENT, DECREMENT)) {
+            val op = previous()
+            val right = primary()
+            return UnaryExpr(if (op.type == INCREMENT) PrefixIncrement else PrefixDecrement, right)
+        }
+
+        return unary()
+    }
+
+    private fun unary(): Expression = when {
+        match(MINUS) -> UnaryExpr(Negate, prefix())
+        match(TILDE) -> UnaryExpr(Complement, prefix())
+        match(EXCLAMATION) -> UnaryExpr(Not, prefix())
+        else -> postfix()
+    }
+
+    private fun postfix(): Expression {
+        val primary = primary()
+
+        if (match(INCREMENT, DECREMENT)) {
+            val op = previous().type
+            return UnaryExpr(if (op == INCREMENT) PostfixIncrement else PostfixDecrement, primary)
+        }
+
+        return primary
+    }
+
     private fun expression(minPrecedence: Int = 0): Expression {
         fun precedence(op: Token): Int = when (op.type) {
             EQUAL -> 1
@@ -123,7 +168,7 @@ class Parser(private val tokens: List<Token>) {
             else -> throw error(op, "Unexpected token ${op}.")
         }
 
-        var left = factor()
+        var left = prefix()
         while (checkAny(
                 EQUAL, PLUS, MINUS, ASTERISK, SLASH, PERCENT, AMPERSAND, PIPE, HAT, DOUBLE_LESS, DOUBLE_GREATER,
                 DOUBLE_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, EXCLAMATION_EQUAL, DOUBLE_AMPERSAND, DOUBLE_PIPE
@@ -163,20 +208,6 @@ class Parser(private val tokens: List<Token>) {
         }
 
         return left
-    }
-
-    private fun factor(): Expression = when {
-        match(CONSTANT) -> Constant(previous().literal as Int)
-        match(MINUS) -> UnaryExpr(Negate, factor())
-        match(TILDE) -> UnaryExpr(Complement, factor())
-        match(EXCLAMATION) -> UnaryExpr(Not, factor())
-        match(LEFT_PAREN) -> expression().also {
-            expect(RIGHT_PAREN, "Expected closing ')' after expression.")
-        }
-
-        match(IDENTIFIER) -> Var(Identifier(previous().lexeme, previous().line))
-
-        else -> throw error(previous(), "Unexpected expression '${peek().literal}'.")
     }
 
     private fun optional(type: TokenType): Token? =

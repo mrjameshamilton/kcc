@@ -18,7 +18,7 @@ data class Constant(val value: Int) : Expression()
 data class UnaryExpr(val op: UnaryOp, val expression: Expression) : Expression()
 
 enum class UnaryOp {
-    Complement, Negate, Not
+    Complement, Negate, Not, PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement
 }
 
 data class BinaryExpr(val left: Expression, val operator: BinaryOp, val right: Expression) : Expression()
