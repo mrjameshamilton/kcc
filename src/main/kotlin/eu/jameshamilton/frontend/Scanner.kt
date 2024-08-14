@@ -1,13 +1,17 @@
 package eu.jameshamilton.frontend
 
 import eu.jameshamilton.frontend.TokenType.AMPERSAND
+import eu.jameshamilton.frontend.TokenType.AMPERSAND_EQUAL
 import eu.jameshamilton.frontend.TokenType.ASTERISK
+import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
+import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
+import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_PIPE
 import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
@@ -16,6 +20,7 @@ import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
 import eu.jameshamilton.frontend.TokenType.GREATER
 import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
+import eu.jameshamilton.frontend.TokenType.HAT_EQUAL
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
 import eu.jameshamilton.frontend.TokenType.INCREMENT
 import eu.jameshamilton.frontend.TokenType.INT
@@ -25,15 +30,20 @@ import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
 import eu.jameshamilton.frontend.TokenType.LESS
 import eu.jameshamilton.frontend.TokenType.LESS_EQUAL
 import eu.jameshamilton.frontend.TokenType.MINUS
+import eu.jameshamilton.frontend.TokenType.MINUS_EQUAL
 import eu.jameshamilton.frontend.TokenType.PERCENT
+import eu.jameshamilton.frontend.TokenType.PERCENT_EQUAL
 import eu.jameshamilton.frontend.TokenType.PIPE
+import eu.jameshamilton.frontend.TokenType.PIPE_EQUAL
 import eu.jameshamilton.frontend.TokenType.PLUS
+import eu.jameshamilton.frontend.TokenType.PLUS_EQUAL
 import eu.jameshamilton.frontend.TokenType.RETURN
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
 import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SLASH
+import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STRING
 import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.VOID
@@ -82,22 +92,66 @@ class Scanner(private val source: String) {
             ']' -> addToken(RIGHT_BRACKET)
             ';' -> addToken(SEMICOLON)
             '~' -> addToken(TILDE)
-            '-' -> addToken(if (match('-')) DECREMENT else MINUS)
-            '+' -> addToken(if (match('+')) INCREMENT else PLUS)
-            '*' -> addToken(ASTERISK)
-            '/' -> addToken(SLASH)
-            '%' -> addToken(PERCENT)
-            '&' -> addToken(if (match('&')) DOUBLE_AMPERSAND else AMPERSAND)
-            '|' -> addToken(if (match('|')) DOUBLE_PIPE else PIPE)
-            '^' -> addToken(HAT)
+            '-' -> when {
+                match('-') -> addToken(DECREMENT)
+                match('=') -> addToken(MINUS_EQUAL)
+                else -> addToken(MINUS)
+            }
+
+            '+' -> when {
+                match('+') -> addToken(INCREMENT)
+                match('=') -> addToken(PLUS_EQUAL)
+                else -> addToken(PLUS)
+            }
+
+            '*' -> when {
+                match('=') -> addToken(ASTERISK_EQUAL)
+                else -> addToken(ASTERISK)
+            }
+
+            '/' -> when {
+                match('=') -> addToken(SLASH_EQUAL)
+                else -> addToken(SLASH)
+            }
+
+            '%' -> when {
+                match('=') -> addToken(PERCENT_EQUAL)
+                else -> addToken(PERCENT)
+            }
+
+            '&' -> when {
+                match('&') -> addToken(DOUBLE_AMPERSAND)
+                match('=') -> addToken(AMPERSAND_EQUAL)
+                else -> addToken(AMPERSAND)
+            }
+
+            '|' -> when {
+                match('|') -> addToken(DOUBLE_PIPE)
+                match('=') -> addToken(PIPE_EQUAL)
+                else -> addToken(PIPE)
+            }
+
+            '^' -> when {
+                match('=') -> addToken(HAT_EQUAL)
+                else -> addToken(HAT)
+            }
+
             '<' -> when {
-                match('<') -> addToken(DOUBLE_LESS)
+                match('<') -> when {
+                    match('=') -> addToken(DOUBLE_LESS_EQUAL)
+                    else -> addToken(DOUBLE_LESS)
+                }
+
                 match('=') -> addToken(LESS_EQUAL)
                 else -> addToken(LESS)
             }
 
             '>' -> when {
-                match('>') -> addToken(DOUBLE_GREATER)
+                match('>') -> when {
+                    match('=') -> addToken(DOUBLE_GREATER_EQUAL)
+                    else -> addToken(DOUBLE_GREATER)
+                }
+
                 match('=') -> addToken(GREATER_EQUAL)
                 else -> addToken(GREATER)
             }
