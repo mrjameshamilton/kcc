@@ -42,7 +42,10 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
             UnaryExpr(expression.op, resolve(expression.expression))
         }
 
-        is Conditional -> TODO()
+        is Conditional -> Conditional(
+            resolve(expression.condition),
+            resolve(expression.thenBranch),
+            expression.elseBranch?.let { resolve(it) })
     }
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
@@ -63,6 +66,14 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
 
         is ExpressionStatement -> ExpressionStatement(resolve(blockItem.expression))
         is ReturnStatement -> ReturnStatement(resolve(blockItem.value))
+        is If -> If(
+            resolve(blockItem.condition),
+            resolve(blockItem.thenBranch) as Statement,
+            blockItem.elseBranch?.let { resolve(it) } as Statement?)
+
+        is Compound -> Compound(blockItem.block.map { resolve(it) })
+        NullStatement -> NullStatement
+
         else -> blockItem
     }
 

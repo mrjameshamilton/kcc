@@ -12,6 +12,8 @@ sealed class Statement : BlockItem
 data class ReturnStatement(val value: Expression) : Statement()
 data class ExpressionStatement(val expression: Expression) : Statement()
 data object NullStatement : Statement()
+data class If(val condition: Expression, val thenBranch: Statement, val elseBranch: Statement? = null) : Statement()
+data class Compound(val block: Block) : Statement()
 
 sealed class Expression
 
@@ -32,13 +34,9 @@ enum class BinaryOp {
 
 data class Var(val identifier: Identifier) : Expression()
 data class Assignment(val lvalue: Expression, val value: Expression) : Expression()
-data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression?) :
+data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression? = null) :
     Expression()
 
 data class Declaration(val identifier: Identifier, val initializer: Expression? = null) : BlockItem
-
-data class If(val condition: Expression, val thenBranch: Statement, val elseBranch: Statement? = null) : Statement()
-
-data class Compound(val block: Block) : Statement()
 
 data class Identifier(val identifier: String, val line: Int)
