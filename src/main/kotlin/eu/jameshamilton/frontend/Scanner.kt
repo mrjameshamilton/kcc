@@ -4,6 +4,7 @@ import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.AMPERSAND_EQUAL
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
+import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
@@ -13,6 +14,7 @@ import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_PIPE
+import eu.jameshamilton.frontend.TokenType.ELSE
 import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
@@ -22,6 +24,7 @@ import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
 import eu.jameshamilton.frontend.TokenType.HAT_EQUAL
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
+import eu.jameshamilton.frontend.TokenType.IF
 import eu.jameshamilton.frontend.TokenType.INCREMENT
 import eu.jameshamilton.frontend.TokenType.INT
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
@@ -37,6 +40,7 @@ import eu.jameshamilton.frontend.TokenType.PIPE
 import eu.jameshamilton.frontend.TokenType.PIPE_EQUAL
 import eu.jameshamilton.frontend.TokenType.PLUS
 import eu.jameshamilton.frontend.TokenType.PLUS_EQUAL
+import eu.jameshamilton.frontend.TokenType.QUESTION
 import eu.jameshamilton.frontend.TokenType.RETURN
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
@@ -166,6 +170,10 @@ class Scanner(private val source: String) {
                 else -> addToken(EXCLAMATION)
             }
 
+            '?' -> addToken(QUESTION)
+
+            ':' -> addToken(COLON)
+
             '"' -> string()
             ' ', '\t', '\r' -> {}
             '\n' -> line++
@@ -199,7 +207,6 @@ class Scanner(private val source: String) {
         if (isAlpha(peek())) {
             identifier()
             error(line, "Invalid identifier '${source.substring(start, current)}'.")
-            return
         }
 
         addToken(CONSTANT, source.substring(start, current).toInt())
@@ -257,6 +264,8 @@ class Scanner(private val source: String) {
             "return" to RETURN,
             "void" to VOID,
             "int" to INT,
+            "if" to IF,
+            "else" to ELSE,
         )
     }
 }

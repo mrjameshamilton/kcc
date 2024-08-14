@@ -19,6 +19,9 @@ enum class TokenType {
 
     CONSTANT,
 
+    // Conditionals.
+    IF, ELSE, QUESTION, COLON,
+
     EOF
 }
 

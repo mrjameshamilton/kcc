@@ -41,6 +41,8 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
             }
             UnaryExpr(expression.op, resolve(expression.expression))
         }
+
+        is Conditional -> TODO()
     }
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {

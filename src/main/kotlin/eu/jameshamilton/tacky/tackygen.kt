@@ -22,6 +22,7 @@ import eu.jameshamilton.frontend.BinaryOp.RightShift
 import eu.jameshamilton.frontend.BinaryOp.Subtract
 import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
+import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.Expression
@@ -58,7 +59,7 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         UnaryOp.Not -> TackyUnaryOp.Not
         PrefixIncrement -> TODO()
         PostfixIncrement -> TODO()
-        UnaryOp.PrefixDecrement -> TODO()
+        PrefixDecrement -> TODO()
         PostfixDecrement -> TODO()
     }
 
@@ -169,6 +170,7 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         }
 
         is Var -> TackyVar(expression.identifier.identifier)
+        is Conditional -> TODO()
     }
 
     fun convert(statement: BlockItem): List<Instruction> {
@@ -233,7 +235,7 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     }
 
     fun increment(src: Value, amount: Value): Value {
-        instructions += TackyBinary(TackyBinaryOpAdd, src, amount, src);
+        instructions += TackyBinary(TackyBinaryOpAdd, src, amount, src)
         return src
     }
 

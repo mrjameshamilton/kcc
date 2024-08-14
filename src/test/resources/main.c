@@ -1,5 +1,9 @@
 int main(void) {
-    int to_or = 1;
-    to_or |= 30;
-    return to_or;
+    if (1) return 1; else return 0;
+
+    if (1==1) {
+        return 1+1;
+    }
+
+    return 1 ? 2 : 3;
 }

@@ -22,6 +22,7 @@ import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.AMPERSAND_EQUAL
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
+import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
@@ -31,6 +32,7 @@ import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS
 import eu.jameshamilton.frontend.TokenType.DOUBLE_LESS_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_PIPE
+import eu.jameshamilton.frontend.TokenType.ELSE
 import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
@@ -40,6 +42,7 @@ import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
 import eu.jameshamilton.frontend.TokenType.HAT_EQUAL
 import eu.jameshamilton.frontend.TokenType.IDENTIFIER
+import eu.jameshamilton.frontend.TokenType.IF
 import eu.jameshamilton.frontend.TokenType.INCREMENT
 import eu.jameshamilton.frontend.TokenType.INT
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
@@ -54,6 +57,7 @@ import eu.jameshamilton.frontend.TokenType.PIPE
 import eu.jameshamilton.frontend.TokenType.PIPE_EQUAL
 import eu.jameshamilton.frontend.TokenType.PLUS
 import eu.jameshamilton.frontend.TokenType.PLUS_EQUAL
+import eu.jameshamilton.frontend.TokenType.QUESTION
 import eu.jameshamilton.frontend.TokenType.RETURN
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
 import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
@@ -86,14 +90,8 @@ class Parser(private val tokens: List<Token>) {
         expect(LEFT_PAREN, "( expected.")
         val parameters = expect(VOID, "Expected void.")
         expect(RIGHT_PAREN, ") expected.")
-        expect(LEFT_BRACE, "{ expected.")
-        val statements = mutableListOf<BlockItem>()
-        while (!check(RIGHT_BRACE)) {
-            statements += blockItem()
-        }
-        expect(RIGHT_BRACE, "} expected.")
-
-        return FunctionDef(Identifier(name.lexeme, previous().line), statements)
+        val body = block()
+        return FunctionDef(Identifier(name.lexeme, previous().line), body)
     }
 
     private fun blockItem(): BlockItem = when {
@@ -102,11 +100,38 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun statement(): Statement = when {
-        match(RETURN) -> ReturnStatement(expression())
-        check(SEMICOLON) -> NullStatement // Don't consume, because the "also" below will consume it.
-        else -> ExpressionStatement(expression())
-    }.also {
-        expect(SEMICOLON, "Expected semicolon.")
+        match(RETURN) -> ReturnStatement(expression()).also {
+            expect(SEMICOLON, "Expected semicolon.")
+        }
+
+        check(SEMICOLON) -> NullStatement.also {
+            expect(SEMICOLON, "Expected semicolon.")
+        }
+
+        match(IF) -> ifStatement()
+        check(LEFT_BRACE) -> Compound(block())
+        else -> ExpressionStatement(expression()).also {
+            expect(SEMICOLON, "Expected semicolon.")
+        }
+    }
+
+    private fun ifStatement(): Statement {
+        expect(LEFT_PAREN, "( expected.")
+        val condition = expression()
+        expect(RIGHT_PAREN, ") expected.")
+        val thenBlock = statement()
+        val elseBlock = if (match(ELSE)) statement() else null
+        return If(condition, thenBlock, elseBlock)
+    }
+
+    private fun block(): Block {
+        expect(LEFT_BRACE, "{ expected.")
+        val statements = mutableListOf<BlockItem>()
+        while (!check(RIGHT_BRACE)) {
+            statements += blockItem()
+        }
+        expect(RIGHT_BRACE, "} expected.")
+        return statements
     }
 
     private fun declaration(): Declaration = when {
@@ -166,6 +191,8 @@ class Parser(private val tokens: List<Token>) {
         fun precedence(op: Token): Int = when (op.type) {
             EQUAL, PLUS_EQUAL, MINUS_EQUAL, ASTERISK_EQUAL, SLASH_EQUAL, PERCENT_EQUAL,
             AMPERSAND_EQUAL, PIPE_EQUAL, HAT_EQUAL, DOUBLE_LESS_EQUAL, DOUBLE_GREATER_EQUAL -> 1
+
+            QUESTION -> 2
             DOUBLE_PIPE -> 5
             DOUBLE_AMPERSAND -> 10
             PIPE -> 25
@@ -181,7 +208,7 @@ class Parser(private val tokens: List<Token>) {
 
         var left = prefix()
         while (checkAny(
-                EQUAL, PLUS_EQUAL, MINUS_EQUAL, ASTERISK_EQUAL, SLASH_EQUAL, PERCENT_EQUAL,
+                QUESTION, EQUAL, PLUS_EQUAL, MINUS_EQUAL, ASTERISK_EQUAL, SLASH_EQUAL, PERCENT_EQUAL,
                 AMPERSAND_EQUAL, PIPE_EQUAL, HAT_EQUAL, DOUBLE_LESS_EQUAL, DOUBLE_GREATER_EQUAL,
                 PLUS, MINUS, ASTERISK, SLASH, PERCENT, AMPERSAND, PIPE, HAT, DOUBLE_LESS, DOUBLE_GREATER,
                 DOUBLE_EQUAL, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL, EXCLAMATION_EQUAL, DOUBLE_AMPERSAND, DOUBLE_PIPE
@@ -207,6 +234,13 @@ class Parser(private val tokens: List<Token>) {
                         else -> unreachable("not a compound assignment operator")
                     }
                     left = Assignment(left, BinaryExpr(left, op, right))
+                }
+
+                QUESTION -> {
+                    val middle = expression()
+                    expect(COLON, "Expected ':' in ternary condition.")
+                    val right = expression(precedence(opToken))
+                    left = Conditional(left, middle, right)
                 }
 
                 EQUAL -> {

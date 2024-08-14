@@ -2,7 +2,9 @@ package eu.jameshamilton.frontend
 
 data class Program(val function: FunctionDef)
 
-data class FunctionDef(val name: Identifier, val body: List<BlockItem>)
+typealias Block = List<BlockItem>
+
+data class FunctionDef(val name: Identifier, val body: Block)
 
 interface BlockItem
 sealed class Statement : BlockItem
@@ -30,7 +32,13 @@ enum class BinaryOp {
 
 data class Var(val identifier: Identifier) : Expression()
 data class Assignment(val lvalue: Expression, val value: Expression) : Expression()
+data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression?) :
+    Expression()
 
 data class Declaration(val identifier: Identifier, val initializer: Expression? = null) : BlockItem
+
+data class If(val condition: Expression, val thenBranch: Statement, val elseBranch: Statement? = null) : Statement()
+
+data class Compound(val block: Block) : Statement()
 
 data class Identifier(val identifier: String, val line: Int)
