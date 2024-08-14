@@ -138,14 +138,10 @@ class Parser(private val tokens: List<Token>) {
         )
     }
 
-    private fun prefix(): Expression {
-        if (match(INCREMENT, DECREMENT)) {
-            val op = previous()
-            val right = primary()
-            return UnaryExpr(if (op.type == INCREMENT) PrefixIncrement else PrefixDecrement, right)
-        }
-
-        return unary()
+    private fun prefix(): Expression = when {
+        match(INCREMENT) -> UnaryExpr(PrefixIncrement, primary())
+        match(DECREMENT) -> UnaryExpr(PrefixDecrement, primary())
+        else -> unary()
     }
 
     private fun unary(): Expression = when {
