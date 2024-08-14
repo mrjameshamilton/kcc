@@ -34,7 +34,7 @@ enum class BinaryOp {
 
 data class Var(val identifier: Identifier) : Expression()
 data class Assignment(val lvalue: Expression, val value: Expression) : Expression()
-data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression? = null) :
+data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression) :
     Expression()
 
 data class Declaration(val identifier: Identifier, val initializer: Expression? = null) : BlockItem

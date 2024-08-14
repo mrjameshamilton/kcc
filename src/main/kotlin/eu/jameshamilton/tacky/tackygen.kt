@@ -28,6 +28,7 @@ import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
@@ -57,10 +58,7 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         UnaryOp.Complement -> TackyUnaryOp.Complement
         UnaryOp.Negate -> TackyUnaryOp.Negate
         UnaryOp.Not -> TackyUnaryOp.Not
-        PrefixIncrement -> TODO()
-        PostfixIncrement -> TODO()
-        PrefixDecrement -> TODO()
-        PostfixDecrement -> TODO()
+        PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement -> unreachable("special case")
     }
 
     var count = 0
@@ -170,7 +168,21 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         }
 
         is Var -> TackyVar(expression.identifier.identifier)
-        is Conditional -> TODO()
+        is Conditional -> buildTacky(instructions) {
+            val result = TackyVar(maketemporary())
+            val condition = convert(instructions, expression.condition)
+            val elseLabel = makelabel("else_label")
+            val endLabel = makelabel("end_label")
+            jumpIfZero(condition, elseLabel)
+            val e1 = convert(instructions, expression.thenBranch)
+            copy(e1, result)
+            jump(endLabel)
+            label(elseLabel)
+            val e2 = convert(instructions, expression.elseBranch)
+            copy(e2, result)
+            label(endLabel)
+            result
+        }
     }
 
     fun convert(statement: BlockItem): List<Instruction> {
@@ -184,6 +196,20 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                     val src = convert(instructions, statement.initializer)
                     val dst = TackyVar(statement.identifier.identifier)
                     copy(src, dst)
+                }
+
+                is If -> {
+                    val endLabel = makelabel("if_end")
+                    val elseLabel = if (statement.elseBranch == null) endLabel else makelabel("else_label")
+                    val condition = convert(instructions, statement.condition)
+                    jumpIfZero(condition, elseLabel)
+                    instructions += convert(statement.thenBranch)
+                    if (statement.elseBranch != null) {
+                        jump(endLabel)
+                        label(elseLabel)
+                        instructions += convert(statement.elseBranch)
+                    }
+                    label(endLabel)
                 }
             }
             nop()

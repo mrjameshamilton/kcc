@@ -45,7 +45,8 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
         is Conditional -> Conditional(
             resolve(expression.condition),
             resolve(expression.thenBranch),
-            expression.elseBranch?.let { resolve(it) })
+            resolve(expression.elseBranch)
+        )
     }
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
