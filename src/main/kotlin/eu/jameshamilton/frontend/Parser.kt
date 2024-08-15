@@ -1,5 +1,6 @@
 package eu.jameshamilton.frontend
 
+import eu.jameshamilton.c23
 import eu.jameshamilton.frontend.BinaryOp.Add
 import eu.jameshamilton.frontend.BinaryOp.And
 import eu.jameshamilton.frontend.BinaryOp.Divide
@@ -37,6 +38,7 @@ import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
+import eu.jameshamilton.frontend.TokenType.GOTO
 import eu.jameshamilton.frontend.TokenType.GREATER
 import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
@@ -96,6 +98,13 @@ class Parser(private val tokens: List<Token>) {
 
     private fun blockItem(): BlockItem = when {
         check(INT) -> declaration()
+        c23 && check(IDENTIFIER, COLON) -> {
+            // C23 labels without statement: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2508.pdf
+            val identifier = expect(IDENTIFIER, "Identifier expected.")
+            expect(COLON, "Expected colon.")
+            Label(Identifier(identifier.lexeme, previous().line))
+        }
+
         else -> statement()
     }
 
@@ -110,6 +119,20 @@ class Parser(private val tokens: List<Token>) {
 
         match(IF) -> ifStatement()
         check(LEFT_BRACE) -> Compound(block())
+        match(GOTO) -> {
+            val identifier = expect(IDENTIFIER, "Expected identifier.")
+            Goto(Identifier(identifier.lexeme, previous().line)).also {
+                expect(SEMICOLON, "Expected semicolon.")
+            }
+        }
+
+        check(IDENTIFIER, COLON) -> {
+            val identifier = expect(IDENTIFIER, "Expected identifier.")
+            expect(COLON, "Expected colon.")
+            val statement = statement()
+            LabeledStatement(Identifier(identifier.lexeme, previous().line), statement)
+        }
+
         else -> ExpressionStatement(expression()).also {
             expect(SEMICOLON, "Expected semicolon.")
         }
@@ -159,7 +182,7 @@ class Parser(private val tokens: List<Token>) {
 
         else -> throw error(
             previous(),
-            "Unexpected expression" + (if (peek().lexeme.isNotBlank()) "'${peek().lexeme}'" else "") + "."
+            "Unexpected expression ${if (peek().lexeme.isNotBlank()) "'${peek().lexeme}'" else ""}."
         )
     }
 

@@ -5,6 +5,7 @@ import eu.jameshamilton.codegen.emit
 import eu.jameshamilton.codegen.replacePseudoRegisters
 import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
+import eu.jameshamilton.frontend.checklabels
 import eu.jameshamilton.frontend.resolve
 import eu.jameshamilton.tacky.convert
 import kotlinx.cli.ArgParser
@@ -32,6 +33,7 @@ val printResolved by parser.option(ArgType.Boolean, description = "Resolved toke
 val printTacky by parser.option(ArgType.Boolean, description = "Print tacky").default(false)
 val printX86 by parser.option(ArgType.Boolean, description = "Print x86").default(false)
 val printAssembly by parser.option(ArgType.Boolean, description = "Print assembly").default(false)
+val c23 by parser.option(ArgType.Boolean, "c23").default(false)
 
 
 fun main(args: Array<String>) {
@@ -64,6 +66,7 @@ fun compile(file: File): File {
     if (lex) exitProcess(0)
     val parser = Parser(tokens)
     val parsed = parser.parse()
+    checklabels(parsed)
     if (parse) exitProcess(0)
     val resolved = resolve(parsed)
     if (printResolved) {

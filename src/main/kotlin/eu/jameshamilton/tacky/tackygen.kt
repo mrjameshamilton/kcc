@@ -22,13 +22,17 @@ import eu.jameshamilton.frontend.BinaryOp.RightShift
 import eu.jameshamilton.frontend.BinaryOp.Subtract
 import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
+import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
+import eu.jameshamilton.frontend.Label
+import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
@@ -45,6 +49,7 @@ import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.BinaryOp.Add as TackyBinaryOpAdd
 import eu.jameshamilton.tacky.Constant as TackyConstant
 import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
+import eu.jameshamilton.tacky.Label as TackyLabel
 import eu.jameshamilton.tacky.Program as TackyProgram
 import eu.jameshamilton.tacky.Unary as TackyUnary
 import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
@@ -211,6 +216,15 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                     }
                     label(endLabel)
                 }
+
+                is Goto -> jump(statement.identifier.identifier)
+                is LabeledStatement -> {
+                    label(statement.identifier.identifier)
+                    instructions += convert(statement.statement)
+                }
+
+                is Compound -> statement.block.flatMap { convert(it) }
+                is Label -> label(statement.identifier.identifier)
             }
             nop()
         }
@@ -238,7 +252,7 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     }
 
     fun label(label: LabelIdentifier) {
-        instructions += Label(label)
+        instructions += TackyLabel(label)
     }
 
     fun copy(src: Value, dst: Value): Value {

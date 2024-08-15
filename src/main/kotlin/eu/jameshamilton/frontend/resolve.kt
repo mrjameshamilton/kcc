@@ -74,8 +74,9 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
 
         is Compound -> Compound(blockItem.block.map { resolve(it) })
         NullStatement -> NullStatement
-
-        else -> blockItem
+        is Goto -> Goto(blockItem.identifier)
+        is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
+        is Label -> Label(blockItem.identifier)
     }
 
     return FunctionDef(functionDef.name, functionDef.body.map(::resolve))

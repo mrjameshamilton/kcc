@@ -19,6 +19,7 @@ import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
+import eu.jameshamilton.frontend.TokenType.GOTO
 import eu.jameshamilton.frontend.TokenType.GREATER
 import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
 import eu.jameshamilton.frontend.TokenType.HAT
@@ -266,6 +267,7 @@ class Scanner(private val source: String) {
             "int" to INT,
             "if" to IF,
             "else" to ELSE,
+            "goto" to GOTO
         )
     }
 }

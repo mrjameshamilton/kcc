@@ -22,6 +22,8 @@ enum class TokenType {
     // Conditionals.
     IF, ELSE, QUESTION, COLON,
 
+    GOTO,
+
     EOF
 }
 

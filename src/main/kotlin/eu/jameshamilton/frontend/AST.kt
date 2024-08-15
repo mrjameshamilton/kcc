@@ -6,14 +6,21 @@ typealias Block = List<BlockItem>
 
 data class FunctionDef(val name: Identifier, val body: Block)
 
-interface BlockItem
-sealed class Statement : BlockItem
+sealed class BlockItem
+sealed class Statement : BlockItem()
 
-data class ReturnStatement(val value: Expression) : Statement()
-data class ExpressionStatement(val expression: Expression) : Statement()
-data object NullStatement : Statement()
-data class If(val condition: Expression, val thenBranch: Statement, val elseBranch: Statement? = null) : Statement()
-data class Compound(val block: Block) : Statement()
+sealed class UnlabeledStatement : Statement()
+data class LabeledStatement(val identifier: Identifier, val statement: Statement) : Statement()
+data class Label(val identifier: Identifier) : BlockItem()
+
+data class ReturnStatement(val value: Expression) : UnlabeledStatement()
+data class ExpressionStatement(val expression: Expression) : UnlabeledStatement()
+data object NullStatement : UnlabeledStatement()
+data class If(val condition: Expression, val thenBranch: Statement, val elseBranch: Statement? = null) :
+    UnlabeledStatement()
+
+data class Compound(val block: Block) : UnlabeledStatement()
+data class Goto(val identifier: Identifier) : UnlabeledStatement()
 
 sealed class Expression
 
@@ -37,6 +44,19 @@ data class Assignment(val lvalue: Expression, val value: Expression) : Expressio
 data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression) :
     Expression()
 
-data class Declaration(val identifier: Identifier, val initializer: Expression? = null) : BlockItem
+data class Declaration(val identifier: Identifier, val initializer: Expression? = null) : BlockItem()
 
-data class Identifier(val identifier: String, val line: Int)
+class Identifier(val identifier: String, val line: Int) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Identifier
+
+        return identifier == other.identifier
+    }
+
+    override fun hashCode(): Int = identifier.hashCode()
+
+    override fun toString(): String = identifier
+}
