@@ -4,13 +4,21 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
+import java.util.*
 
 fun resolve(program: Program): Program = Program(resolve(program.function))
 
 fun resolve(functionDef: FunctionDef): FunctionDef {
-    val variables = mutableMapOf<String, Identifier>()
+    data class Variable(val identifier: Identifier, val level: Int = 0)
 
-    fun maketemporary(name: Identifier) = Identifier("${name.identifier}.${variables.size}", name.line)
+    val scopes = Stack<MutableMap<String, Variable>>()
+    fun variables(): MutableMap<String, Variable> = scopes.peek()
+    fun beginScope() =
+        scopes.push(HashMap(if (scopes.isNotEmpty()) scopes.peek() else mutableMapOf()))
+
+    fun endScope() = scopes.pop()
+    fun maketemporary(name: Identifier): Variable =
+        Variable(Identifier("${name.identifier}.${scopes.size}.${variables().size}", name.line), scopes.size)
 
     fun resolve(expression: Expression): Expression = when (expression) {
         is Assignment -> {
@@ -22,8 +30,8 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
             Assignment(resolve(left), resolve(right))
         }
 
-        is Var -> if (expression.identifier.identifier in variables.keys) {
-            Var(variables[expression.identifier.identifier]!!)
+        is Var -> if (expression.identifier.identifier in variables().keys) {
+            Var(variables()[expression.identifier.identifier]!!.identifier)
         } else {
             error(expression.identifier.line, "Undeclared variable '${expression.identifier.identifier}'.")
         }
@@ -52,16 +60,22 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
         is Declaration -> {
             val name = blockItem.identifier
-            if (name.identifier in variables.keys) {
+            val variables = variables()
+
+            val alreadyDeclaredInScope =
+                variables.containsKey(name.identifier) && variables[name.identifier]!!.level == scopes.size
+
+            if (alreadyDeclaredInScope) {
                 error(name.line, "Duplicate variable declaration '${name.identifier}'.")
             }
+
             val unique = maketemporary(name)
             variables[name.identifier] = unique
 
             if (blockItem.initializer == null) {
-                Declaration(unique)
+                Declaration(unique.identifier)
             } else {
-                Declaration(unique, resolve(blockItem.initializer))
+                Declaration(unique.identifier, resolve(blockItem.initializer))
             }
         }
 
@@ -72,12 +86,21 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
             resolve(blockItem.thenBranch) as Statement,
             blockItem.elseBranch?.let { resolve(it) } as Statement?)
 
-        is Compound -> Compound(blockItem.block.map { resolve(it) })
+        is Compound -> {
+            beginScope()
+            Compound(blockItem.block.map { resolve(it) }).also {
+                endScope()
+            }
+        }
+
         NullStatement -> NullStatement
         is Goto -> Goto(blockItem.identifier)
         is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
         is Label -> Label(blockItem.identifier)
     }
 
-    return FunctionDef(functionDef.name, functionDef.body.map(::resolve))
+    beginScope()
+    return FunctionDef(functionDef.name, functionDef.body.map(::resolve)).also {
+        endScope()
+    }
 }
