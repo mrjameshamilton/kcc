@@ -1,6 +1,7 @@
 package eu.jameshamilton.frontend
 
 fun checklabels(program: Program) {
+    val gotoLabels = mutableSetOf<Identifier>()
     val labels = mutableSetOf<Identifier>()
 
     fun check(identifier: Identifier) {
@@ -19,6 +20,11 @@ fun checklabels(program: Program) {
             check(item.statement)
         }
 
+        is Goto -> {
+            gotoLabels.add(item.identifier)
+            Unit // TODO: refactor?
+        }
+
         is If -> {
             check(item.thenBranch)
             check(item.elseBranch)
@@ -26,8 +32,19 @@ fun checklabels(program: Program) {
 
         is Compound -> item.block.forEach(::check)
 
-        is Declaration, is ExpressionStatement, is Goto, NullStatement, is ReturnStatement, null -> {}
+        is Declaration, is ExpressionStatement, NullStatement, is ReturnStatement, null -> {}
+        Break -> TODO()
+        Continue -> TODO()
+        is DoWhile -> TODO()
+        is While -> TODO()
+        is For -> TODO()
     }
 
     program.function.body.map(::check)
+
+    gotoLabels.forEach {
+        if (!labels.contains(it)) {
+            error(it.line, "Undefined label '${it.identifier}'.")
+        }
+    }
 }
