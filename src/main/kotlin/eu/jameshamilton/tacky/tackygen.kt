@@ -223,7 +223,8 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                     instructions += convert(statement.statement)
                 }
 
-                is Compound -> statement.block.flatMap { convert(it) }
+                // TODO: refactor instructions += for statements?
+                is Compound -> instructions += statement.block.flatMap { convert(it) }
                 is Label -> label(statement.identifier.identifier)
             }
             nop()
