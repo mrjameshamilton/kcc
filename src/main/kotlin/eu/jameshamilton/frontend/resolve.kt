@@ -13,10 +13,12 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
 
     val scopes = Stack<MutableMap<String, Variable>>()
     fun variables(): MutableMap<String, Variable> = scopes.peek()
-    fun beginScope() =
-        scopes.push(HashMap(if (scopes.isNotEmpty()) scopes.peek() else mutableMapOf()))
 
-    fun endScope() = scopes.pop()
+    fun <T> scoped(block: () -> T): T {
+        scopes.push(HashMap(if (scopes.isNotEmpty()) scopes.peek() else mutableMapOf()))
+        return block().also { scopes.pop() }
+    }
+
     fun maketemporary(name: Identifier): Variable =
         Variable(Identifier("${name.identifier}.${scopes.size}.${variables().size}", name.line), scopes.size)
 
@@ -86,11 +88,8 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
             resolve(blockItem.thenBranch) as Statement,
             blockItem.elseBranch?.let { resolve(it) } as Statement?)
 
-        is Compound -> {
-            beginScope()
-            Compound(blockItem.block.map { resolve(it) }).also {
-                endScope()
-            }
+        is Compound -> scoped {
+            Compound(blockItem.block.map { resolve(it) })
         }
 
         NullStatement -> NullStatement
@@ -99,8 +98,7 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
         is Label -> Label(blockItem.identifier)
     }
 
-    beginScope()
-    return FunctionDef(functionDef.name, functionDef.body.map(::resolve)).also {
-        endScope()
+    return scoped {
+        FunctionDef(functionDef.name, functionDef.body.map(::resolve))
     }
 }
