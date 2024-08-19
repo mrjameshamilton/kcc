@@ -200,14 +200,14 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun postfix(): Expression {
-        val primary = primary()
+        var expr = primary()
 
-        if (match(INCREMENT, DECREMENT)) {
+        while (match (INCREMENT, DECREMENT)) {
             val op = previous().type
-            return UnaryExpr(if (op == INCREMENT) PostfixIncrement else PostfixDecrement, primary)
+            expr = UnaryExpr(if (op == INCREMENT) PostfixIncrement else PostfixDecrement, expr)
         }
 
-        return primary
+        return expr
     }
 
     private fun expression(minPrecedence: Int = 0): Expression {
