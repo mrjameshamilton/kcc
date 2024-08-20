@@ -22,12 +22,16 @@ import eu.jameshamilton.frontend.BinaryOp.RightShift
 import eu.jameshamilton.frontend.BinaryOp.Subtract
 import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
+import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
+import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
+import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionStatement
+import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunctionDef
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
@@ -43,6 +47,7 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Var
+import eu.jameshamilton.frontend.While
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
@@ -226,6 +231,11 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                 // TODO: refactor instructions += for statements?
                 is Compound -> instructions += statement.block.flatMap { convert(it) }
                 is Label -> label(statement.identifier.identifier)
+                Break -> TODO()
+                Continue -> TODO()
+                is DoWhile -> TODO()
+                is While -> TODO()
+                is For -> TODO()
             }
             nop()
         }

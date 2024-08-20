@@ -28,6 +28,7 @@ val codegen by parser.option(
     description = "Only run the lexer + parser + tacky + codegen"
 ).default(false)
 val emitAssembly by parser.option(ArgType.Boolean, shortName = "S", description = "Emit assembly").default(false)
+val printPreprocessed by parser.option(ArgType.Boolean, description = "Print the preprocessed output").default(false)
 val printTokens by parser.option(ArgType.Boolean, description = "Print tokens").default(false)
 val printResolved by parser.option(ArgType.Boolean, description = "Resolved tokens").default(false)
 val printTacky by parser.option(ArgType.Boolean, description = "Print tacky").default(false)
@@ -56,6 +57,9 @@ fun preprocess(file: File): File {
         println(r.errorReader().readText())
         exitProcess(r.exitValue())
     }
+    if (printPreprocessed) {
+        println(output.readText())
+    }
     return output
 }
 
@@ -66,8 +70,8 @@ fun compile(file: File): File {
     if (lex) exitProcess(0)
     val parser = Parser(tokens)
     val parsed = parser.parse()
-    checklabels(parsed)
     if (parse) exitProcess(0)
+    checklabels(parsed)
     val resolved = resolve(parsed)
     if (printResolved) {
         resolved.function.body.forEach { println(it) }

@@ -4,9 +4,12 @@ import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.AMPERSAND_EQUAL
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
+import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
+import eu.jameshamilton.frontend.TokenType.DO
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
@@ -19,6 +22,7 @@ import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
+import eu.jameshamilton.frontend.TokenType.FOR
 import eu.jameshamilton.frontend.TokenType.GOTO
 import eu.jameshamilton.frontend.TokenType.GREATER
 import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
@@ -52,6 +56,7 @@ import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STRING
 import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.VOID
+import eu.jameshamilton.frontend.TokenType.WHILE
 import kotlin.system.exitProcess
 
 
@@ -267,7 +272,12 @@ class Scanner(private val source: String) {
             "int" to INT,
             "if" to IF,
             "else" to ELSE,
-            "goto" to GOTO
+            "goto" to GOTO,
+            "do" to DO,
+            "while" to WHILE,
+            "for" to FOR,
+            "break" to BREAK,
+            "continue" to CONTINUE,
         )
     }
 }

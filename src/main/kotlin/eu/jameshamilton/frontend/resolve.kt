@@ -96,6 +96,11 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
         is Goto -> Goto(blockItem.identifier)
         is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
         is Label -> Label(blockItem.identifier)
+        Break -> TODO()
+        Continue -> TODO()
+        is DoWhile -> TODO()
+        is While -> TODO()
+        is For -> TODO()
     }
 
     return scoped {

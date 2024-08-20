@@ -21,6 +21,15 @@ data class If(val condition: Expression, val thenBranch: Statement, val elseBran
 
 data class Compound(val block: Block) : UnlabeledStatement()
 data class Goto(val identifier: Identifier) : UnlabeledStatement()
+data object Break : UnlabeledStatement()
+data object Continue : UnlabeledStatement()
+data class While(val condition: Expression, val body: Statement) : UnlabeledStatement()
+data class DoWhile(val condition: Expression, val body: Statement) : UnlabeledStatement()
+data class For(val init: ForInit, val condition: Expression?, val post: Expression?, val body: Statement) : Statement()
+
+sealed interface ForInit
+data class InitExpr(val expression: Expression?) : ForInit
+data class InitDecl(val declaration: Declaration) : ForInit
 
 sealed class Expression
 

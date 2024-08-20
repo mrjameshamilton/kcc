@@ -23,9 +23,12 @@ import eu.jameshamilton.frontend.TokenType.AMPERSAND
 import eu.jameshamilton.frontend.TokenType.AMPERSAND_EQUAL
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
+import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
+import eu.jameshamilton.frontend.TokenType.DO
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
@@ -38,6 +41,7 @@ import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
+import eu.jameshamilton.frontend.TokenType.FOR
 import eu.jameshamilton.frontend.TokenType.GOTO
 import eu.jameshamilton.frontend.TokenType.GREATER
 import eu.jameshamilton.frontend.TokenType.GREATER_EQUAL
@@ -68,6 +72,7 @@ import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.VOID
+import eu.jameshamilton.frontend.TokenType.WHILE
 import eu.jameshamilton.frontend.UnaryOp.Complement
 import eu.jameshamilton.frontend.UnaryOp.Negate
 import eu.jameshamilton.frontend.UnaryOp.Not
@@ -133,9 +138,59 @@ class Parser(private val tokens: List<Token>) {
             LabeledStatement(Identifier(identifier.lexeme, previous().line), statement)
         }
 
-        else -> ExpressionStatement(expression()).also {
-            expect(SEMICOLON, "Expected semicolon.")
+        match(BREAK) -> Break.also {
+            expect(SEMICOLON, "Expected semicolon after 'break'.")
         }
+
+        match(CONTINUE) -> Continue.also {
+            expect(SEMICOLON, "Expected semicolon after 'continue'.")
+        }
+
+        match(WHILE) -> whileStatement()
+        match(DO) -> doWhileStatement()
+        match(FOR) -> forStatement()
+
+        else -> ExpressionStatement(expression()).also {
+            expect(SEMICOLON, "Expected semicolon after expression statement.")
+        }
+    }
+
+    private fun forStatement(): For {
+        expect(LEFT_PAREN, "( expected.")
+        val forInit: ForInit = when {
+            check(INT) -> InitDecl(declaration())
+            else -> InitExpr(optionalExpression(SEMICOLON, "Expected ';' after for init expression."))
+        }
+
+        val condition = optionalExpression(SEMICOLON, "Expected ';' after condition.")
+        val increment = optionalExpression(RIGHT_PAREN, "Expected ')'.")
+        val body = statement()
+
+        return For(forInit, condition, increment, body)
+    }
+
+    private fun optionalExpression(delimiter: TokenType, message: String): Expression? = when {
+        !check(delimiter) -> expression()
+        else -> null
+    }
+        .also { expect(delimiter, message) }
+
+    private fun doWhileStatement(): DoWhile {
+        val body = statement()
+        expect(WHILE, "Expected 'while' in do-while loop.")
+        expect(LEFT_PAREN, "( expected.")
+        val condition = expression()
+        expect(RIGHT_PAREN, ") expected.")
+        expect(SEMICOLON, "; expected.")
+        return DoWhile(condition, body)
+    }
+
+    private fun whileStatement(): While {
+        expect(LEFT_PAREN, "( expected.")
+        val condition = expression()
+        expect(RIGHT_PAREN, ") expected.")
+        val body = statement()
+        return While(condition, body)
     }
 
     private fun ifStatement(): Statement {
@@ -202,7 +257,7 @@ class Parser(private val tokens: List<Token>) {
     private fun postfix(): Expression {
         var expr = primary()
 
-        while (match (INCREMENT, DECREMENT)) {
+        while (match(INCREMENT, DECREMENT)) {
             val op = previous().type
             expr = UnaryExpr(if (op == INCREMENT) PostfixIncrement else PostfixDecrement, expr)
         }
@@ -310,7 +365,7 @@ class Parser(private val tokens: List<Token>) {
     private fun expect(type: TokenType, message: String): Token {
         if (check(type)) return advance()
 
-        throw error(peek(), message)
+        throw error(previous(), message)
     }
 
     private fun synchronize() {
