@@ -35,6 +35,8 @@ import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunctionDef
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
+import eu.jameshamilton.frontend.InitDecl
+import eu.jameshamilton.frontend.InitExpr
 import eu.jameshamilton.frontend.Label
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
@@ -231,11 +233,57 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                 // TODO: refactor instructions += for statements?
                 is Compound -> instructions += statement.block.flatMap { convert(it) }
                 is Label -> label(statement.identifier.identifier)
-                Break -> TODO()
-                Continue -> TODO()
-                is DoWhile -> TODO()
-                is While -> TODO()
-                is For -> TODO()
+                is Break -> jump("break_${statement.identifier!!.identifier}")
+                is Continue -> jump("continue_${statement.identifier!!.identifier}")
+                is DoWhile -> buildTacky(instructions) {
+                    assert(statement.label != null)
+
+                    val startLabel = makelabel("start")
+                    val continueLabel = "continue_${statement.label!!.identifier}"
+                    val breakLabel = "break_${statement.label.identifier}"
+
+                    label(startLabel)
+                    instructions += convert(statement.body)
+                    label(continueLabel)
+                    val result = convert(instructions, statement.condition)
+                    jumpIfNotZero(result, startLabel)
+                    label(breakLabel)
+                }
+
+                is While -> buildTacky(instructions) {
+                    assert(statement.label != null)
+
+                    val continueLabel = "continue_${statement.label!!.identifier}"
+                    val breakLabel = "break_${statement.label.identifier}"
+
+                    label(continueLabel)
+                    val result = convert(instructions, statement.condition)
+                    jumpIfZero(result, breakLabel)
+                    instructions += convert(statement.body)
+                    jump(continueLabel)
+                    label(breakLabel)
+                }
+
+                is For -> buildTacky(instructions) {
+                    when (statement.init) {
+                        is InitDecl -> instructions += convert(statement.init.declaration)
+                        is InitExpr -> statement.init.expression?.let { convert(instructions, it) }
+                    }
+                    val startLabel = makelabel("start")
+                    val continueLabel = "continue_${statement.label!!.identifier}"
+                    val breakLabel = "break_${statement.label.identifier}"
+
+                    label(startLabel)
+                    if (statement.condition != null) {
+                        val result = convert(instructions, statement.condition)
+                        jumpIfZero(result, breakLabel)
+                    }
+                    instructions += convert(statement.body)
+                    label(continueLabel)
+                    statement.post?.let { convert(instructions, it) }
+                    jump(startLabel)
+                    label(breakLabel)
+                }
             }
             nop()
         }
@@ -262,8 +310,9 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         instructions += JumpIfNotZero(condition, target)
     }
 
-    fun label(label: LabelIdentifier) {
+    fun label(label: LabelIdentifier): Value {
         instructions += TackyLabel(label)
+        return nop()
     }
 
     fun copy(src: Value, dst: Value): Value {

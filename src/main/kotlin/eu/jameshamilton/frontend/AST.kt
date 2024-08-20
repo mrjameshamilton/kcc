@@ -21,11 +21,22 @@ data class If(val condition: Expression, val thenBranch: Statement, val elseBran
 
 data class Compound(val block: Block) : UnlabeledStatement()
 data class Goto(val identifier: Identifier) : UnlabeledStatement()
-data object Break : UnlabeledStatement()
-data object Continue : UnlabeledStatement()
-data class While(val condition: Expression, val body: Statement) : UnlabeledStatement()
-data class DoWhile(val condition: Expression, val body: Statement) : UnlabeledStatement()
-data class For(val init: ForInit, val condition: Expression?, val post: Expression?, val body: Statement) : Statement()
+data class Break(val identifier: Identifier? = null) : UnlabeledStatement()
+data class Continue(val identifier: Identifier? = null) : UnlabeledStatement()
+
+data class While(val condition: Expression, val body: Statement, val label: Identifier? = null) :
+    UnlabeledStatement()
+
+data class DoWhile(val condition: Expression, val body: Statement, val label: Identifier? = null) :
+    UnlabeledStatement()
+
+data class For(
+    val init: ForInit,
+    val condition: Expression?,
+    val post: Expression?,
+    val body: Statement,
+    val label: Identifier? = null
+) : UnlabeledStatement()
 
 sealed interface ForInit
 data class InitExpr(val expression: Expression?) : ForInit
@@ -53,7 +64,7 @@ data class Assignment(val lvalue: Expression, val value: Expression) : Expressio
 data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression) :
     Expression()
 
-data class Declaration(val identifier: Identifier, val initializer: Expression? = null) : BlockItem()
+data class Declaration(val identifier: Identifier, val initializer: Expression?) : BlockItem()
 
 class Identifier(val identifier: String, val line: Int) {
     override fun equals(other: Any?): Boolean {

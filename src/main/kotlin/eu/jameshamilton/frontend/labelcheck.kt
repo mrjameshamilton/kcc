@@ -32,12 +32,10 @@ fun checklabels(program: Program) {
 
         is Compound -> item.block.forEach(::check)
 
-        is Declaration, is ExpressionStatement, NullStatement, is ReturnStatement, null -> {}
-        Break -> TODO()
-        Continue -> TODO()
-        is DoWhile -> TODO()
-        is While -> TODO()
-        is For -> TODO()
+        is Declaration, is ExpressionStatement, NullStatement, is ReturnStatement, is Break, is Continue, null -> {}
+        is DoWhile -> check(item.body)
+        is While -> check(item.body)
+        is For -> check(item.body)
     }
 
     program.function.body.map(::check)

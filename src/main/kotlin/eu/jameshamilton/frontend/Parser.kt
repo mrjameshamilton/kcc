@@ -138,11 +138,11 @@ class Parser(private val tokens: List<Token>) {
             LabeledStatement(Identifier(identifier.lexeme, previous().line), statement)
         }
 
-        match(BREAK) -> Break.also {
+        match(BREAK) -> Break().also {
             expect(SEMICOLON, "Expected semicolon after 'break'.")
         }
 
-        match(CONTINUE) -> Continue.also {
+        match(CONTINUE) -> Continue().also {
             expect(SEMICOLON, "Expected semicolon after 'continue'.")
         }
 
@@ -218,7 +218,7 @@ class Parser(private val tokens: List<Token>) {
             if (match(EQUAL)) {
                 Declaration(Identifier(identifier, previous().line), expression())
             } else {
-                Declaration(Identifier(identifier, previous().line))
+                Declaration(Identifier(identifier, previous().line), null)
             }
         }
 

@@ -59,15 +59,19 @@ import eu.jameshamilton.frontend.TokenType.VOID
 import eu.jameshamilton.frontend.TokenType.WHILE
 import kotlin.system.exitProcess
 
+fun error(message: String): Nothing {
+    System.err.println("[line unknown] Error: $message")
+    exitProcess(-1)
+}
 
 fun error(line: Int, message: String): Nothing {
-    System.err.println("[line ${line}] Error${if ("at end".isNotBlank()) " " else ""}${"at end"}: $message")
+    System.err.println("[line ${line}] Error: $message")
     exitProcess(-1)
 }
 
 fun error(token: Token, message: String) {
     if (token.type == EOF) {
-        System.err.println("[line ${token.line}] Error${if ("at end".isNotBlank()) " " else ""}${"at end"}: $message")
+        System.err.println("[line ${token.line}] Error: $message")
     } else {
         val where = "at '${token.lexeme}'"
         System.err.println("[line ${token.line}] Error${if (where.isNotBlank()) " " else ""}${where}: $message")

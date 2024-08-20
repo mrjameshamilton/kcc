@@ -6,9 +6,13 @@ import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import java.util.*
 
-fun resolve(program: Program): Program = Program(resolve(program.function))
+fun resolve(program: Program): Program {
+    var resolved = resolveVariables(program)
+    resolved = resolveLoopLabels(resolved)
+    return resolved
+}
 
-fun resolve(functionDef: FunctionDef): FunctionDef {
+private fun resolveVariables(program: Program): Program {
     data class Variable(val identifier: Identifier, val level: Int = 0)
 
     val scopes = Stack<MutableMap<String, Variable>>()
@@ -75,7 +79,7 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
             variables[name.identifier] = unique
 
             if (blockItem.initializer == null) {
-                Declaration(unique.identifier)
+                Declaration(unique.identifier, null)
             } else {
                 Declaration(unique.identifier, resolve(blockItem.initializer))
             }
@@ -96,14 +100,73 @@ fun resolve(functionDef: FunctionDef): FunctionDef {
         is Goto -> Goto(blockItem.identifier)
         is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
         is Label -> Label(blockItem.identifier)
-        Break -> TODO()
-        Continue -> TODO()
-        is DoWhile -> TODO()
-        is While -> TODO()
-        is For -> TODO()
+        is Break -> Break(blockItem.identifier)
+        is Continue -> Continue(blockItem.identifier)
+        is DoWhile -> DoWhile(resolve(blockItem.condition), resolve(blockItem.body) as Statement)
+        is While -> While(resolve(blockItem.condition), resolve(blockItem.body) as Statement)
+        is For -> scoped {
+            val init = when (blockItem.init) {
+                is InitDecl -> InitDecl(resolve(blockItem.init.declaration) as Declaration)
+                is InitExpr -> InitExpr(blockItem.init.expression?.let { resolve(it) })
+            }
+            val condition = blockItem.condition?.let { resolve(it) }
+            val post = blockItem.post?.let { resolve(it) }
+            val body = resolve(blockItem.body) as Statement
+
+            For(init, condition, post, body)
+        }
     }
 
-    return scoped {
+    fun resolve(functionDef: FunctionDef): FunctionDef = scoped {
         FunctionDef(functionDef.name, functionDef.body.map(::resolve))
     }
+
+    return Program(resolve(program.function))
+}
+
+private fun resolveLoopLabels(program: Program): Program {
+    val labels = Stack<Identifier>()
+    var counter = 0
+
+    fun makelabel(name: Identifier): Identifier = Identifier("${name.identifier}_${counter++}", name.line)
+
+    fun <T> scoped(block: (label: Identifier) -> T): T = with(makelabel(Identifier("loop", 0))) {
+        labels.push(this)
+        block(this).also { labels.pop() }
+    }
+
+    fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
+        is DoWhile -> scoped { label ->
+            DoWhile(blockItem.condition, resolve(blockItem.body) as Statement, label)
+        }
+
+        is While -> scoped { label ->
+            While(blockItem.condition, resolve(blockItem.body) as Statement, label)
+        }
+
+        is For -> scoped { label ->
+            For(blockItem.init, blockItem.condition, blockItem.post, resolve(blockItem.body) as Statement, label)
+        }
+
+        is Break -> if (labels.isEmpty()) error("'break' outside of loop.") else Break(labels.peek())
+        is Continue -> if (labels.isEmpty()) error("'continue' outside of loop.") else Continue(labels.peek())
+
+        is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
+        is Declaration -> Declaration(blockItem.identifier, blockItem.initializer)
+        is Label -> Label(blockItem.identifier)
+        is Compound -> Compound(blockItem.block.map { resolve(it) })
+        is ExpressionStatement -> ExpressionStatement(blockItem.expression)
+        is Goto -> Goto(blockItem.identifier)
+        is If -> If(blockItem.condition, resolve(blockItem.thenBranch) as Statement,
+            blockItem.elseBranch?.let { resolve(it) } as Statement?)
+
+        is ReturnStatement -> ReturnStatement(blockItem.value)
+        NullStatement -> NullStatement
+    }
+
+    fun resolve(functionDef: FunctionDef): FunctionDef {
+        return FunctionDef(functionDef.name, functionDef.body.map(::resolve))
+    }
+
+    return Program(resolve(program.function))
 }
