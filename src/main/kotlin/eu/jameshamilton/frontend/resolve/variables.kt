@@ -1,18 +1,46 @@
-package eu.jameshamilton.frontend
+package eu.jameshamilton.frontend.resolve
 
+import eu.jameshamilton.frontend.Assignment
+import eu.jameshamilton.frontend.BinaryExpr
+import eu.jameshamilton.frontend.BlockItem
+import eu.jameshamilton.frontend.Break
+import eu.jameshamilton.frontend.Case
+import eu.jameshamilton.frontend.Compound
+import eu.jameshamilton.frontend.Conditional
+import eu.jameshamilton.frontend.Constant
+import eu.jameshamilton.frontend.Continue
+import eu.jameshamilton.frontend.Declaration
+import eu.jameshamilton.frontend.Default
+import eu.jameshamilton.frontend.DoWhile
+import eu.jameshamilton.frontend.Expression
+import eu.jameshamilton.frontend.ExpressionStatement
+import eu.jameshamilton.frontend.For
+import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.Goto
+import eu.jameshamilton.frontend.Identifier
+import eu.jameshamilton.frontend.If
+import eu.jameshamilton.frontend.InitDecl
+import eu.jameshamilton.frontend.InitExpr
+import eu.jameshamilton.frontend.LabeledStatement
+import eu.jameshamilton.frontend.NullStatement
+import eu.jameshamilton.frontend.Program
+import eu.jameshamilton.frontend.ReturnStatement
+import eu.jameshamilton.frontend.Statement
+import eu.jameshamilton.frontend.Switch
+import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
+import eu.jameshamilton.frontend.Var
+import eu.jameshamilton.frontend.While
 import java.util.*
 
-fun resolve(program: Program): Program {
-    var resolved = resolveVariables(program)
-    resolved = resolveLoopLabels(resolved)
-    return resolved
+fun resolveVariables(program: Program): Program {
+    return Program(resolveVariables(program.function))
 }
 
-private fun resolveVariables(program: Program): Program {
+fun resolveVariables(functionDef: FunctionDef): FunctionDef {
     data class Variable(val identifier: Identifier, val level: Int = 0)
 
     val scopes = Stack<MutableMap<String, Variable>>()
@@ -31,7 +59,7 @@ private fun resolveVariables(program: Program): Program {
             val left = expression.lvalue
             val right = expression.value
             if (left !is Var) {
-                error(0, "Expression is not an lvalue.")
+                eu.jameshamilton.frontend.error(0, "Expression is not an lvalue.")
             }
             Assignment(resolve(left), resolve(right))
         }
@@ -39,7 +67,10 @@ private fun resolveVariables(program: Program): Program {
         is Var -> if (expression.identifier.identifier in variables().keys) {
             Var(variables()[expression.identifier.identifier]!!.identifier)
         } else {
-            error(expression.identifier.line, "Undeclared variable '${expression.identifier.identifier}'.")
+            eu.jameshamilton.frontend.error(
+                expression.identifier.line,
+                "Undeclared variable '${expression.identifier.identifier}'."
+            )
         }
 
         is BinaryExpr -> BinaryExpr(resolve(expression.left), expression.operator, resolve(expression.right))
@@ -48,7 +79,7 @@ private fun resolveVariables(program: Program): Program {
             when (expression.op) {
                 PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement ->
                     if (expression.expression !is Var) {
-                        error(0, "Expression is not assignable.")
+                        eu.jameshamilton.frontend.error(0, "Expression is not assignable.")
                     }
 
                 else -> {}
@@ -72,7 +103,7 @@ private fun resolveVariables(program: Program): Program {
                 variables.containsKey(name.identifier) && variables[name.identifier]!!.level == scopes.size
 
             if (alreadyDeclaredInScope) {
-                error(name.line, "Duplicate variable declaration '${name.identifier}'.")
+                eu.jameshamilton.frontend.error(name.line, "Duplicate variable declaration '${name.identifier}'.")
             }
 
             val unique = maketemporary(name)
@@ -99,7 +130,6 @@ private fun resolveVariables(program: Program): Program {
         NullStatement -> NullStatement
         is Goto -> Goto(blockItem.identifier)
         is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
-        is Label -> Label(blockItem.identifier)
         is Break -> Break(blockItem.identifier)
         is Continue -> Continue(blockItem.identifier)
         is DoWhile -> DoWhile(resolve(blockItem.condition), resolve(blockItem.body) as Statement)
@@ -115,58 +145,13 @@ private fun resolveVariables(program: Program): Program {
 
             For(init, condition, post, body)
         }
+
+        is Switch -> Switch(resolve(blockItem.expression), resolve(blockItem.statement) as Statement)
+        is Case -> Case(resolve(blockItem.expression), resolve(blockItem.statement) as Statement)
+        is Default -> Default(resolve(blockItem.statement) as Statement)
     }
 
-    fun resolve(functionDef: FunctionDef): FunctionDef = scoped {
+    return scoped {
         FunctionDef(functionDef.name, functionDef.body.map(::resolve))
     }
-
-    return Program(resolve(program.function))
-}
-
-private fun resolveLoopLabels(program: Program): Program {
-    val labels = Stack<Identifier>()
-    var counter = 0
-
-    fun makelabel(name: Identifier): Identifier = Identifier("${name.identifier}_${counter++}", name.line)
-
-    fun <T> scoped(block: (label: Identifier) -> T): T = with(makelabel(Identifier("loop", 0))) {
-        labels.push(this)
-        block(this).also { labels.pop() }
-    }
-
-    fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
-        is DoWhile -> scoped { label ->
-            DoWhile(blockItem.condition, resolve(blockItem.body) as Statement, label)
-        }
-
-        is While -> scoped { label ->
-            While(blockItem.condition, resolve(blockItem.body) as Statement, label)
-        }
-
-        is For -> scoped { label ->
-            For(blockItem.init, blockItem.condition, blockItem.post, resolve(blockItem.body) as Statement, label)
-        }
-
-        is Break -> if (labels.isEmpty()) error("'break' outside of loop.") else Break(labels.peek())
-        is Continue -> if (labels.isEmpty()) error("'continue' outside of loop.") else Continue(labels.peek())
-
-        is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
-        is Declaration -> Declaration(blockItem.identifier, blockItem.initializer)
-        is Label -> Label(blockItem.identifier)
-        is Compound -> Compound(blockItem.block.map { resolve(it) })
-        is ExpressionStatement -> ExpressionStatement(blockItem.expression)
-        is Goto -> Goto(blockItem.identifier)
-        is If -> If(blockItem.condition, resolve(blockItem.thenBranch) as Statement,
-            blockItem.elseBranch?.let { resolve(it) } as Statement?)
-
-        is ReturnStatement -> ReturnStatement(blockItem.value)
-        NullStatement -> NullStatement
-    }
-
-    fun resolve(functionDef: FunctionDef): FunctionDef {
-        return FunctionDef(functionDef.name, functionDef.body.map(::resolve))
-    }
-
-    return Program(resolve(program.function))
 }

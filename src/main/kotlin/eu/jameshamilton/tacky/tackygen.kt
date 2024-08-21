@@ -23,11 +23,13 @@ import eu.jameshamilton.frontend.BinaryOp.Subtract
 import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
+import eu.jameshamilton.frontend.Case
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
+import eu.jameshamilton.frontend.Default
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionStatement
@@ -37,11 +39,11 @@ import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
-import eu.jameshamilton.frontend.Label
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
+import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
 import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
@@ -232,15 +234,14 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
 
                 // TODO: refactor instructions += for statements?
                 is Compound -> instructions += statement.block.flatMap { convert(it) }
-                is Label -> label(statement.identifier.identifier)
                 is Break -> jump("break_${statement.identifier!!.identifier}")
                 is Continue -> jump("continue_${statement.identifier!!.identifier}")
                 is DoWhile -> buildTacky(instructions) {
-                    assert(statement.label != null)
+                    assert(statement.id != null)
 
                     val startLabel = makelabel("start")
-                    val continueLabel = "continue_${statement.label!!.identifier}"
-                    val breakLabel = "break_${statement.label.identifier}"
+                    val continueLabel = "continue_${statement.id!!.identifier}"
+                    val breakLabel = "break_${statement.id.identifier}"
 
                     label(startLabel)
                     instructions += convert(statement.body)
@@ -251,10 +252,10 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                 }
 
                 is While -> buildTacky(instructions) {
-                    assert(statement.label != null)
+                    assert(statement.id != null)
 
-                    val continueLabel = "continue_${statement.label!!.identifier}"
-                    val breakLabel = "break_${statement.label.identifier}"
+                    val continueLabel = "continue_${statement.id!!.identifier}"
+                    val breakLabel = "break_${statement.id.identifier}"
 
                     label(continueLabel)
                     val result = convert(instructions, statement.condition)
@@ -270,8 +271,8 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                         is InitExpr -> statement.init.expression?.let { convert(instructions, it) }
                     }
                     val startLabel = makelabel("start")
-                    val continueLabel = "continue_${statement.label!!.identifier}"
-                    val breakLabel = "break_${statement.label.identifier}"
+                    val continueLabel = "continue_${statement.id!!.identifier}"
+                    val breakLabel = "break_${statement.id.identifier}"
 
                     label(startLabel)
                     if (statement.condition != null) {
@@ -284,6 +285,10 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                     jump(startLabel)
                     label(breakLabel)
                 }
+
+                is Switch -> TODO()
+                is Case -> TODO()
+                is Default -> TODO()
             }
             nop()
         }

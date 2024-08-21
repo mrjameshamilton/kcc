@@ -11,7 +11,12 @@ sealed class Statement : BlockItem()
 
 sealed class UnlabeledStatement : Statement()
 data class LabeledStatement(val identifier: Identifier, val statement: Statement) : Statement()
-data class Label(val identifier: Identifier) : BlockItem()
+
+sealed interface SwitchCase
+data class Case(val expression: Expression, val statement: Statement, val switchId: Identifier? = null) : Statement(),
+    SwitchCase
+
+data class Default(val statement: Statement, val switchId: Identifier? = null) : Statement(), SwitchCase
 
 data class ReturnStatement(val value: Expression) : UnlabeledStatement()
 data class ExpressionStatement(val expression: Expression) : UnlabeledStatement()
@@ -24,10 +29,10 @@ data class Goto(val identifier: Identifier) : UnlabeledStatement()
 data class Break(val identifier: Identifier? = null) : UnlabeledStatement()
 data class Continue(val identifier: Identifier? = null) : UnlabeledStatement()
 
-data class While(val condition: Expression, val body: Statement, val label: Identifier? = null) :
+data class While(val condition: Expression, val body: Statement, val id: Identifier? = null) :
     UnlabeledStatement()
 
-data class DoWhile(val condition: Expression, val body: Statement, val label: Identifier? = null) :
+data class DoWhile(val condition: Expression, val body: Statement, val id: Identifier? = null) :
     UnlabeledStatement()
 
 data class For(
@@ -35,12 +40,15 @@ data class For(
     val condition: Expression?,
     val post: Expression?,
     val body: Statement,
-    val label: Identifier? = null
+    val id: Identifier? = null
 ) : UnlabeledStatement()
 
 sealed interface ForInit
 data class InitExpr(val expression: Expression?) : ForInit
 data class InitDecl(val declaration: Declaration) : ForInit
+
+data class Switch(val expression: Expression, val statement: Statement, val id: Identifier? = null) :
+    UnlabeledStatement()
 
 sealed class Expression
 

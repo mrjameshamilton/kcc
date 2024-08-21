@@ -5,8 +5,9 @@ import eu.jameshamilton.codegen.emit
 import eu.jameshamilton.codegen.replacePseudoRegisters
 import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
-import eu.jameshamilton.frontend.checklabels
-import eu.jameshamilton.frontend.resolve
+import eu.jameshamilton.frontend.check.checklabels
+import eu.jameshamilton.frontend.check.checkswitchcases
+import eu.jameshamilton.frontend.resolve.resolve
 import eu.jameshamilton.tacky.convert
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
@@ -72,6 +73,7 @@ fun compile(file: File): File {
     val parsed = parser.parse()
     if (parse) exitProcess(0)
     checklabels(parsed)
+    checkswitchcases(parsed)
     val resolved = resolve(parsed)
     if (printResolved) {
         resolved.function.body.forEach { println(it) }

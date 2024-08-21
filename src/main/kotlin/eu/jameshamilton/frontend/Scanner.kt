@@ -5,10 +5,12 @@ import eu.jameshamilton.frontend.TokenType.AMPERSAND_EQUAL
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.BREAK
+import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
+import eu.jameshamilton.frontend.TokenType.DEFAULT
 import eu.jameshamilton.frontend.TokenType.DO
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
@@ -54,6 +56,7 @@ import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STRING
+import eu.jameshamilton.frontend.TokenType.SWITCH
 import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.VOID
 import eu.jameshamilton.frontend.TokenType.WHILE
@@ -282,6 +285,9 @@ class Scanner(private val source: String) {
             "for" to FOR,
             "break" to BREAK,
             "continue" to CONTINUE,
+            "switch" to SWITCH,
+            "case" to CASE,
+            "default" to DEFAULT
         )
     }
 }

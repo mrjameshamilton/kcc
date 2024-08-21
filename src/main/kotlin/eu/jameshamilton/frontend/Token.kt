@@ -24,6 +24,8 @@ enum class TokenType {
 
     GOTO, DO, WHILE, FOR, BREAK, CONTINUE,
 
+    SWITCH, CASE, DEFAULT,
+
     EOF
 }
 

@@ -24,10 +24,12 @@ import eu.jameshamilton.frontend.TokenType.AMPERSAND_EQUAL
 import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.BREAK
+import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
+import eu.jameshamilton.frontend.TokenType.DEFAULT
 import eu.jameshamilton.frontend.TokenType.DO
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
@@ -70,6 +72,7 @@ import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
+import eu.jameshamilton.frontend.TokenType.SWITCH
 import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.VOID
 import eu.jameshamilton.frontend.TokenType.WHILE
@@ -107,7 +110,7 @@ class Parser(private val tokens: List<Token>) {
             // C23 labels without statement: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2508.pdf
             val identifier = expect(IDENTIFIER, "Identifier expected.")
             expect(COLON, "Expected colon.")
-            Label(Identifier(identifier.lexeme, previous().line))
+            LabeledStatement(Identifier(identifier.lexeme, previous().line), NullStatement)
         }
 
         else -> statement()
@@ -149,10 +152,34 @@ class Parser(private val tokens: List<Token>) {
         match(WHILE) -> whileStatement()
         match(DO) -> doWhileStatement()
         match(FOR) -> forStatement()
+        match(SWITCH) -> switchStatement()
+        match(CASE) -> caseStatement()
+        match(DEFAULT) -> defaultStatement()
 
         else -> ExpressionStatement(expression()).also {
             expect(SEMICOLON, "Expected semicolon after expression statement.")
         }
+    }
+
+    private fun switchStatement(): Switch {
+        expect(LEFT_PAREN, "Expected ')'.")
+        val expression = expression()
+        expect(RIGHT_PAREN, "Expected ')'.")
+        val statement = statement()
+        return Switch(expression, statement)
+    }
+
+    private fun caseStatement(): Case {
+        val expression = constant()
+        expect(COLON, "Expected ':'.")
+        val statement = statement()
+        return Case(expression, statement)
+    }
+
+    private fun defaultStatement(): Default {
+        expect(COLON, "Expected ':'.")
+        val statement = if (check(RIGHT_BRACE)) NullStatement else statement()
+        return Default(statement)
     }
 
     private fun forStatement(): For {
@@ -227,14 +254,21 @@ class Parser(private val tokens: List<Token>) {
         expect(SEMICOLON, "Expected semicolon.")
     }
 
-    private fun primary(): Expression = when {
+    private fun constant(): Constant = when {
         match(CONSTANT) -> Constant(previous().literal as Int)
+        else -> throw error(
+            previous(),
+            "Expected constant expression."
+        )
+    }
+
+    private fun primary(): Expression = when {
         match(LEFT_PAREN) -> expression().also {
             expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
 
         match(IDENTIFIER) -> Var(Identifier(previous().lexeme, previous().line))
-
+        check(CONSTANT) -> constant()
         else -> throw error(
             previous(),
             "Unexpected expression ${if (peek().lexeme.isNotBlank()) "'${peek().lexeme}'" else ""}."
