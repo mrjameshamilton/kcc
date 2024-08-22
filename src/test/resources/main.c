@@ -25,19 +25,18 @@ int main(void) {
     return c;
 
 */
-    switch(3) {
-        case 0:
-            return 0;
-        case 3: {
-            switch(4) {
-                case 3: return 0;
-                case 4: return 1;
-                default: return 0;
-            }
-        }
-        case 4: return 0;
-        default: return 0;
+    int a = 0;
+    // a goto statement can jump to any point in a switch statement, including the middle of a case
+    goto mid_case;
+    switch (4) {
+        case 4:
+            a = 5;
+        mid_case:
+            a = a + 1;
+            return a;
     }
+    return 100;
+
 
 
 /*int x = 1;

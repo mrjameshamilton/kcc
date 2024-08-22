@@ -19,6 +19,7 @@ import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.While
+import eu.jameshamilton.frontend.error
 
 fun checklabels(program: Program) {
     val gotoLabels = mutableSetOf<Identifier>()
@@ -26,14 +27,14 @@ fun checklabels(program: Program) {
 
     fun check(identifier: Identifier) {
         if (!labels.add(identifier)) {
-            eu.jameshamilton.frontend.error(
+            error(
                 identifier.line,
                 "Label '${identifier.identifier}' already defined on line ${labels.find { it == identifier }?.line}."
             )
         }
     }
 
-    fun check(item: BlockItem?): Unit = when (item) {
+    fun check(item: BlockItem?): Any? = when (item) {
         is LabeledStatement -> {
             check(item.identifier)
             check(item.statement)
@@ -41,7 +42,6 @@ fun checklabels(program: Program) {
 
         is Goto -> {
             gotoLabels.add(item.identifier)
-            Unit // TODO: refactor?
         }
 
         is If -> {
@@ -55,16 +55,16 @@ fun checklabels(program: Program) {
         is DoWhile -> check(item.body)
         is While -> check(item.body)
         is For -> check(item.body)
-        is Switch -> {}
-        is ExpressionCase -> {}
-        is DefaultCase -> {}
+        is Switch -> check(item.statement)
+        is ExpressionCase -> check(item.statement)
+        is DefaultCase -> check(item.statement)
     }
 
     program.function.body.map(::check)
 
     gotoLabels.forEach {
         if (!labels.contains(it)) {
-            eu.jameshamilton.frontend.error(it.line, "Undefined label '${it.identifier}'.")
+            error(it.line, "Undefined label '${it.identifier}'.")
         }
     }
 }
