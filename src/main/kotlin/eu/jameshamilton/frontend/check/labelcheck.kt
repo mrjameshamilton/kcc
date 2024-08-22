@@ -2,12 +2,12 @@ package eu.jameshamilton.frontend.check
 
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
-import eu.jameshamilton.frontend.Case
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
-import eu.jameshamilton.frontend.Default
+import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
+import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.Goto
@@ -56,8 +56,8 @@ fun checklabels(program: Program) {
         is While -> check(item.body)
         is For -> check(item.body)
         is Switch -> {}
-        is Case -> {}
-        is Default -> {}
+        is ExpressionCase -> {}
+        is DefaultCase -> {}
     }
 
     program.function.body.map(::check)

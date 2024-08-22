@@ -23,15 +23,15 @@ import eu.jameshamilton.frontend.BinaryOp.Subtract
 import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
-import eu.jameshamilton.frontend.Case
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
-import eu.jameshamilton.frontend.Default
+import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.Expression
+import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunctionDef
@@ -44,6 +44,7 @@ import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Switch
+import eu.jameshamilton.frontend.SwitchCase
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
 import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
@@ -52,6 +53,7 @@ import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.While
+import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
@@ -66,7 +68,7 @@ import eu.jameshamilton.tacky.Var as TackyVar
 
 fun convert(program: Program): TackyProgram = TackyProgram(convert(program.function))
 
-private fun convert(program: FunctionDef): TackyFunctionDef {
+private fun convert(functionDef: FunctionDef): TackyFunctionDef {
 
     fun convert(op: UnaryOp): TackyUnaryOp = when (op) {
         UnaryOp.Complement -> TackyUnaryOp.Complement
@@ -79,6 +81,14 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
     fun maketemporary(): String = "tmp.${count++}"
     var labels = 0
     fun makelabel(name: String): LabelIdentifier = "${name}_${labels++}"
+
+    val switches = resolveSwitchCases(functionDef)
+    val switchCaseLabels = switches.flatMap { (switch, cases) ->
+        require(switch.id != null)
+        cases.mapIndexed { index, case ->
+            case to "${switch.id.identifier}_case_${index}"
+        }
+    }.toMap()
 
     fun convert(operator: BinaryOp): TackyBinaryOp = when (operator) {
         Add -> TackyBinaryOp.Add
@@ -286,9 +296,49 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
                     label(breakLabel)
                 }
 
-                is Switch -> TODO()
-                is Case -> TODO()
-                is Default -> TODO()
+                is Switch -> buildTacky(instructions) {
+                    require(statement.id != null)
+                    require(switches.containsKey(statement))
+
+                    val switchValue = convert(instructions, statement.expression)
+                    val cases = switches[statement]
+
+                    require(cases != null)
+
+                    if (cases.isNotEmpty()) {
+                        val breakLabel = "break_${statement.id.identifier}"
+                        val temp = TackyVar(maketemporary())
+
+                        cases.forEach { case ->
+                            when (case) {
+                                is ExpressionCase -> {
+                                    val caseValue = convert(instructions, case.expression)
+                                    equal(switchValue, caseValue, temp)
+                                    jumpIfNotZero(temp, switchCaseLabels[case]!!)
+                                }
+
+                                is DefaultCase -> {
+                                    jump(switchCaseLabels[case]!!)
+                                }
+                            }
+                        }
+
+                        if (cases.count { it is DefaultCase } == 0) {
+                            jump(breakLabel)
+                        }
+
+                        instructions += convert(statement.statement)
+
+                        label(breakLabel)
+                    }
+                    nop()
+                }
+
+                is SwitchCase -> buildTacky(instructions) {
+                    label(switchCaseLabels[statement]!!)
+                    instructions += convert(statement.statement)
+                    nop()
+                }
             }
             nop()
         }
@@ -299,12 +349,13 @@ private fun convert(program: FunctionDef): TackyFunctionDef {
         return statements.flatMap { convert(it) }
     }
 
-    return TackyFunctionDef(program.name.identifier, convert(program.body) + listOf(TackyReturn(TackyConstant(0))))
+    return TackyFunctionDef(functionDef.name.identifier, convert(functionDef.body) + listOf(TackyReturn(TackyConstant(0))))
 }
 
 class Builder(private val instructions: MutableList<Instruction> = mutableListOf()) {
-    fun jump(target: String) {
+    fun jump(target: String): Value {
         instructions += Jump(target)
+        return nop()
     }
 
     fun jumpIfZero(condition: Value, target: String) {
@@ -333,6 +384,10 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     fun binaryOp(binaryOp: TackyBinaryOp, src1: Value, src2: Value, dst: Value): Value {
         instructions += TackyBinary(binaryOp, src1, src2, dst)
         return dst
+    }
+
+    fun equal(src1: Value, src2: Value, dst: Value): Value {
+        return binaryOp(TackyBinaryOp.Equal, src1, src2, dst)
     }
 
     fun increment(src: Value, amount: Int = 1): Value {

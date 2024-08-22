@@ -4,6 +4,6 @@ import eu.jameshamilton.frontend.Program
 
 fun resolve(program: Program): Program {
     var resolved = resolveVariables(program)
-    resolved = resolveLoopLabels(resolved)
+    resolved = resolveLabels(resolved)
     return resolved
 }

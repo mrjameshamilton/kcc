@@ -13,18 +13,48 @@ int main(void) {
         }
     }
     return sum;*/
+/*
+
+    int c = 0;
+    switch (9) {
+        case 9:
+            c = 2;
+        case 1:
+            c = c + 4;
+    }
+    return c;
+
+*/
+    switch(3) {
+        case 0:
+            return 0;
+        case 3: {
+            switch(4) {
+                case 3: return 0;
+                case 4: return 1;
+                default: return 0;
+            }
+        }
+        case 4: return 0;
+        default: return 0;
+    }
 
 
-switch (1) {
+/*int x = 1;
+switch (3) {
+  x = 2;
   case 1:
     // code block
   case 2:
     // code block
     break;
+  case 4:
     // code block
     if (1) {
   //default:
   default:
+  x=111;
   }
 }
+return x*/;
 }

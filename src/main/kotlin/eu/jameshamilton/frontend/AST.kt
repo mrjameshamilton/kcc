@@ -12,11 +12,14 @@ sealed class Statement : BlockItem()
 sealed class UnlabeledStatement : Statement()
 data class LabeledStatement(val identifier: Identifier, val statement: Statement) : Statement()
 
-sealed interface SwitchCase
-data class Case(val expression: Expression, val statement: Statement, val switchId: Identifier? = null) : Statement(),
+sealed interface SwitchCase {
+    val statement: Statement
+}
+
+class ExpressionCase(val expression: Expression, override val statement: Statement) : Statement(),
     SwitchCase
 
-data class Default(val statement: Statement, val switchId: Identifier? = null) : Statement(), SwitchCase
+class DefaultCase(override val statement: Statement) : Statement(), SwitchCase
 
 data class ReturnStatement(val value: Expression) : UnlabeledStatement()
 data class ExpressionStatement(val expression: Expression) : UnlabeledStatement()

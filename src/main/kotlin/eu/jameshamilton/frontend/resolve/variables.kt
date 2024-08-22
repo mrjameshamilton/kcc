@@ -4,15 +4,15 @@ import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
-import eu.jameshamilton.frontend.Case
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
-import eu.jameshamilton.frontend.Default
+import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.Expression
+import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunctionDef
@@ -147,8 +147,8 @@ fun resolveVariables(functionDef: FunctionDef): FunctionDef {
         }
 
         is Switch -> Switch(resolve(blockItem.expression), resolve(blockItem.statement) as Statement)
-        is Case -> Case(resolve(blockItem.expression), resolve(blockItem.statement) as Statement)
-        is Default -> Default(resolve(blockItem.statement) as Statement)
+        is ExpressionCase -> ExpressionCase(resolve(blockItem.expression), resolve(blockItem.statement) as Statement)
+        is DefaultCase -> DefaultCase(resolve(blockItem.statement) as Statement)
     }
 
     return scoped {

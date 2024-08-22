@@ -2,12 +2,12 @@ package eu.jameshamilton.frontend.resolve
 
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
-import eu.jameshamilton.frontend.Case
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
-import eu.jameshamilton.frontend.Default
+import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
+import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunctionDef
@@ -24,13 +24,13 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 import java.util.*
 
-fun resolveLoopLabels(program: Program): Program {
-    return Program(resolveLoopLabels(program.function))
+fun resolveLabels(program: Program): Program {
+    return Program(resolveLabels(program.function))
 }
 
-private fun resolveLoopLabels(functionDef: FunctionDef): FunctionDef {
+private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
     abstract class ResolveIdentifier(val identifier: String) {
-        fun toIdentifier() = Identifier(identifier, 0)
+        fun toIdentifier(suffix: String = "") = Identifier(identifier + suffix, 0)
     }
 
     class LoopIdentifier(identifier: String) : ResolveIdentifier(identifier)
@@ -101,21 +101,20 @@ private fun resolveLoopLabels(functionDef: FunctionDef): FunctionDef {
             Switch(blockItem.expression, resolve(blockItem.statement) as Statement, label.toIdentifier())
         }
 
-        is Case -> {
+        is ExpressionCase -> {
             if (labels.count { it is SwitchIdentifier } == 0) {
                 error("'case' outside of 'switch'")
             } else {
-                val identifier = labels.last { it is SwitchIdentifier }
-                Case(blockItem.expression, resolve(blockItem.statement) as Statement, identifier.toIdentifier())
+                ExpressionCase(blockItem.expression, resolve(blockItem.statement) as Statement)
             }
         }
 
-        is Default -> {
-            val identifier = labels.lastOrNull { it is SwitchIdentifier }
+        is DefaultCase -> {
+            val identifier = labels.lastOrNull { it is SwitchIdentifier } as SwitchIdentifier?
             if (identifier == null) {
                 error("'default' outside of 'switch'")
             } else {
-                Default(resolve(blockItem.statement) as Statement, identifier.toIdentifier())
+                DefaultCase(resolve(blockItem.statement) as Statement)
             }
         }
     }

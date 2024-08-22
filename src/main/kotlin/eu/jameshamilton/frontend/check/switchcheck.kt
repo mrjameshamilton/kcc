@@ -2,12 +2,12 @@ package eu.jameshamilton.frontend.check
 
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
-import eu.jameshamilton.frontend.Case
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
-import eu.jameshamilton.frontend.Default
+import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
+import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunctionDef
@@ -25,11 +25,12 @@ import eu.jameshamilton.frontend.error
 fun checkswitchcases(program: Program) {
     val switches = resolveSwitchCases(program.function)
     switches.forEach { (_, cases) ->
-        if (cases.count { it is Default } > 1) {
+        if (cases.count { it is DefaultCase } > 1) {
             error("Multiple default cases in switch.")
         }
 
-        if (cases.filterIsInstance<Case>().groupBy { it.expression }.filter { it.value.size > 1 }.isNotEmpty()) {
+        if (cases.filterIsInstance<ExpressionCase>().groupBy { it.expression }.filter { it.value.size > 1 }
+                .isNotEmpty()) {
             error("Duplicate cases in switch.")
         }
     }
@@ -39,13 +40,13 @@ fun resolveSwitchCases(functionDef: FunctionDef): Map<Switch, List<SwitchCase>> 
     val switches = mutableMapOf<Switch, MutableList<SwitchCase>>()
 
     fun resolve(blockItem: BlockItem, currentSwitch: Switch? = null): Any? = when (blockItem) {
-        is Case -> {
-            switches.computeIfAbsent(currentSwitch!!) { mutableListOf() }.add(blockItem)
+        is ExpressionCase -> {
+            switches[currentSwitch!!]!!.add(blockItem)
             resolve(blockItem.statement, currentSwitch)
         }
 
-        is Default -> {
-            switches.computeIfAbsent(currentSwitch!!) { mutableListOf() }.add(blockItem)
+        is DefaultCase -> {
+            switches[currentSwitch!!]!!.add(blockItem)
             resolve(blockItem.statement, currentSwitch)
         }
 
@@ -60,6 +61,7 @@ fun resolveSwitchCases(functionDef: FunctionDef): Map<Switch, List<SwitchCase>> 
         }
 
         is Switch -> {
+            switches[blockItem] = mutableListOf()
             resolve(blockItem.statement, blockItem)
         }
 

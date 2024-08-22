@@ -169,17 +169,17 @@ class Parser(private val tokens: List<Token>) {
         return Switch(expression, statement)
     }
 
-    private fun caseStatement(): Case {
+    private fun caseStatement(): ExpressionCase {
         val expression = constant()
         expect(COLON, "Expected ':'.")
         val statement = statement()
-        return Case(expression, statement)
+        return ExpressionCase(expression, statement)
     }
 
-    private fun defaultStatement(): Default {
+    private fun defaultStatement(): DefaultCase {
         expect(COLON, "Expected ':'.")
         val statement = if (check(RIGHT_BRACE)) NullStatement else statement()
-        return Default(statement)
+        return DefaultCase(statement)
     }
 
     private fun forStatement(): For {
