@@ -29,6 +29,7 @@ val codegen by parser.option(
     description = "Only run the lexer + parser + tacky + codegen"
 ).default(false)
 val emitAssembly by parser.option(ArgType.Boolean, shortName = "S", description = "Emit assembly").default(false)
+val emitObject by parser.option(ArgType.Boolean, shortName = "c", description = "Emit object file").default(false)
 val printPreprocessed by parser.option(ArgType.Boolean, description = "Print the preprocessed output").default(false)
 val printTokens by parser.option(ArgType.Boolean, description = "Print tokens").default(false)
 val printResolved by parser.option(ArgType.Boolean, description = "Resolved tokens").default(false)
@@ -98,7 +99,11 @@ fun compile(file: File): File {
 
 fun assemble(outputDirectory: String, outputName: String, input: File): File {
     val output = File(outputDirectory, outputName)
-    val r = Runtime.getRuntime().exec(arrayOf("gcc", input.absolutePath, "-o", output.absolutePath))
+    val r = if (emitObject) {
+        Runtime.getRuntime().exec(arrayOf("gcc", "-c", input.absolutePath, "-o", "${output.absolutePath}.o"))
+    } else {
+        Runtime.getRuntime().exec(arrayOf("gcc", input.absolutePath, "-o", output.absolutePath))
+    }
     if (r.waitFor() != 0) {
         println(r.errorReader().readText())
         exitProcess(r.exitValue())
