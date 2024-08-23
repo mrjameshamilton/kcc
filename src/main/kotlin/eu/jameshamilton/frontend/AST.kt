@@ -14,12 +14,18 @@ data class LabeledStatement(val identifier: Identifier, val statement: Statement
 
 sealed interface SwitchCase {
     val statement: Statement
+    val label: Identifier?
 }
 
-class ExpressionCase(val expression: Expression, override val statement: Statement) : Statement(),
+data class ExpressionCase(
+    val expression: Expression,
+    override val statement: Statement,
+    override val label: Identifier? = null
+) : Statement(),
     SwitchCase
 
-class DefaultCase(override val statement: Statement) : Statement(), SwitchCase
+data class DefaultCase(override val statement: Statement, override val label: Identifier? = null) : Statement(),
+    SwitchCase
 
 data class ReturnStatement(val value: Expression) : UnlabeledStatement()
 data class ExpressionStatement(val expression: Expression) : UnlabeledStatement()
@@ -32,26 +38,42 @@ data class Goto(val identifier: Identifier) : UnlabeledStatement()
 data class Break(val identifier: Identifier? = null) : UnlabeledStatement()
 data class Continue(val identifier: Identifier? = null) : UnlabeledStatement()
 
-data class While(val condition: Expression, val body: Statement, val id: Identifier? = null) :
-    UnlabeledStatement()
+sealed interface Loop {
+    val id: Identifier?
+    val breakLabel: Identifier?
+        get() = if (id == null) null else Identifier(id!!.identifier + "_break", id!!.line)
+    val continueLabel: Identifier?
+        get() = if (id == null) null else Identifier(id!!.identifier + "_continue", id!!.line)
+}
 
-data class DoWhile(val condition: Expression, val body: Statement, val id: Identifier? = null) :
-    UnlabeledStatement()
+data class While(val condition: Expression, val body: Statement, override val id: Identifier? = null) :
+    UnlabeledStatement(), Loop
+
+data class DoWhile(val condition: Expression, val body: Statement, override val id: Identifier? = null) :
+    UnlabeledStatement(), Loop
 
 data class For(
     val init: ForInit,
     val condition: Expression?,
     val post: Expression?,
     val body: Statement,
-    val id: Identifier? = null
-) : UnlabeledStatement()
+    override val id: Identifier? = null
+) : UnlabeledStatement(), Loop
 
 sealed interface ForInit
 data class InitExpr(val expression: Expression?) : ForInit
 data class InitDecl(val declaration: Declaration) : ForInit
 
-data class Switch(val expression: Expression, val statement: Statement, val id: Identifier? = null) :
-    UnlabeledStatement()
+data class Switch(
+    val expression: Expression,
+    val statement: Statement,
+    val id: Identifier? = null,
+    val caseLabels: List<Identifier> = mutableListOf()
+) :
+    UnlabeledStatement() {
+    val breakLabel: Identifier?
+        get() = if (id == null) null else Identifier(id.identifier + "_break", id.line)
+}
 
 sealed class Expression
 

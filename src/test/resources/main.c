@@ -25,6 +25,7 @@ int main(void) {
     return c;
 
 */
+/*
     int a = 0;
     // a goto statement can jump to any point in a switch statement, including the middle of a case
     goto mid_case;
@@ -37,9 +38,10 @@ int main(void) {
     }
     return 100;
 
+*/
 
 
-/*int x = 1;
+int x = 1;
 switch (3) {
   x = 2;
   case 1:
@@ -55,5 +57,5 @@ switch (3) {
   x=111;
   }
 }
-return x*/;
+return x;
 }

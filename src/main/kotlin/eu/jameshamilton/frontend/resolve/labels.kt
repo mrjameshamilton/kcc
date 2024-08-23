@@ -34,10 +34,11 @@ private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
     }
 
     class LoopIdentifier(identifier: String) : ResolveIdentifier(identifier)
-    class SwitchIdentifier(identifier: String) : ResolveIdentifier(identifier)
+    class SwitchIdentifier(identifier: String, val caseLabels: MutableList<Identifier>) : ResolveIdentifier(identifier)
 
     val labels = Stack<ResolveIdentifier>()
-    var counter = 0
+    var idCounter = 0
+    val caseLabelCounter = mutableMapOf<SwitchIdentifier, Int>()
 
     fun <T> scoped(resolveIdentifier: ResolveIdentifier, block: (label: ResolveIdentifier) -> T): T {
         labels.push(resolveIdentifier)
@@ -45,10 +46,10 @@ private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
     }
 
     fun <T> loop(block: (label: ResolveIdentifier) -> T): T =
-        scoped(LoopIdentifier("${"loop"}_${counter++}"), block)
+        scoped(LoopIdentifier("${"loop"}_${idCounter++}"), block)
 
     fun <T> switch(block: (label: ResolveIdentifier) -> T): T =
-        scoped(SwitchIdentifier("${"switch"}_${counter++}"), block)
+        scoped(SwitchIdentifier("${"switch"}_${idCounter++}", mutableListOf()), block)
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
         is DoWhile -> loop { label ->
@@ -74,7 +75,7 @@ private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
                 error("'break' outside of loop or switch.")
             } else {
                 val identifier = labels.peek()
-                Break(identifier.toIdentifier())
+                Break(identifier.toIdentifier("_break"))
             }
         }
 
@@ -83,7 +84,7 @@ private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
             if (identifier == null) {
                 error("'continue' outside of loop.")
             } else {
-                Continue(identifier.toIdentifier())
+                Continue(identifier.toIdentifier("_continue"))
             }
         }
 
@@ -98,23 +99,39 @@ private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
         is ReturnStatement -> ReturnStatement(blockItem.value)
         NullStatement -> NullStatement
         is Switch -> switch { label ->
-            Switch(blockItem.expression, resolve(blockItem.statement) as Statement, label.toIdentifier())
+            require(label is SwitchIdentifier)
+            Switch(
+                blockItem.expression,
+                resolve(blockItem.statement) as Statement,
+                label.toIdentifier(),
+                label.caseLabels
+            )
         }
 
         is ExpressionCase -> {
-            if (labels.count { it is SwitchIdentifier } == 0) {
+            val identifier = labels.lastOrNull { it is SwitchIdentifier } as SwitchIdentifier?
+            if (identifier == null) {
                 error("'case' outside of 'switch'")
             } else {
-                ExpressionCase(blockItem.expression, resolve(blockItem.statement) as Statement)
+
+                val caseLabel =
+                    Identifier(identifier.identifier + "_case_" + caseLabelCounter.merge(identifier, 1, Int::plus), 0)
+                identifier.caseLabels.add(caseLabel)
+                ExpressionCase(
+                    blockItem.expression, resolve(blockItem.statement) as Statement,
+                    caseLabel
+                )
             }
         }
 
         is DefaultCase -> {
-            val identifier = labels.lastOrNull { it is SwitchIdentifier } as SwitchIdentifier?
-            if (identifier == null) {
+            val switchIdentifier = labels.lastOrNull { it is SwitchIdentifier } as SwitchIdentifier?
+            if (switchIdentifier == null) {
                 error("'default' outside of 'switch'")
             } else {
-                DefaultCase(resolve(blockItem.statement) as Statement)
+                val defaultLabel = Identifier(switchIdentifier.identifier + "_default", 0)
+                switchIdentifier.caseLabels.add(defaultLabel)
+                DefaultCase(resolve(blockItem.statement) as Statement, defaultLabel)
             }
         }
     }
