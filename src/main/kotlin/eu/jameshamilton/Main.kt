@@ -7,16 +7,19 @@ import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
 import eu.jameshamilton.frontend.check.checklabels
 import eu.jameshamilton.frontend.check.checkswitchcases
+import eu.jameshamilton.frontend.error
 import eu.jameshamilton.frontend.resolve.resolve
 import eu.jameshamilton.tacky.convert
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
+import kotlinx.cli.vararg
 import java.io.File
 import kotlin.system.exitProcess
 
 val parser = ArgParser("kcc")
-val input by parser.argument(ArgType.String, description = "C source code")
+val input by parser.argument(ArgType.String, description = "C source code").vararg()
+val output by parser.option(ArgType.String, shortName = "o")
 val lex by parser.option(ArgType.Boolean, fullName = "lex", description = "Only run the lexer").default(false)
 val parse by parser.option(ArgType.Boolean, fullName = "parse", description = "Only run the lexer + parser")
     .default(false)
@@ -41,13 +44,35 @@ val c23 by parser.option(ArgType.Boolean, "c23").default(false)
 
 fun main(args: Array<String>) {
     parser.parse(args)
-    val inputFile = File(input)
-    val preprocessed = preprocess(inputFile)
-    val compiled = compile(preprocessed)
+
+    if (input.size > 1 && output == null) {
+        error("Multiple input files requires specifying an output file with -o")
+    }
+
+    val compiled = input.map {
+        val inputFile = File(it)
+        val preprocessed = preprocess(inputFile)
+        compile(preprocessed)
+    }
+
     if (emitAssembly) {
-        File(inputFile.parent, inputFile.nameWithoutExtension + ".s").writeText(compiled.readText())
+        val outputFile = if (output == null) {
+            File(File(input.single()).nameWithoutExtension + ".s")
+        } else {
+            File(output!!)
+        }
+
+        compiled.forEach { c ->
+            outputFile.appendText(c.readText())
+        }
     } else {
-        val assembled = assemble(inputFile.parent, inputFile.nameWithoutExtension, compiled)
+        val assembled = if (output == null) {
+            val outputFile = File(File(input.single()).nameWithoutExtension + (if (emitObject) ".o" else ""))
+            assemble(outputFile, compiled)
+        } else {
+            val outputFile = File(output!!)
+            assemble(outputFile, compiled)
+        }
     }
 }
 
@@ -97,13 +122,14 @@ fun compile(file: File): File {
     return output
 }
 
-fun assemble(outputDirectory: String, outputName: String, input: File): File {
-    val output = File(outputDirectory, outputName)
-    val r = if (emitObject) {
-        Runtime.getRuntime().exec(arrayOf("gcc", "-c", input.absolutePath, "-o", "${output.absolutePath}.o"))
-    } else {
-        Runtime.getRuntime().exec(arrayOf("gcc", input.absolutePath, "-o", output.absolutePath))
-    }
+fun assemble(output: File, input: List<File>): File {
+    val r = Runtime.getRuntime()
+        .exec(arrayOf("gcc") +
+                (if (emitObject) arrayOf("-c") else emptyArray()) +
+                input.map { it.absolutePath } +
+                arrayOf("-o", output.absolutePath)
+        )
+
     if (r.waitFor() != 0) {
         println(r.errorReader().readText())
         exitProcess(r.exitValue())

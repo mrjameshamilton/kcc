@@ -1,3 +1,3 @@
-int main(void) {
+int negate(void) {
     return ~(-2);
 }
