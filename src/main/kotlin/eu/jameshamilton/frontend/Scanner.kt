@@ -7,6 +7,7 @@ import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
+import eu.jameshamilton.frontend.TokenType.COMMA
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
@@ -187,6 +188,8 @@ class Scanner(private val source: String) {
 
             ':' -> addToken(COLON)
 
+            ',' -> addToken(COMMA)
+
             '"' -> string()
             ' ', '\t', '\r' -> {}
             '\n' -> line++
@@ -287,7 +290,7 @@ class Scanner(private val source: String) {
             "continue" to CONTINUE,
             "switch" to SWITCH,
             "case" to CASE,
-            "default" to DEFAULT
+            "default" to DEFAULT,
         )
     }
 }
