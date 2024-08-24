@@ -1,6 +1,6 @@
 package eu.jameshamilton.codegen
 
-data class Program(val functionDef: FunctionDef)
+data class Program(val functions: List<FunctionDef>)
 
 data class FunctionDef(val name: String, val instructions: List<Instruction>)
 

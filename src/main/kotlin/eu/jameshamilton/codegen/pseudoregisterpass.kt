@@ -114,5 +114,5 @@ fun replacePseudoRegisters(program: Program): Program {
         return FunctionDef(functionDef.name, listOf(AllocateStack(registers.size * 4)) + this)
     }
 
-    return Program(fixup(program.functionDef))
+    return Program(program.functions.map { fixup(it) })
 }

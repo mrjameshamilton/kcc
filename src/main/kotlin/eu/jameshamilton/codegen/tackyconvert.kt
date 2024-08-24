@@ -41,8 +41,7 @@ import eu.jameshamilton.tacky.Value as TackyValue
 import eu.jameshamilton.tacky.Var as TackyVar
 
 fun convert(tackyProgram: TackyProgram): x86Program =
-    // TODO: first..
-    x86Program(convert(tackyProgram.functionDef.first()))
+    x86Program(tackyProgram.functionDef.map { convert(it) })
 
 private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef =
     x86FunctionDef(tackyFunctionDef.name, convert(tackyFunctionDef.instructions))

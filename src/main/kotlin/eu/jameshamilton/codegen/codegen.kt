@@ -98,7 +98,9 @@ fun emit(x86program: x86Program): String = buildString {
         emit(functionDef.instructions)
     }
 
-    emit(x86program.functionDef)
+    x86program.functions.forEach {
+        emit(it)
+    }
 
     appendLine(""".section .note-GNU-stack,"",@progbits""")
 }
