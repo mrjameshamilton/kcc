@@ -60,6 +60,7 @@ import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.BinaryOp.Add as TackyBinaryOpAdd
 import eu.jameshamilton.tacky.Constant as TackyConstant
+import eu.jameshamilton.tacky.FunctionCall as TackyFunctionCall
 import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
 import eu.jameshamilton.tacky.Label as TackyLabel
 import eu.jameshamilton.tacky.Program as TackyProgram
@@ -67,7 +68,8 @@ import eu.jameshamilton.tacky.Unary as TackyUnary
 import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
 import eu.jameshamilton.tacky.Var as TackyVar
 
-fun convert(program: Program): TackyProgram = TackyProgram(program.functions.map { convert(it) })
+fun convert(program: Program): TackyProgram =
+    TackyProgram(program.functions.filter { it.body != null }.map { convert(it) })
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
@@ -203,7 +205,12 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             result
         }
 
-        is FunctionCall -> TODO()
+        is FunctionCall -> buildTacky(instructions) {
+            val arguments = expression.arguments.map { convert(instructions, it) }
+            val result = TackyVar(maketemporary())
+            TackyFunctionCall(expression.identifier.identifier, arguments, result)
+            result
+        }
     }
 
     fun convert(statement: BlockItem): List<Instruction> {
@@ -219,7 +226,11 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     copy(src, dst)
                 }
 
-                is FunDeclaration -> TODO()
+                is FunDeclaration -> {
+                    if (statement.body != null) {
+                        unreachable("local functions not supported")
+                    }
+                }
 
                 is If -> {
                     val endLabel = makelabel("if_end")
@@ -349,14 +360,14 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         return instructions
     }
 
-    fun convert(statements: List<BlockItem>): List<Instruction> {
-        return statements.flatMap { convert(it) }
+    fun convert(statements: List<BlockItem>?): List<Instruction> {
+        return statements?.flatMap { convert(it) } ?: emptyList()
     }
 
     return TackyFunctionDef(
         funDeclaration.identifier.identifier,
-        // TODO !!
-        convert(funDeclaration.body!!) + listOf(TackyReturn(TackyConstant(0)))
+        funDeclaration.params?.map { it.identifier } ?: emptyList(),
+        convert(funDeclaration.body) + listOf(TackyReturn(TackyConstant(0)))
     )
 }
 

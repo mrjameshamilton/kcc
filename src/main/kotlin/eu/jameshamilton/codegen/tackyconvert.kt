@@ -19,6 +19,7 @@ import eu.jameshamilton.tacky.BinaryOp.RightShift
 import eu.jameshamilton.tacky.BinaryOp.Subtract
 import eu.jameshamilton.tacky.BinaryOp.Xor
 import eu.jameshamilton.tacky.Copy
+import eu.jameshamilton.tacky.FunctionCall
 import eu.jameshamilton.tacky.Jump
 import eu.jameshamilton.tacky.JumpIfNotZero
 import eu.jameshamilton.tacky.JumpIfZero
@@ -137,6 +138,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             }
 
             is Label -> label(tacky.identifier)
+            is FunctionCall -> TODO()
         }
     }
 }
