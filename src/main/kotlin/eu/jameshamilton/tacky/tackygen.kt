@@ -208,7 +208,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         is FunctionCall -> buildTacky(instructions) {
             val arguments = expression.arguments.map { convert(instructions, it) }
             val result = TackyVar(maketemporary())
-            TackyFunctionCall(expression.identifier.identifier, arguments, result)
+            call(expression.identifier.identifier, arguments, result)
             result
         }
     }
@@ -425,6 +425,11 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
 
     fun ret(value: Value) {
         instructions += TackyReturn(value)
+    }
+
+    fun call(identifier: String, arguments: List<Value>, result:Value): Value {
+        instructions += TackyFunctionCall(identifier, arguments, result)
+        return result
     }
 
     fun nop(): Value = TackyConstant(0)
