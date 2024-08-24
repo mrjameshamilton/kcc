@@ -2,10 +2,10 @@ package eu.jameshamilton.tacky
 
 
 data class Program(val functionDef: List<FunctionDef>)
+sealed class Instruction
 
 data class FunctionDef(val name: String, val parameters: List<String>, val instructions: List<Instruction>)
 data class FunctionCall(val name: String, val arguments: List<Value>, val dst: Value) : Instruction()
-sealed class Instruction
 
 data class TackyReturn(val value: Value) : Instruction()
 data class Unary(val op: UnaryOp, val src: Value, val dst: Value) : Instruction()
