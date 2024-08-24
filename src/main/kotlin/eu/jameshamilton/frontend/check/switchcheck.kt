@@ -3,6 +3,7 @@ package eu.jameshamilton.frontend.check
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Compound
+import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
@@ -32,6 +33,10 @@ fun checkswitchcases(program: Program) {
         if (cases.filterIsInstance<ExpressionCase>().groupBy { it.expression }.filter { it.value.size > 1 }
                 .isNotEmpty()) {
             error("Duplicate cases in switch.")
+
+            if (cases.filterIsInstance<ExpressionCase>().count { it.expression !is Constant } > 0) {
+                error("Case expressions must be constant.")
+            }
         }
     }
 }

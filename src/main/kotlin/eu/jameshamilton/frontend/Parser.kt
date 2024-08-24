@@ -170,7 +170,7 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun caseStatement(): ExpressionCase {
-        val expression = constant()
+        val expression = expression()
         expect(COLON, "Expected ':'.")
         val statement = statement()
         return ExpressionCase(expression, statement)
@@ -254,21 +254,14 @@ class Parser(private val tokens: List<Token>) {
         expect(SEMICOLON, "Expected semicolon.")
     }
 
-    private fun constant(): Constant = when {
-        match(CONSTANT) -> Constant(previous().literal as Int)
-        else -> throw error(
-            previous(),
-            "Expected constant expression."
-        )
-    }
-
     private fun primary(): Expression = when {
         match(LEFT_PAREN) -> expression().also {
             expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
 
         match(IDENTIFIER) -> Var(Identifier(previous().lexeme, previous().line))
-        check(CONSTANT) -> constant()
+        match(CONSTANT) -> Constant(previous().literal as Int)
+
         else -> throw error(
             previous(),
             "Unexpected expression ${if (peek().lexeme.isNotBlank()) "'${peek().lexeme}'" else ""}."
