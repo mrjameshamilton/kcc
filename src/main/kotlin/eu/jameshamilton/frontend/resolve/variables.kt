@@ -66,6 +66,31 @@ private fun <T> scoped(block: () -> T): T {
 private fun maketemporary(name: Identifier, linkage: Linkage): Variable =
     Variable(Identifier("${name.identifier}.${scopes.size}.${variables.size}", name.line), linkage, scopes.size)
 
+private fun resolve(name: Identifier, linkage: Linkage): Variable {
+    val alreadyDeclaredInScope =
+        variables.containsKey(name.identifier) &&
+                variables[name.identifier]?.level == scopes.size
+
+    if (alreadyDeclaredInScope) {
+        val variable = variables[name.identifier]!!
+
+        // External linkage declarations can be declared multiple times.
+        if (variable.linkage == EXTERNAL && linkage == EXTERNAL) {
+            return variable
+        }
+
+        if (linkage != variable.linkage) {
+            error(name.line, "Duplicate declaration '${name.identifier}' with different linkage.")
+        } else {
+            error(name.line, "Duplicate declaration '${name.identifier}'.")
+        }
+    }
+
+    val uniqueName = maketemporary(name, linkage)
+    variables[name.identifier] = uniqueName
+    return uniqueName
+}
+
 private fun resolve(expression: Expression): Expression = when (expression) {
     is Assignment -> {
         val left = expression.lvalue
@@ -113,31 +138,6 @@ private fun resolve(expression: Expression): Expression = when (expression) {
             FunctionCall(name.identifier, expression.arguments.map { resolve(it) })
         }
     }
-}
-
-private fun resolve(name: Identifier, linkage: Linkage): Variable {
-    val alreadyDeclaredInScope =
-        variables.containsKey(name.identifier) &&
-                variables[name.identifier]?.level == scopes.size
-
-    if (alreadyDeclaredInScope) {
-        val variable = variables[name.identifier]!!
-
-        // External linkage declarations can be declared multiple times.
-        if (variable.linkage == EXTERNAL && linkage == EXTERNAL) {
-            return variable
-        }
-
-        if (linkage != variable.linkage) {
-            error(name.line, "Duplicate declaration '${name.identifier}' with different linkage.")
-        } else {
-            error(name.line, "Duplicate declaration '${name.identifier}'.")
-        }
-    }
-
-    val uniqueName = maketemporary(name, linkage)
-    variables[name.identifier] = uniqueName
-    return uniqueName
 }
 
 private fun resolve(funDeclaration: FunDeclaration): FunDeclaration {
