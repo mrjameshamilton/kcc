@@ -63,8 +63,10 @@ private fun <T> scoped(block: () -> T): T {
     }
 }
 
-private fun maketemporary(name: Identifier, linkage: Linkage): Variable =
-    Variable(Identifier("${name.identifier}.${scopes.size}.${variables.size}", name.line), linkage, scopes.size)
+private fun maketemporary(name: Identifier, linkage: Linkage): Variable {
+    val newName = if (linkage == EXTERNAL) name.identifier else "${name.identifier}.${scopes.size}.${variables.size}"
+    return Variable(Identifier(newName, name.line), linkage, scopes.size)
+}
 
 private fun resolve(name: Identifier, linkage: Linkage): Variable {
     val alreadyDeclaredInScope =
