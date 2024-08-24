@@ -33,6 +33,7 @@ val codegen by parser.option(
 ).default(false)
 val emitAssembly by parser.option(ArgType.Boolean, shortName = "S", description = "Emit assembly").default(false)
 val emitObject by parser.option(ArgType.Boolean, shortName = "c", description = "Emit object file").default(false)
+val printParsed by parser.option(ArgType.Boolean, description = "print-parsed").default(false)
 val printPreprocessed by parser.option(ArgType.Boolean, description = "Print the preprocessed output").default(false)
 val printTokens by parser.option(ArgType.Boolean, description = "Print tokens").default(false)
 val printResolved by parser.option(ArgType.Boolean, description = "Resolved tokens").default(false)
@@ -100,6 +101,12 @@ fun compile(file: File): File {
     if (parse) exitProcess(0)
     checklabels(parsed)
     checkswitchcases(parsed)
+    if (printParsed) {
+        parsed.functions.forEach {
+            println(it.identifier)
+            it.body?.forEach { println(it) }
+        }
+    }
     val resolved = resolve(parsed)
     if (printResolved) {
         resolved.functions.forEach {

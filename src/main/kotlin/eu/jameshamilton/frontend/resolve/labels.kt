@@ -90,7 +90,7 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
 
         is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
         is VarDeclaration -> VarDeclaration(blockItem.identifier, blockItem.initializer)
-        is FunDeclaration -> TODO()
+        is FunDeclaration -> FunDeclaration(blockItem.identifier, blockItem.params, blockItem.body?.map { resolve(it) })
         is Compound -> Compound(blockItem.block.map { resolve(it) })
         is ExpressionStatement -> ExpressionStatement(blockItem.expression)
         is Goto -> Goto(blockItem.identifier)
