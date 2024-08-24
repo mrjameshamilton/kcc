@@ -4,13 +4,12 @@ import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Continue
-import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
-import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.FunDeclaration
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.Identifier
 import eu.jameshamilton.frontend.If
@@ -20,15 +19,16 @@ import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.Switch
+import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 import java.util.*
 
 fun resolveLabels(program: Program): Program {
-    return Program(resolveLabels(program.function))
+    return Program(program.functions.map { resolveLabels(it) })
 }
 
-private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
+private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
     abstract class ResolveIdentifier(val identifier: String) {
         fun toIdentifier(suffix: String = "") = Identifier(identifier + suffix, 0)
     }
@@ -89,7 +89,8 @@ private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
         }
 
         is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
-        is Declaration -> Declaration(blockItem.identifier, blockItem.initializer)
+        is VarDeclaration -> VarDeclaration(blockItem.identifier, blockItem.initializer)
+        is FunDeclaration -> TODO()
         is Compound -> Compound(blockItem.block.map { resolve(it) })
         is ExpressionStatement -> ExpressionStatement(blockItem.expression)
         is Goto -> Goto(blockItem.identifier)
@@ -136,5 +137,5 @@ private fun resolveLabels(functionDef: FunctionDef): FunctionDef {
         }
     }
 
-    return FunctionDef(functionDef.name, functionDef.body.map(::resolve))
+    return FunDeclaration(funDeclaration.identifier, funDeclaration.params, funDeclaration.body?.map(::resolve))
 }

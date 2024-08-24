@@ -10,6 +10,7 @@ import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
+import eu.jameshamilton.frontend.FunDeclaration
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.Identifier
 import eu.jameshamilton.frontend.If
@@ -22,6 +23,10 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 
 fun checklabels(program: Program) {
+    program.functions.forEach { checklabels(it) }
+}
+
+fun checklabels(function: FunDeclaration) {
     val gotoLabels = mutableSetOf<Identifier>()
     val labels = mutableSetOf<Identifier>()
 
@@ -60,7 +65,7 @@ fun checklabels(program: Program) {
         is DefaultCase -> check(item.statement)
     }
 
-    program.function.body.map(::check)
+    function.body?.map(::check)
 
     gotoLabels.forEach {
         if (!labels.contains(it)) {

@@ -11,7 +11,7 @@ import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
-import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.FunDeclaration
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.LabeledStatement
@@ -24,15 +24,17 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 
 fun checkswitchcases(program: Program) {
-    val switches = resolveSwitchCases(program.function)
-    switches.forEach { (_, cases) ->
-        if (cases.count { it is DefaultCase } > 1) {
-            error("Multiple default cases in switch.")
-        }
+    program.functions.forEach { function ->
+        val switches = resolveSwitchCases(function)
+        switches.forEach { (_, cases) ->
+            if (cases.count { it is DefaultCase } > 1) {
+                error("Multiple default cases in switch.")
+            }
 
-        if (cases.filterIsInstance<ExpressionCase>().groupBy { it.expression }.filter { it.value.size > 1 }
-                .isNotEmpty()) {
-            error("Duplicate cases in switch.")
+            if (cases.filterIsInstance<ExpressionCase>().groupBy { it.expression }.filter { it.value.size > 1 }
+                    .isNotEmpty()) {
+                error("Duplicate cases in switch.")
+            }
 
             if (cases.filterIsInstance<ExpressionCase>().count { it.expression !is Constant } > 0) {
                 error("Case expressions must be constant.")
@@ -41,7 +43,7 @@ fun checkswitchcases(program: Program) {
     }
 }
 
-fun resolveSwitchCases(functionDef: FunctionDef): Map<Switch, List<SwitchCase>> {
+fun resolveSwitchCases(funDeclaration: FunDeclaration): Map<Switch, List<SwitchCase>> {
     val switches = mutableMapOf<Switch, MutableList<SwitchCase>>()
 
     fun resolve(blockItem: BlockItem, currentSwitch: Switch? = null): Any? = when (blockItem) {
@@ -74,11 +76,11 @@ fun resolveSwitchCases(functionDef: FunctionDef): Map<Switch, List<SwitchCase>> 
         is Declaration, is Break, is Continue, is Goto, NullStatement, is ReturnStatement -> {}
     }
 
-    fun resolve(functionDef: FunctionDef) {
-        functionDef.body.forEach { resolve(it) }
+    fun resolve(funDeclaration: FunDeclaration) {
+        funDeclaration.body?.forEach { resolve(it) }
     }
 
-    resolve(functionDef)
+    resolve(funDeclaration)
 
     return switches
 }

@@ -27,14 +27,14 @@ import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
-import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
-import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.FunDeclaration
+import eu.jameshamilton.frontend.FunctionCall
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
@@ -52,6 +52,7 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Var
+import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.unreachable
@@ -66,9 +67,9 @@ import eu.jameshamilton.tacky.Unary as TackyUnary
 import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
 import eu.jameshamilton.tacky.Var as TackyVar
 
-fun convert(program: Program): TackyProgram = TackyProgram(convert(program.function))
+fun convert(program: Program): TackyProgram = TackyProgram(program.functions.map { convert(it) })
 
-private fun convert(functionDef: FunctionDef): TackyFunctionDef {
+private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
     fun convert(op: UnaryOp): TackyUnaryOp = when (op) {
         UnaryOp.Complement -> TackyUnaryOp.Complement
@@ -82,7 +83,7 @@ private fun convert(functionDef: FunctionDef): TackyFunctionDef {
     var labels = 0
     fun makelabel(name: String): LabelIdentifier = "${name}_${labels++}"
 
-    val switches = resolveSwitchCases(functionDef)
+    val switches = resolveSwitchCases(funDeclaration)
 
     fun convert(operator: BinaryOp): TackyBinaryOp = when (operator) {
         Add -> TackyBinaryOp.Add
@@ -201,6 +202,8 @@ private fun convert(functionDef: FunctionDef): TackyFunctionDef {
             label(endLabel)
             result
         }
+
+        is FunctionCall -> TODO()
     }
 
     fun convert(statement: BlockItem): List<Instruction> {
@@ -210,11 +213,13 @@ private fun convert(functionDef: FunctionDef): TackyFunctionDef {
                 is ReturnStatement -> ret(convert(instructions, statement.value))
                 is ExpressionStatement -> convert(instructions, statement.expression)
                 is NullStatement -> emptyList<Instruction>()
-                is Declaration -> if (statement.initializer != null) {
+                is VarDeclaration -> if (statement.initializer != null) {
                     val src = convert(instructions, statement.initializer)
                     val dst = TackyVar(statement.identifier.identifier)
                     copy(src, dst)
                 }
+
+                is FunDeclaration -> TODO()
 
                 is If -> {
                     val endLabel = makelabel("if_end")
@@ -349,8 +354,9 @@ private fun convert(functionDef: FunctionDef): TackyFunctionDef {
     }
 
     return TackyFunctionDef(
-        functionDef.name.identifier,
-        convert(functionDef.body) + listOf(TackyReturn(TackyConstant(0)))
+        funDeclaration.identifier.identifier,
+        // TODO !!
+        convert(funDeclaration.body!!) + listOf(TackyReturn(TackyConstant(0)))
     )
 }
 

@@ -1,13 +1,17 @@
 package eu.jameshamilton.frontend
 
-data class Program(val function: FunctionDef)
+data class Program(val functions: List<FunDeclaration>)
 
 typealias Block = List<BlockItem>
 
-data class FunctionDef(val name: Identifier, val body: Block)
 
 sealed class BlockItem
 sealed class Statement : BlockItem()
+
+sealed class Declaration(open val identifier: Identifier) : BlockItem()
+data class VarDeclaration(override val identifier: Identifier, val initializer: Expression?) : Declaration(identifier)
+data class FunDeclaration(override val identifier: Identifier, val params: List<Identifier>?, val body: Block?) :
+    Declaration(identifier)
 
 sealed class UnlabeledStatement : Statement()
 data class LabeledStatement(val identifier: Identifier, val statement: Statement) : Statement()
@@ -62,7 +66,7 @@ data class For(
 
 sealed interface ForInit
 data class InitExpr(val expression: Expression?) : ForInit
-data class InitDecl(val declaration: Declaration) : ForInit
+data class InitDecl(val declaration: VarDeclaration) : ForInit
 
 data class Switch(
     val expression: Expression,
@@ -97,7 +101,7 @@ data class Assignment(val lvalue: Expression, val value: Expression) : Expressio
 data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression) :
     Expression()
 
-data class Declaration(val identifier: Identifier, val initializer: Expression?) : BlockItem()
+data class FunctionCall(val identifier: Identifier, val arguments: List<Expression> = emptyList()) : Expression()
 
 class Identifier(val identifier: String, val line: Int) {
     override fun equals(other: Any?): Boolean {

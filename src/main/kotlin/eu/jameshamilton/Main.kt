@@ -102,7 +102,9 @@ fun compile(file: File): File {
     checkswitchcases(parsed)
     val resolved = resolve(parsed)
     if (printResolved) {
-        resolved.function.body.forEach { println(it) }
+        resolved.functions.forEach {
+            it.body?.forEach { println(it) }
+        }
     }
     if (validate) exitProcess(0)
     val tackye = convert(resolved)

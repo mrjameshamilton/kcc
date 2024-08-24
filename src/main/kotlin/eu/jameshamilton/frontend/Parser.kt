@@ -26,6 +26,7 @@ import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
+import eu.jameshamilton.frontend.TokenType.COMMA
 import eu.jameshamilton.frontend.TokenType.CONSTANT
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
@@ -89,19 +90,36 @@ class Parser(private val tokens: List<Token>) {
     private var current = 0
 
     fun parse(): Program {
-        return Program(function()).also {
-            if (!isAtEnd()) error(previous(), "Expected end of program.")
+        val functions = mutableListOf<FunDeclaration>()
+        while (!isAtEnd()) {
+            // TODO: cast
+            functions.add(declaration() as FunDeclaration)
         }
+        return Program(functions)
     }
 
-    private fun function(): FunctionDef {
-        val returnType = expect(INT, "Function return type expected.")
-        val name = expect(IDENTIFIER, "Function name expected.")
+    private fun function(returnType: Token, name: Identifier): FunDeclaration {
         expect(LEFT_PAREN, "( expected.")
-        val parameters = expect(VOID, "Expected void.")
+        val parameters = when {
+            match(VOID) -> null
+            else -> mutableListOf<Identifier>().also {
+                do {
+                    val type = expect(INT, "Parameter type expected.")
+                    val identifier = expect(IDENTIFIER, "Parameter name expected.")
+                    it.add(Identifier(identifier.lexeme, identifier.line))
+                } while (match(COMMA))
+            }
+        }
         expect(RIGHT_PAREN, ") expected.")
-        val body = block()
-        return FunctionDef(Identifier(name.lexeme, previous().line), body)
+
+        val body = if (check(LEFT_BRACE)) {
+            block()
+        } else {
+            expect(SEMICOLON, "Expected semicolon after function declaration.")
+            null
+        }
+
+        return FunDeclaration(name, parameters, body)
     }
 
     private fun blockItem(): BlockItem = when {
@@ -185,7 +203,7 @@ class Parser(private val tokens: List<Token>) {
     private fun forStatement(): For {
         expect(LEFT_PAREN, "( expected.")
         val forInit: ForInit = when {
-            check(INT) -> InitDecl(declaration())
+            check(INT) -> InitDecl(declaration() as VarDeclaration)
             else -> InitExpr(optionalExpression(SEMICOLON, "Expected ';' after for init expression."))
         }
 
@@ -239,19 +257,26 @@ class Parser(private val tokens: List<Token>) {
         return statements
     }
 
+    private fun varDeclaration(type: Token, identifier: Identifier): VarDeclaration = when {
+        match(EQUAL) -> VarDeclaration(identifier, expression())
+        else -> VarDeclaration(identifier, null)
+    }.also {
+        expect(SEMICOLON, "Expected semicolon.")
+    }
+
     private fun declaration(): Declaration = when {
         match(INT) -> {
-            val identifier = expect(IDENTIFIER, "Variable name expected.").lexeme
-            if (match(EQUAL)) {
-                Declaration(Identifier(identifier, previous().line), expression())
+            val type = previous()
+            val identifierLexeme = expect(IDENTIFIER, "Identifier name expected.").lexeme
+            val identifier = Identifier(identifierLexeme, previous().line)
+            if (check(LEFT_PAREN)) {
+                function(type, identifier)
             } else {
-                Declaration(Identifier(identifier, previous().line), null)
+                varDeclaration(type, identifier)
             }
         }
 
         else -> throw error(previous(), "Unexpected declaration.")
-    }.also {
-        expect(SEMICOLON, "Expected semicolon.")
     }
 
     private fun primary(): Expression = when {
@@ -259,7 +284,22 @@ class Parser(private val tokens: List<Token>) {
             expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
 
-        match(IDENTIFIER) -> Var(Identifier(previous().lexeme, previous().line))
+        match(IDENTIFIER) -> {
+            val identifier = Identifier(previous().lexeme, previous().line)
+            if (match(LEFT_PAREN)) {
+                val arguments = mutableListOf<Expression>()
+                if (!check(RIGHT_PAREN)) {
+                    do {
+                        arguments += expression()
+                    } while (match(COMMA))
+                }
+                expect(RIGHT_PAREN, "Expected ')' after function call.")
+                FunctionCall(identifier, arguments)
+            } else {
+                Var(identifier)
+            }
+        }
+
         match(CONSTANT) -> Constant(previous().literal as Int)
 
         else -> throw error(

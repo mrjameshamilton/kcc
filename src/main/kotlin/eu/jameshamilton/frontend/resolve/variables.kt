@@ -8,14 +8,14 @@ import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
-import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
-import eu.jameshamilton.frontend.FunctionDef
+import eu.jameshamilton.frontend.FunDeclaration
+import eu.jameshamilton.frontend.FunctionCall
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.Identifier
 import eu.jameshamilton.frontend.If
@@ -33,14 +33,15 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Var
+import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
 import java.util.*
 
 fun resolveVariables(program: Program): Program {
-    return Program(resolveVariables(program.function))
+    return Program(program.functions.map { resolveVariables(it) })
 }
 
-fun resolveVariables(functionDef: FunctionDef): FunctionDef {
+fun resolveVariables(funDeclaration: FunDeclaration): FunDeclaration {
     data class Variable(val identifier: Identifier, val level: Int = 0)
 
     val scopes = Stack<MutableMap<String, Variable>>()
@@ -92,10 +93,12 @@ fun resolveVariables(functionDef: FunctionDef): FunctionDef {
             resolve(expression.thenBranch),
             resolve(expression.elseBranch)
         )
+
+        is FunctionCall -> TODO()
     }
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
-        is Declaration -> {
+        is VarDeclaration -> {
             val name = blockItem.identifier
             val variables = variables()
 
@@ -110,11 +113,13 @@ fun resolveVariables(functionDef: FunctionDef): FunctionDef {
             variables[name.identifier] = unique
 
             if (blockItem.initializer == null) {
-                Declaration(unique.identifier, null)
+                VarDeclaration(unique.identifier, null)
             } else {
-                Declaration(unique.identifier, resolve(blockItem.initializer))
+                VarDeclaration(unique.identifier, resolve(blockItem.initializer))
             }
         }
+
+        is FunDeclaration -> TODO()
 
         is ExpressionStatement -> ExpressionStatement(resolve(blockItem.expression))
         is ReturnStatement -> ReturnStatement(resolve(blockItem.value))
@@ -136,7 +141,7 @@ fun resolveVariables(functionDef: FunctionDef): FunctionDef {
         is While -> While(resolve(blockItem.condition), resolve(blockItem.body) as Statement)
         is For -> scoped {
             val init = when (blockItem.init) {
-                is InitDecl -> InitDecl(resolve(blockItem.init.declaration) as Declaration)
+                is InitDecl -> InitDecl(resolve(blockItem.init.declaration) as VarDeclaration)
                 is InitExpr -> InitExpr(blockItem.init.expression?.let { resolve(it) })
             }
             val condition = blockItem.condition?.let { resolve(it) }
@@ -152,6 +157,6 @@ fun resolveVariables(functionDef: FunctionDef): FunctionDef {
     }
 
     return scoped {
-        FunctionDef(functionDef.name, functionDef.body.map(::resolve))
+        FunDeclaration(funDeclaration.identifier, funDeclaration.params, funDeclaration.body?.map(::resolve))
     }
 }

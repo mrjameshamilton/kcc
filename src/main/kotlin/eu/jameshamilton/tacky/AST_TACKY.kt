@@ -1,7 +1,7 @@
 package eu.jameshamilton.tacky
 
 
-data class Program(val functionDef: FunctionDef)
+data class Program(val functionDef: List<FunctionDef>)
 
 data class FunctionDef(val name: String, val instructions: List<Instruction>)
 
