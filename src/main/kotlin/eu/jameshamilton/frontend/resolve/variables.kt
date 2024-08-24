@@ -118,26 +118,26 @@ private fun resolve(expression: Expression): Expression = when (expression) {
 private fun resolve(name: Identifier, linkage: Linkage): Variable {
     val alreadyDeclaredInScope =
         variables.containsKey(name.identifier) &&
-                variables[name.identifier]?.linkage == NONE &&
                 variables[name.identifier]?.level == scopes.size
 
     if (alreadyDeclaredInScope) {
-        when (linkage) {
-            NONE -> error(name.line, "Duplicate declaration '${name.identifier}'.")
-            EXTERNAL -> {
-                val variable = variables[name.identifier]!!
-                if (variable.linkage != EXTERNAL) {
-                    error(name.line, "Previous declaration of '${name.identifier}' has no linkage.")
-                } else {
-                    return variable
-                }
-            }
+        val variable = variables[name.identifier]!!
+
+        // External linkage declarations can be declared multiple times.
+        if (variable.linkage == EXTERNAL && linkage == EXTERNAL) {
+            return variable
+        }
+
+        if (linkage != variable.linkage) {
+            error(name.line, "Duplicate declaration '${name.identifier}' with different linkage.")
+        } else {
+            error(name.line, "Duplicate declaration '${name.identifier}'.")
         }
     }
 
-    val unique = maketemporary(name, linkage)
-    variables[name.identifier] = unique
-    return unique
+    val uniqueName = maketemporary(name, linkage)
+    variables[name.identifier] = uniqueName
+    return uniqueName
 }
 
 private fun resolve(funDeclaration: FunDeclaration): FunDeclaration {

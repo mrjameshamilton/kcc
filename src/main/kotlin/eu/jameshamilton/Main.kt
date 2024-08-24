@@ -7,6 +7,7 @@ import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
 import eu.jameshamilton.frontend.check.checklabels
 import eu.jameshamilton.frontend.check.checkswitchcases
+import eu.jameshamilton.frontend.check.checktypes
 import eu.jameshamilton.frontend.error
 import eu.jameshamilton.frontend.resolve.resolve
 import eu.jameshamilton.tacky.convert
@@ -99,8 +100,6 @@ fun compile(file: File): File {
     val parser = Parser(tokens)
     val parsed = parser.parse()
     if (parse) exitProcess(0)
-    checklabels(parsed)
-    checkswitchcases(parsed)
     if (printParsed) {
         parsed.functions.forEach {
             println(it.identifier)
@@ -108,6 +107,9 @@ fun compile(file: File): File {
         }
     }
     val resolved = resolve(parsed)
+    checktypes(resolved)
+    checklabels(parsed)
+    checkswitchcases(parsed)
     if (printResolved) {
         resolved.functions.forEach {
             it.body?.forEach { println(it) }
