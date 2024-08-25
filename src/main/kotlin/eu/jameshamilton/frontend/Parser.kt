@@ -44,6 +44,7 @@ import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
+import eu.jameshamilton.frontend.TokenType.EXTERN
 import eu.jameshamilton.frontend.TokenType.FOR
 import eu.jameshamilton.frontend.TokenType.GOTO
 import eu.jameshamilton.frontend.TokenType.GREATER
@@ -73,6 +74,7 @@ import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
+import eu.jameshamilton.frontend.TokenType.STATIC
 import eu.jameshamilton.frontend.TokenType.SWITCH
 import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.VOID
@@ -90,21 +92,20 @@ class Parser(private val tokens: List<Token>) {
     private var current = 0
 
     fun parse(): Program {
-        val functions = mutableListOf<FunDeclaration>()
+        val functions = mutableListOf<Declaration>()
         while (!isAtEnd()) {
-            // TODO: cast
-            functions.add(declaration() as FunDeclaration)
+            functions.add(declaration())
         }
         return Program(functions)
     }
 
-    private fun function(returnType: Token, name: Identifier): FunDeclaration {
+    private fun function(returnType: Type, name: Identifier, storageClass: StorageClass): FunDeclaration {
         expect(LEFT_PAREN, "( expected.")
         val parameters = when {
             match(VOID) -> null
             else -> mutableListOf<Identifier>().also {
                 do {
-                    val type = expect(INT, "Parameter type expected.")
+                    val type = type()
                     val identifier = expect(IDENTIFIER, "Parameter name expected.")
                     it.add(Identifier(identifier.lexeme, identifier.line))
                 } while (match(COMMA))
@@ -119,11 +120,11 @@ class Parser(private val tokens: List<Token>) {
             null
         }
 
-        return FunDeclaration(name, parameters, body)
+        return FunDeclaration(name, parameters, body, storageClass)
     }
 
     private fun blockItem(): BlockItem = when {
-        check(INT) -> declaration()
+        checkSpecifier() -> declaration()
         c23 && check(IDENTIFIER, COLON) -> {
             // C23 labels without statement: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2508.pdf
             val identifier = expect(IDENTIFIER, "Identifier expected.")
@@ -203,7 +204,8 @@ class Parser(private val tokens: List<Token>) {
     private fun forStatement(): For {
         expect(LEFT_PAREN, "( expected.")
         val forInit: ForInit = when {
-            check(INT) -> InitDecl(declaration() as VarDeclaration)
+            // storage classes are not allowed here, but it will be checked in the semantic phase.
+            checkSpecifier() -> InitDecl(declaration() as VarDeclaration)
             else -> InitExpr(optionalExpression(SEMICOLON, "Expected ';' after for init expression."))
         }
 
@@ -257,26 +259,69 @@ class Parser(private val tokens: List<Token>) {
         return statements
     }
 
-    private fun varDeclaration(type: Token, identifier: Identifier): VarDeclaration = when {
-        match(EQUAL) -> VarDeclaration(identifier, expression())
-        else -> VarDeclaration(identifier, null)
+    private fun varDeclaration(type: Type, identifier: Identifier, storageClass: StorageClass): VarDeclaration = when {
+        match(EQUAL) -> VarDeclaration(identifier, expression(), storageClass)
+        else -> VarDeclaration(identifier, null, storageClass)
     }.also {
         expect(SEMICOLON, "Expected semicolon.")
     }
 
-    private fun declaration(): Declaration = when {
-        match(INT) -> {
-            val type = previous()
-            val identifierLexeme = expect(IDENTIFIER, "Identifier name expected.").lexeme
-            val identifier = Identifier(identifierLexeme, previous().line)
-            if (check(LEFT_PAREN)) {
-                function(type, identifier)
-            } else {
-                varDeclaration(type, identifier)
+    private fun declaration(): Declaration {
+        val (type, storageClass) = specifier()
+        val identifierToken = expect(IDENTIFIER, "Identifier name expected.")
+        val identifier = Identifier(identifierToken.lexeme, identifierToken.line)
+        return if (check(LEFT_PAREN)) {
+            function(type, identifier, storageClass)
+        } else {
+            varDeclaration(type, identifier, storageClass)
+        }
+    }
+
+    private fun checkSpecifier() = checkType() || checkStorageClass()
+    private fun checkStorageClass() = check(EXTERN) || check(STATIC)
+    private fun checkType() = checkAny(INT)
+
+    private fun specifier(): Pair<Type, StorageClass> {
+        val types = mutableListOf<Type>()
+        val storageClasses = mutableListOf<StorageClass>()
+
+        do {
+            when (peek().type) {
+                INT -> types.add(type())
+                EXTERN, STATIC -> storageClasses.add(storageClass())
+                else -> throw error(peek(), "Unexpected specifier '${peek().lexeme}'.")
             }
+            // IDENTIFIER would be next, followed by either of these:
+        } while (!(checkNext(SEMICOLON) || checkNext(EQUAL) || checkNext(LEFT_PAREN)))
+
+        if (types.size > 1) {
+            throw error(previous(), "Expected only 1 type, found ${types.joinToString(", ")}.")
+        } else if (types.isEmpty()) {
+            throw error(previous(), "Expected at least one type.")
         }
 
-        else -> throw error(previous(), "Unexpected declaration.")
+        val type = types.single()
+
+        val storageClass = if (storageClasses.size == 1) {
+            storageClasses.single()
+        } else if (storageClasses.isNotEmpty()) {
+            throw error(previous(), "Expected only 1 storage class, found ${storageClasses.joinToString(", ")}.")
+        } else {
+            StorageClass.NONE
+        }
+
+        return Pair(type, storageClass)
+    }
+
+    private fun storageClass(): StorageClass = when {
+        match(STATIC) -> StorageClass.STATIC
+        match(EXTERN) -> StorageClass.EXTERNAL
+        else -> throw error(previous(), "Unexpected storage class '${peek().type}'.")
+    }
+
+    private fun type(): Type = when {
+        match(INT) -> Type.INT
+        else -> throw error(previous(), "Unexpected type '${peek().type}'.")
     }
 
     private fun primary(): Expression = when {

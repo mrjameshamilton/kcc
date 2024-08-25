@@ -42,7 +42,7 @@ import eu.jameshamilton.frontend.resolve.Linkage.NONE
 import java.util.*
 
 fun resolveVariables(program: Program): Program = scoped {
-    Program(program.functions.map { resolve(it) })
+    Program(program.declarations.map { resolve(it) })
 }
 
 private enum class Linkage {
@@ -151,6 +151,17 @@ private fun resolve(funDeclaration: FunDeclaration): FunDeclaration {
         val body = funDeclaration.body?.map { resolve(it) }
         FunDeclaration(name.identifier, arguments, body)
     }
+}
+
+private fun resolve(varDeclaration: VarDeclaration): VarDeclaration {
+    //TODO
+    val name = varDeclaration.identifier.identifier
+    return varDeclaration
+}
+
+private fun resolve(declaration: Declaration) = when (declaration) {
+    is FunDeclaration -> resolve(declaration)
+    is VarDeclaration -> resolve(declaration)
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {

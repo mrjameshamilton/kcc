@@ -69,7 +69,8 @@ import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
 import eu.jameshamilton.tacky.Var as TackyVar
 
 fun convert(program: Program): TackyProgram =
-    TackyProgram(program.functions.filter { it.body != null }.map { convert(it) })
+    // TODO
+    TackyProgram(program.declarations.filterIsInstance<FunDeclaration>().filter { it.body != null }.map { convert(it) })
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 

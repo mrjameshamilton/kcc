@@ -24,7 +24,7 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 
 fun checkswitchcases(program: Program) {
-    program.functions.forEach { function ->
+    program.declarations.filterIsInstance<FunDeclaration>().forEach { function ->
         val switches = resolveSwitchCases(function)
         switches.forEach { (_, cases) ->
             if (cases.count { it is DefaultCase } > 1) {

@@ -1,6 +1,8 @@
 package eu.jameshamilton.frontend
 
-data class Program(val functions: List<FunDeclaration>)
+import eu.jameshamilton.frontend.StorageClass.NONE
+
+data class Program(val declarations: List<Declaration>)
 
 typealias Block = List<BlockItem>
 
@@ -9,9 +11,26 @@ sealed class BlockItem
 sealed class Statement : BlockItem()
 
 sealed class Declaration(open val identifier: Identifier) : BlockItem()
-data class VarDeclaration(override val identifier: Identifier, val initializer: Expression?) : Declaration(identifier)
-data class FunDeclaration(override val identifier: Identifier, val params: List<Identifier>?, val body: Block?) :
-    Declaration(identifier)
+data class VarDeclaration(
+    override val identifier: Identifier,
+    val initializer: Expression?,
+    val storageClass: StorageClass = NONE
+) : Declaration(identifier)
+
+data class FunDeclaration(
+    override val identifier: Identifier,
+    val params: List<Identifier>?,
+    val body: Block?,
+    val storageClass: StorageClass = NONE
+) : Declaration(identifier)
+
+enum class StorageClass {
+    NONE, STATIC, EXTERNAL
+}
+
+enum class Type {
+    INT
+}
 
 sealed class UnlabeledStatement : Statement()
 data class LabeledStatement(val identifier: Identifier, val statement: Statement) : Statement()

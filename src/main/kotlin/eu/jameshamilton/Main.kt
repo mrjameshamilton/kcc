@@ -3,8 +3,10 @@ package eu.jameshamilton
 import eu.jameshamilton.codegen.convert
 import eu.jameshamilton.codegen.emit
 import eu.jameshamilton.codegen.replacePseudoRegisters
+import eu.jameshamilton.frontend.FunDeclaration
 import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
+import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.check.checklabels
 import eu.jameshamilton.frontend.check.checkswitchcases
 import eu.jameshamilton.frontend.check.checktypes
@@ -102,9 +104,12 @@ fun compile(file: File): File {
     val parsed = parser.parse()
     if (parse) exitProcess(0)
     if (printParsed) {
-        parsed.functions.forEach {
+        parsed.declarations.forEach {
             println(it.identifier)
-            it.body?.forEach { println(it) }
+            when (it) {
+                is FunDeclaration -> it.body?.forEach { println(it) }
+                is VarDeclaration -> println(it.identifier)
+            }
         }
     }
     val resolved = resolve(parsed)
@@ -112,8 +117,11 @@ fun compile(file: File): File {
     checklabels(parsed)
     checkswitchcases(parsed)
     if (printResolved) {
-        resolved.functions.forEach {
-            it.body?.forEach { println(it) }
+        resolved.declarations.forEach {
+            when (it) {
+                is FunDeclaration -> it.body?.forEach { println(it) }
+                is VarDeclaration -> println(it.identifier)
+            }
         }
     }
     if (validate) exitProcess(0)

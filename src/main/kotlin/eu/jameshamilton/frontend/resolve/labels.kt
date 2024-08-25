@@ -24,7 +24,8 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 import java.util.*
 
-fun resolveLabels(program: Program): Program = Program(program.functions.map(::resolveLabels))
+fun resolveLabels(program: Program): Program =
+    Program(program.declarations.filterIsInstance<FunDeclaration>().map(::resolveLabels))
 
 private abstract class ResolveIdentifier(val identifier: String) {
     fun toIdentifier(suffix: String = "") = Identifier(identifier + suffix, 0)

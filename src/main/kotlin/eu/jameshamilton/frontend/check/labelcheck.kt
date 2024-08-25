@@ -23,7 +23,7 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 
 fun checklabels(program: Program) {
-    program.functions.forEach { checklabels(it) }
+    program.declarations.filterIsInstance<FunDeclaration>().forEach { checklabels(it) }
 }
 
 fun checklabels(function: FunDeclaration) {

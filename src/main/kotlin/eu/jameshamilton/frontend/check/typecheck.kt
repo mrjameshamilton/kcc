@@ -41,7 +41,7 @@ data object IntType : Type()
 data class FunType(val paramCount: Int?, val defined: Boolean = false) : Type()
 
 fun checktypes(program: Program) {
-    program.functions.forEach { checktypes(it) }
+    program.declarations.forEach { checktypes(it) }
     println(symbolTable)
 }
 
