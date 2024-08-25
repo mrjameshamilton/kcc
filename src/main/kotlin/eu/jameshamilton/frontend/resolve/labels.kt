@@ -4,6 +4,7 @@ import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Continue
+import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.ExpressionCase
@@ -25,7 +26,7 @@ import eu.jameshamilton.frontend.error
 import java.util.*
 
 fun resolveLabels(program: Program): Program =
-    Program(program.declarations.filterIsInstance<FunDeclaration>().map(::resolveLabels))
+    Program(program.declarations.map(::resolveLabels))
 
 private abstract class ResolveIdentifier(val identifier: String) {
     fun toIdentifier(suffix: String = "") = Identifier(identifier + suffix, 0)
@@ -55,6 +56,11 @@ private fun <T> switch(block: (label: ResolveIdentifier) -> T): T =
 // label could appear in multiple functions.
 private fun unique(identifier: Identifier): Identifier {
     return Identifier(identifier.identifier + "_" + functionCounter, identifier.line)
+}
+
+private fun resolveLabels(declaration: Declaration) = when (declaration) {
+    is FunDeclaration -> resolveLabels(declaration)
+    is VarDeclaration -> VarDeclaration(declaration.name, declaration.initializer, declaration.storageClass)
 }
 
 private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
@@ -100,8 +106,8 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
 
         is LabeledStatement -> LabeledStatement(unique(blockItem.identifier), resolve(blockItem.statement) as Statement)
         is Goto -> Goto(unique(blockItem.identifier))
-        is VarDeclaration -> VarDeclaration(blockItem.identifier, blockItem.initializer)
-        is FunDeclaration -> FunDeclaration(blockItem.identifier, blockItem.params, blockItem.body?.map { resolve(it) })
+        is VarDeclaration -> VarDeclaration(blockItem.name, blockItem.initializer, blockItem.storageClass)
+        is FunDeclaration -> FunDeclaration(blockItem.name, blockItem.params, blockItem.body?.map { resolve(it) }, blockItem.storageClass)
         is Compound -> Compound(blockItem.block.map { resolve(it) })
         is ExpressionStatement -> ExpressionStatement(blockItem.expression)
         is If -> If(blockItem.condition, resolve(blockItem.thenBranch) as Statement,
@@ -147,5 +153,5 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
         }
     }
 
-    return FunDeclaration(funDeclaration.identifier, funDeclaration.params, funDeclaration.body?.map(::resolve))
+    return FunDeclaration(funDeclaration.name, funDeclaration.params, funDeclaration.body?.map(::resolve), funDeclaration.storageClass)
 }
