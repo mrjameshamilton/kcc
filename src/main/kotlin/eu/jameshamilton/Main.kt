@@ -57,9 +57,10 @@ fun main(args: Array<String>) {
         compile(preprocessed)
     }
 
+    val file = File(input.single())
     if (emitAssembly) {
         val outputFile = if (output == null) {
-            File(File(input.single()).nameWithoutExtension + ".s")
+            File(file.parentFile, file.nameWithoutExtension + ".s")
         } else {
             File(output!!)
         }
@@ -69,7 +70,7 @@ fun main(args: Array<String>) {
         }
     } else {
         val assembled = if (output == null) {
-            val outputFile = File(File(input.single()).nameWithoutExtension + (if (emitObject) ".o" else ""))
+            val outputFile = File(file.parentFile, file.nameWithoutExtension + (if (emitObject) ".o" else ""))
             assemble(outputFile, compiled)
         } else {
             val outputFile = File(output!!)
