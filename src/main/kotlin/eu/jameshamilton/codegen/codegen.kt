@@ -10,9 +10,13 @@ import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
 import eu.jameshamilton.codegen.RegisterName.AX
 import eu.jameshamilton.codegen.RegisterName.CX
+import eu.jameshamilton.codegen.RegisterName.DI
 import eu.jameshamilton.codegen.RegisterName.DX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
+import eu.jameshamilton.codegen.RegisterName.R8
+import eu.jameshamilton.codegen.RegisterName.R9
+import eu.jameshamilton.codegen.RegisterName.SI
 import eu.jameshamilton.codegen.Size.BYTE
 import eu.jameshamilton.codegen.Size.LONG
 import eu.jameshamilton.codegen.Size.QUAD
@@ -27,16 +31,15 @@ fun emit(x86program: x86Program): String = buildString {
     fun format(operand: Operand): String = when (operand) {
         is Imm -> "$${operand.value}"
 
-
         is Register -> when (operand.name) {
-            AX, CX, DX -> when (operand.size) {
+            AX, CX, DX, DI, SI -> when (operand.size) {
                 BYTE -> "%${operand.name.name.lowercase().first()}l"
                 WORD -> "%${operand.name.name.lowercase()}"
                 LONG -> "%e${operand.name.name.lowercase()}"
                 QUAD -> "%r${operand.name.name.lowercase()}"
             }
 
-            R10, R11 -> "%${operand.name.name.lowercase()}${operand.size.suffix}"
+            R8, R9, R10, R11 -> "%${operand.name.name.lowercase()}${operand.size.suffix}"
         }
 
         is Pseudo -> unreachable("pseudo instruction not emitted")
@@ -72,7 +75,6 @@ fun emit(x86program: x86Program): String = buildString {
                 )
 
                 is Unary -> appendLine("    ${format(it.op)} ${format(it.operand)}")
-                is AllocateStack -> appendLine("    subq $${it.i}, %rsp")
                 is Binary -> appendLine("    ${format(it.op)} ${format(it.src)}, ${format(it.dst)}")
                 is IDiv -> appendLine("    idivl ${format(it.operand)}")
                 Cdq -> appendLine("    cdq")
@@ -81,6 +83,10 @@ fun emit(x86program: x86Program): String = buildString {
                 is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} .L${it.identifier}")
                 is Label -> appendLine(".L${it.identifier}:")
                 is SetCC -> appendLine("    set${it.conditionCode.toString().lowercase()} ${format(it.operand)}")
+                is Call -> appendLine("    call ${it.identifier}@PLT")
+                is AllocateStack -> appendLine("    subq $${it.i}, %rsp")
+                is DeallocateStack -> appendLine("    addq $${it.i}, %rsp")
+                is Push -> appendLine("    pushq ${format(it.operand)}")
             }
         }
     }

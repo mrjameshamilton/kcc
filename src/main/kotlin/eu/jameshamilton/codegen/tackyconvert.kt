@@ -1,7 +1,12 @@
 package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.RegisterName.AX
+import eu.jameshamilton.codegen.RegisterName.CX
+import eu.jameshamilton.codegen.RegisterName.DI
 import eu.jameshamilton.codegen.RegisterName.DX
+import eu.jameshamilton.codegen.RegisterName.R8
+import eu.jameshamilton.codegen.RegisterName.R9
+import eu.jameshamilton.codegen.RegisterName.SI
 import eu.jameshamilton.tacky.BinaryOp.Add
 import eu.jameshamilton.tacky.BinaryOp.And
 import eu.jameshamilton.tacky.BinaryOp.Divide
@@ -43,8 +48,40 @@ import eu.jameshamilton.tacky.Var as TackyVar
 fun convert(tackyProgram: TackyProgram): x86Program =
     x86Program(tackyProgram.functionDef.map { convert(it) })
 
-private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef =
-    x86FunctionDef(tackyFunctionDef.name, convert(tackyFunctionDef.instructions))
+
+private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
+    val instructions = convert(tackyFunctionDef.instructions)
+
+    val prologue = buildX86 {
+        tackyFunctionDef.parameters.forEachIndexed { index, param ->
+            // Copy all parameters from registers into stack locations,
+            // to simplify things. Later, when register allocation is
+            // implemented then memory/register use will be optimized.
+            when (index) {
+                // First six parameters are passed in registers.
+                0 -> mov(DI, Pseudo(param))
+                1 -> mov(SI, Pseudo(param))
+                2 -> mov(DX, Pseudo(param))
+                3 -> mov(CX, Pseudo(param))
+                4 -> mov(R8, Pseudo(param))
+                5 -> mov(R9, Pseudo(param))
+                else -> {
+                    // The rest on the stack.
+
+                    // base address of callers stack frame + return address of caller,
+                    // are on the stack before the parameters.
+                    val stackParameterOffset = 2
+                    // Then push the parameters in reverse order.
+                    val parameterIndex = index - 6
+
+                    mov(Stack(position = stackParameterOffset + parameterIndex, size = 8), Pseudo(param))
+                }
+            }
+        }
+    }
+
+    return x86FunctionDef(tackyFunctionDef.name, prologue + instructions)
+}
 
 private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap { tacky ->
 
@@ -137,7 +174,49 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             }
 
             is Label -> label(tacky.identifier)
-            is FunctionCall -> TODO()
+            is FunctionCall -> {
+                val registerArguments = tacky.arguments.take(6)
+                val stackArguments = tacky.arguments.drop(6)
+                val stackPadding = if (stackArguments.size % 2 == 0) 0 else 8
+
+                if (stackPadding > 0) {
+                    allocate(stackPadding)
+                }
+
+                registerArguments.forEachIndexed { index, param ->
+                    // Copy all parameters from registers into stack locations,
+                    // to simplify things. Later, when register allocation is
+                    // implemented then memory/register use will be optimized.
+                    when (index) {
+                        0 -> mov(convert(param), DI)
+                        1 -> mov(convert(param), SI)
+                        2 -> mov(convert(param), DX)
+                        3 -> mov(convert(param), CX)
+                        4 -> mov(convert(param), R8)
+                        5 -> mov(convert(param), R9)
+                    }
+                }
+
+                stackArguments.asReversed().forEach { param ->
+                    val argument = convert(param)
+                    if (argument is Register || argument is Imm) {
+                        push(argument)
+                    } else {
+                        mov(argument, AX)
+                        push(AX)
+                    }
+                }
+
+                call(tacky.name)
+
+                val bytesToRemove = (8 * stackArguments.size) + stackPadding
+                if (bytesToRemove > 0) {
+                    deallocate(bytesToRemove)
+                }
+
+                val result = convert(tacky.dst)
+                mov(AX, result)
+            }
         }
     }
 }

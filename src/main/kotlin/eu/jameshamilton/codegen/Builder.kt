@@ -171,6 +171,30 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         instructions += Label(identifier)
         return this
     }
+
+    fun push(value: Operand): Builder {
+        instructions += Push(value)
+        return this
+    }
+
+    fun push(registerName: RegisterName): Builder {
+        return push(Register(registerName, Size.QUAD))
+    }
+
+    fun call(name: String): Builder {
+        instructions += Call(name)
+        return this
+    }
+
+    fun allocate(i: Int): Builder {
+        instructions += AllocateStack(i)
+        return this
+    }
+
+    fun deallocate(i: Int): Builder {
+        instructions += DeallocateStack(i)
+        return this
+    }
 }
 
 fun buildX86(block: Builder.() -> Unit): List<Instruction> = with(Builder()) {

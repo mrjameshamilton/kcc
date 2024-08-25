@@ -427,7 +427,7 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         instructions += TackyReturn(value)
     }
 
-    fun call(identifier: String, arguments: List<Value>, result:Value): Value {
+    fun call(identifier: String, arguments: List<Value>, result: Value): Value {
         instructions += TackyFunctionCall(identifier, arguments, result)
         return result
     }
