@@ -24,32 +24,41 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 import java.util.*
 
-fun resolveLabels(program: Program): Program {
-    return Program(program.functions.map { resolveLabels(it) })
+fun resolveLabels(program: Program): Program = Program(program.functions.map(::resolveLabels))
+
+private abstract class ResolveIdentifier(val identifier: String) {
+    fun toIdentifier(suffix: String = "") = Identifier(identifier + suffix, 0)
+}
+
+private class LoopIdentifier(identifier: String) : ResolveIdentifier(identifier)
+private class SwitchIdentifier(identifier: String, val caseLabels: MutableList<Identifier>) :
+    ResolveIdentifier(identifier)
+
+private val labels = Stack<ResolveIdentifier>()
+private var functionCounter = 0
+private var idCounter = 0
+private val caseLabelCounter = mutableMapOf<SwitchIdentifier, Int>()
+
+private fun <T> scoped(resolveIdentifier: ResolveIdentifier, block: (label: ResolveIdentifier) -> T): T {
+    labels.push(resolveIdentifier)
+    return block(resolveIdentifier).also { labels.pop() }
+}
+
+private fun <T> loop(block: (label: ResolveIdentifier) -> T): T =
+    scoped(LoopIdentifier("${"loop"}_${functionCounter}.${idCounter++}"), block)
+
+private fun <T> switch(block: (label: ResolveIdentifier) -> T): T =
+    scoped(SwitchIdentifier("${"switch"}_${functionCounter}.${idCounter++}", mutableListOf()), block)
+
+// Create a label unique for the whole program, since the same
+// label could appear in multiple functions.
+private fun unique(identifier: Identifier): Identifier {
+    return Identifier(identifier.identifier + "_" + functionCounter, identifier.line)
 }
 
 private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
-    abstract class ResolveIdentifier(val identifier: String) {
-        fun toIdentifier(suffix: String = "") = Identifier(identifier + suffix, 0)
-    }
-
-    class LoopIdentifier(identifier: String) : ResolveIdentifier(identifier)
-    class SwitchIdentifier(identifier: String, val caseLabels: MutableList<Identifier>) : ResolveIdentifier(identifier)
-
-    val labels = Stack<ResolveIdentifier>()
-    var idCounter = 0
-    val caseLabelCounter = mutableMapOf<SwitchIdentifier, Int>()
-
-    fun <T> scoped(resolveIdentifier: ResolveIdentifier, block: (label: ResolveIdentifier) -> T): T {
-        labels.push(resolveIdentifier)
-        return block(resolveIdentifier).also { labels.pop() }
-    }
-
-    fun <T> loop(block: (label: ResolveIdentifier) -> T): T =
-        scoped(LoopIdentifier("${"loop"}_${idCounter++}"), block)
-
-    fun <T> switch(block: (label: ResolveIdentifier) -> T): T =
-        scoped(SwitchIdentifier("${"switch"}_${idCounter++}", mutableListOf()), block)
+    functionCounter++
+    idCounter = 0
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
         is DoWhile -> loop { label ->
@@ -88,12 +97,12 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
             }
         }
 
-        is LabeledStatement -> LabeledStatement(blockItem.identifier, resolve(blockItem.statement) as Statement)
+        is LabeledStatement -> LabeledStatement(unique(blockItem.identifier), resolve(blockItem.statement) as Statement)
+        is Goto -> Goto(unique(blockItem.identifier))
         is VarDeclaration -> VarDeclaration(blockItem.identifier, blockItem.initializer)
         is FunDeclaration -> FunDeclaration(blockItem.identifier, blockItem.params, blockItem.body?.map { resolve(it) })
         is Compound -> Compound(blockItem.block.map { resolve(it) })
         is ExpressionStatement -> ExpressionStatement(blockItem.expression)
-        is Goto -> Goto(blockItem.identifier)
         is If -> If(blockItem.condition, resolve(blockItem.thenBranch) as Statement,
             blockItem.elseBranch?.let { resolve(it) } as Statement?)
 
