@@ -25,6 +25,7 @@ import eu.jameshamilton.frontend.TokenType.EOF
 import eu.jameshamilton.frontend.TokenType.EQUAL
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION
 import eu.jameshamilton.frontend.TokenType.EXCLAMATION_EQUAL
+import eu.jameshamilton.frontend.TokenType.EXTERN
 import eu.jameshamilton.frontend.TokenType.FOR
 import eu.jameshamilton.frontend.TokenType.GOTO
 import eu.jameshamilton.frontend.TokenType.GREATER
@@ -56,6 +57,7 @@ import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
+import eu.jameshamilton.frontend.TokenType.STATIC
 import eu.jameshamilton.frontend.TokenType.STRING
 import eu.jameshamilton.frontend.TokenType.SWITCH
 import eu.jameshamilton.frontend.TokenType.TILDE
@@ -291,6 +293,8 @@ class Scanner(private val source: String) {
             "switch" to SWITCH,
             "case" to CASE,
             "default" to DEFAULT,
+            "extern" to EXTERN,
+            "static" to STATIC,
         )
     }
 }

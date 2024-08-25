@@ -17,6 +17,8 @@ enum class TokenType {
 
     IDENTIFIER, STRING, INT, VOID, RETURN,
 
+    EXTERN, STATIC,
+
     CONSTANT,
 
     // Conditionals.
