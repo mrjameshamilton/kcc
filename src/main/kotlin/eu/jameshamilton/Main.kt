@@ -14,6 +14,7 @@ import eu.jameshamilton.frontend.error
 import eu.jameshamilton.frontend.printProgram
 import eu.jameshamilton.frontend.resolve.resolve
 import eu.jameshamilton.tacky.convert
+import eu.jameshamilton.tacky.printTacky
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
@@ -128,7 +129,7 @@ fun compile(file: File): File {
     }
     if (validate) exitProcess(0)
     val tackye = convert(resolved)
-    if (printTacky) println(tackye)
+    if (printTacky) printTacky(tackye)
     if (tacky) exitProcess(0)
     val x86AST = convert(tackye)
     if (printX86) println(x86AST)
