@@ -43,9 +43,8 @@ private fun printTacky(staticVariable: StaticVariable) {
 
 private fun printTacky(functionDef: FunctionDef) {
     if (functionDef.global) print("global ")
-    println("${functionDef.name}:")
-    println("  parameters: ${functionDef.parameters.joinToString(", ")}")
-    println("  body:")
+    println("${functionDef.name}(${functionDef.parameters.joinToString(", ") { "int $it" }}):")
+    println("  entry:")
     functionDef.instructions.forEach {
         printTacky(it)
     }
@@ -124,13 +123,13 @@ private fun printTacky(instruction: Instruction) {
 
         is Unary -> {
             val op = when (instruction.op) {
-                UnaryOp.Complement -> "complement"
-                UnaryOp.Negate -> "neg"
-                UnaryOp.Not -> "not"
+                UnaryOp.Complement -> "~"
+                UnaryOp.Negate -> "-"
+                UnaryOp.Not -> "!"
             }
             print("    ")
             printTacky(instruction.dst)
-            print(" = $op ")
+            print(" = $op")
             printTacky(instruction.src)
             println()
         }
