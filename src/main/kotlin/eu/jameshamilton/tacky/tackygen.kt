@@ -239,8 +239,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         }
     }
 
-    fun convert(statement: BlockItem): List<Instruction> {
-        val instructions = mutableListOf<Instruction>()
+    fun convert(instructions: MutableList<Instruction>, statement: BlockItem) {
         buildTacky(instructions) {
             when (statement) {
                 is ReturnStatement -> ret(convert(instructions, statement.value))
@@ -265,11 +264,11 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     val elseLabel = if (statement.elseBranch == null) endLabel else makelabel("else_label")
                     val condition = convert(instructions, statement.condition)
                     jumpIfZero(condition, elseLabel)
-                    instructions += convert(statement.thenBranch)
+                    convert(instructions, statement.thenBranch)
                     if (statement.elseBranch != null) {
                         jump(endLabel)
                         label(elseLabel)
-                        instructions += convert(statement.elseBranch)
+                        convert(instructions, statement.elseBranch)
                     }
                     label(endLabel)
                 }
@@ -277,14 +276,13 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 is Goto -> jump(statement.identifier.identifier)
                 is LabeledStatement -> {
                     label(statement.identifier.identifier)
-                    instructions += convert(statement.statement)
+                    convert(instructions, statement.statement)
                 }
 
-                // TODO: refactor instructions += for statements?
-                is Compound -> instructions += statement.block.flatMap { convert(it) }
+                is Compound -> statement.block.forEach { convert(instructions, it) }
                 is Break -> jump(statement.identifier!!.identifier)
                 is Continue -> jump(statement.identifier!!.identifier)
-                is DoWhile -> buildTacky(instructions) {
+                is DoWhile -> {
                     assert(statement.id != null)
 
                     val startLabel = makelabel("start")
@@ -292,14 +290,14 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     val breakLabel = statement.breakLabel!!.identifier
 
                     label(startLabel)
-                    instructions += convert(statement.body)
+                    convert(instructions, statement.body)
                     label(continueLabel)
                     val result = convert(instructions, statement.condition)
                     jumpIfNotZero(result, startLabel)
                     label(breakLabel)
                 }
 
-                is While -> buildTacky(instructions) {
+                is While -> {
                     assert(statement.id != null)
 
                     val continueLabel = statement.continueLabel!!.identifier
@@ -308,14 +306,14 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     label(continueLabel)
                     val result = convert(instructions, statement.condition)
                     jumpIfZero(result, breakLabel)
-                    instructions += convert(statement.body)
+                    convert(instructions, statement.body)
                     jump(continueLabel)
                     label(breakLabel)
                 }
 
-                is For -> buildTacky(instructions) {
+                is For -> {
                     when (statement.init) {
-                        is InitDecl -> instructions += convert(statement.init.declaration)
+                        is InitDecl -> convert(instructions, statement.init.declaration)
                         is InitExpr -> statement.init.expression?.let { convert(instructions, it) }
                     }
                     val startLabel = makelabel("start")
@@ -327,14 +325,14 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                         val result = convert(instructions, statement.condition)
                         jumpIfZero(result, breakLabel)
                     }
-                    instructions += convert(statement.body)
+                    convert(instructions, statement.body)
                     label(continueLabel)
                     statement.post?.let { convert(instructions, it) }
                     jump(startLabel)
                     label(breakLabel)
                 }
 
-                is Switch -> buildTacky(instructions) {
+                is Switch -> {
                     require(statement.id != null)
                     require(switches.containsKey(statement))
 
@@ -370,27 +368,28 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                             jump(breakLabel)
                         }
 
-                        instructions += convert(statement.statement)
+                        convert(instructions, statement.statement)
 
                         label(breakLabel)
                     }
                     nop()
                 }
 
-                is SwitchCase -> buildTacky(instructions) {
+                is SwitchCase -> {
                     label(statement.label!!.identifier)
-                    instructions += convert(statement.statement)
+                    convert(instructions, statement.statement)
                     nop()
                 }
             }
             nop()
         }
-        return instructions
     }
 
-    fun convert(statements: List<BlockItem>?): List<Instruction> {
-        return statements?.flatMap { convert(it) } ?: emptyList()
-    }
+    fun convert(statements: List<BlockItem>?): List<Instruction> = statements?.flatMap { blockItem ->
+        val instructions = mutableListOf<Instruction>()
+        convert(instructions, blockItem)
+        instructions
+    } ?: emptyList()
 
     val attr = symbolTable[funDeclaration.name]?.attr as FunAttr
 
