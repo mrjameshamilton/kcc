@@ -38,7 +38,7 @@ import eu.jameshamilton.frontend.error
 
 typealias SymbolTable = HashMap<Identifier, SymbolTableEntry>
 
-data class SymbolTableEntry(val name: Identifier, val type: Type, val attr: IdentifierAttr? = null)
+data class SymbolTableEntry(val type: Type, val attr: IdentifierAttr? = null)
 
 val symbolTable = SymbolTable()
 
@@ -110,12 +110,12 @@ private fun checktypes(functionDeclaration: FunDeclaration) {
 
     val type = FunType(functionDeclaration.params?.size)
     val attr = FunAttr(alreadyDefined || functionDeclaration.body != null, global)
-    symbolTable[functionDeclaration.name] = SymbolTableEntry(functionDeclaration.name, type, attr)
+    symbolTable[functionDeclaration.name] = SymbolTableEntry(type, attr)
 
     if (functionDeclaration.body != null) {
         functionDeclaration.params?.forEach {
             val type = IntType
-            symbolTable[it.name] = SymbolTableEntry(it.name, type, LocalAttr)
+            symbolTable[it.name] = SymbolTableEntry(type, LocalAttr)
         }
         functionDeclaration.body.forEach { checktypes(it) }
     }
@@ -139,7 +139,7 @@ private fun checklocalscope(varDeclaration: VarDeclaration) {
             } else {
                 val type = IntType
                 val attrs = StaticAttr(NoInitializer, true)
-                symbolTable[varDeclaration.name] = SymbolTableEntry(varDeclaration.name, type, attrs)
+                symbolTable[varDeclaration.name] = SymbolTableEntry(type, attrs)
             }
         }
 
@@ -155,12 +155,12 @@ private fun checklocalscope(varDeclaration: VarDeclaration) {
 
             val type = IntType
             val attrs = StaticAttr(initialValue, false)
-            symbolTable[varDeclaration.name] = SymbolTableEntry(varDeclaration.name, type, attrs)
+            symbolTable[varDeclaration.name] = SymbolTableEntry(type, attrs)
         }
 
         else -> {
             val type = IntType
-            symbolTable[varDeclaration.name] = SymbolTableEntry(varDeclaration.name, type, LocalAttr)
+            symbolTable[varDeclaration.name] = SymbolTableEntry(type, LocalAttr)
             varDeclaration.initializer?.let { checktypes(varDeclaration.initializer) }
         }
     }
@@ -213,7 +213,7 @@ private fun checkfilescope(varDeclaration: VarDeclaration) {
 
     val type = IntType
     val attrs = StaticAttr(initialValue, global)
-    symbolTable[varDeclaration.name] = SymbolTableEntry(varDeclaration.name, type, attrs)
+    symbolTable[varDeclaration.name] = SymbolTableEntry(type, attrs)
 }
 
 private fun checktypes(expression: Expression): Any? = when (expression) {

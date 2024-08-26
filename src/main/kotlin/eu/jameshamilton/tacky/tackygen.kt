@@ -54,7 +54,14 @@ import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
+import eu.jameshamilton.frontend.check.FunAttr
+import eu.jameshamilton.frontend.check.Initial
+import eu.jameshamilton.frontend.check.LocalAttr
+import eu.jameshamilton.frontend.check.NoInitializer
+import eu.jameshamilton.frontend.check.StaticAttr
+import eu.jameshamilton.frontend.check.Tentative
 import eu.jameshamilton.frontend.check.resolveSwitchCases
+import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
@@ -68,9 +75,27 @@ import eu.jameshamilton.tacky.Unary as TackyUnary
 import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
 import eu.jameshamilton.tacky.Var as TackyVar
 
-fun convert(program: Program): TackyProgram =
-    // TODO
-    TackyProgram(program.declarations.filterIsInstance<FunDeclaration>().filter { it.body != null }.map { convert(it) })
+fun convert(program: Program): TackyProgram {
+    val functions =
+        program.declarations
+            .filterIsInstance<FunDeclaration>()
+            .filter { it.body != null }
+            .map { convert(it) }
+
+    val staticVariables: List<StaticVariable> =
+        symbolTable
+            .filterValues { it.attr is StaticAttr }
+            .map { (name, entry) -> name to (entry.attr as StaticAttr) }
+            .mapNotNull { (name, staticAttr) ->
+                when (staticAttr.initialValue) {
+                    is Initial -> StaticVariable(name.identifier, staticAttr.global, staticAttr.initialValue.value)
+                    Tentative -> StaticVariable(name.identifier, staticAttr.global, 0)
+                    NoInitializer -> null
+                }
+            }
+
+    return TackyProgram(staticVariables + functions)
+}
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
@@ -221,10 +246,12 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 is ReturnStatement -> ret(convert(instructions, statement.value))
                 is ExpressionStatement -> convert(instructions, statement.expression)
                 is NullStatement -> emptyList<Instruction>()
-                is VarDeclaration -> if (statement.initializer != null) {
-                    val src = convert(instructions, statement.initializer)
-                    val dst = TackyVar(statement.name.identifier)
-                    copy(src, dst)
+                is VarDeclaration -> {
+                    if (symbolTable[statement.name]?.attr is LocalAttr && statement.initializer != null) {
+                        val src = convert(instructions, statement.initializer)
+                        val dst = TackyVar(statement.name.identifier)
+                        copy(src, dst)
+                    }
                 }
 
                 is FunDeclaration -> {
@@ -365,8 +392,11 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         return statements?.flatMap { convert(it) } ?: emptyList()
     }
 
+    val attr = symbolTable[funDeclaration.name]?.attr as FunAttr
+
     return TackyFunctionDef(
         funDeclaration.name.identifier,
+        attr.global,
         funDeclaration.params?.map { it.name.identifier } ?: emptyList(),
         convert(funDeclaration.body) + listOf(TackyReturn(TackyConstant(0)))
     )

@@ -1,10 +1,20 @@
 package eu.jameshamilton.tacky
 
 
-data class Program(val functionDef: List<FunctionDef>)
-sealed class Instruction
+data class Program(val items: List<TopLevel>)
 
-data class FunctionDef(val name: String, val parameters: List<String>, val instructions: List<Instruction>)
+sealed class TopLevel
+
+data class FunctionDef(
+    val name: String,
+    val global: Boolean,
+    val parameters: List<String>,
+    val instructions: List<Instruction>
+) : TopLevel()
+
+data class StaticVariable(val name: String, val global: Boolean, val init: Int) : TopLevel()
+
+sealed class Instruction
 data class FunctionCall(val name: String, val arguments: List<Value>, val dst: Value) : Instruction()
 
 data class TackyReturn(val value: Value) : Instruction()
