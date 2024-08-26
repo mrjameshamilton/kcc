@@ -1,35 +1,21 @@
-static int x = 65;
+/* Verify that if variable is tentatively defined one or more times,
+ * but not explicitly initialized, we'll initialize it to 0.
+ */
 
-extern int putchar(int c);
+/* This declares foo but does not define it */
+extern int foo;
 
-int foo(int a, int b, int c, int d, int e, int f, int g, int h, int i) {
+/* A tentative definition of foo */
+int foo;
 
-    int putchar(int c);
-    putchar(65);
-   // putchar(a);
-    //putchar(b);
-    //putchar(c);
-    //putchar(d);
-    //putchar(e);
-    //putchar(f);
-    //putchar(g);
-
-
-    return a + h;
-}
-int main1(void) {
-    static int i = 2;
-    static int j = 3;
-    int cmp = i < j; // make sure rewrite cmpl j(%rip), i(%rip)
-
-    for (static int i = 0; ; ) ;
-
-    if (!cmp)
-        return 1;
-    return 0;
-}
+/* Another tentative definition of foo */
+int foo;
 
 int main(void) {
-    return foo(x, 66, 67, 68, 69, 70, 71, 7, 65);
-    //putchar(65);
+    for (int i = 0; i < 5; i = i + 1)
+        foo = foo + 1;
+    return foo;
 }
+
+/* Yet another tentative definition of foo */
+int foo;

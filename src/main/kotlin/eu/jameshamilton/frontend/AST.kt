@@ -1,5 +1,6 @@
 package eu.jameshamilton.frontend
 
+import eu.jameshamilton.frontend.StorageClass.EXTERN
 import eu.jameshamilton.frontend.StorageClass.NONE
 
 data class Program(val declarations: List<Declaration>)
@@ -10,22 +11,24 @@ typealias Block = List<BlockItem>
 sealed class BlockItem
 sealed class Statement : BlockItem()
 
-sealed class Declaration(open val identifier: Identifier) : BlockItem()
+sealed class Declaration(open val name: Identifier, open val storageClass: StorageClass = NONE) : BlockItem()
 data class VarDeclaration(
-    override val identifier: Identifier,
+    override val name: Identifier,
     val initializer: Expression?,
-    val storageClass: StorageClass = NONE
-) : Declaration(identifier)
+    override val storageClass: StorageClass = NONE
+) : Declaration(name) {
+    constructor(identifier: Identifier, storageClass: StorageClass) : this(identifier, null, storageClass)
+}
 
 data class FunDeclaration(
-    override val identifier: Identifier,
-    val params: List<Identifier>?,
+    override val name: Identifier,
+    val params: List<VarDeclaration>?,
     val body: Block?,
-    val storageClass: StorageClass = NONE
-) : Declaration(identifier)
+    override val storageClass: StorageClass = EXTERN
+) : Declaration(name)
 
 enum class StorageClass {
-    NONE, STATIC, EXTERNAL
+    NONE, STATIC, EXTERN
 }
 
 enum class Type {

@@ -27,6 +27,7 @@ import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Statement
+import eu.jameshamilton.frontend.StorageClass
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
@@ -37,21 +38,12 @@ import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
-import eu.jameshamilton.frontend.resolve.Linkage.EXTERNAL
-import eu.jameshamilton.frontend.resolve.Linkage.NONE
 import java.util.*
 
-fun resolveVariables(program: Program): Program = scoped {
-    Program(program.declarations.map { resolve(it) })
-}
-
-private enum class Linkage {
-    NONE, EXTERNAL
-}
-
-private data class Variable(val identifier: Identifier, val linkage: Linkage = NONE, val level: Int = 0)
+private data class Variable(val identifier: Identifier, val hasLinkage: Boolean = false, val level: Int = 0)
 
 private val scopes = Stack<MutableMap<String, Variable>>()
+
 private val variables: MutableMap<String, Variable>
     get() = scopes.peek()
 
@@ -63,34 +55,66 @@ private fun <T> scoped(block: () -> T): T {
     }
 }
 
-private fun maketemporary(name: Identifier, linkage: Linkage): Variable {
-    val newName = if (linkage == EXTERNAL) name.identifier else "${name.identifier}.${scopes.size}.${variables.size}"
-    return Variable(Identifier(newName, name.line), linkage, scopes.size)
+private fun maketemporary(name: Identifier, hasLinkage: Boolean): Variable {
+    val newName = if (hasLinkage) name.identifier else "${name.identifier}.${scopes.size}.${variables.size}"
+    return Variable(Identifier(newName, name.line), hasLinkage, scopes.size)
 }
 
-private fun resolve(name: Identifier, linkage: Linkage): Variable {
+fun resolveVariables(program: Program): Program = scoped {
+    Program(program.declarations.map { resolveFileScope(it) })
+}
+
+private fun resolveFileScope(declaration: Declaration) = when (declaration) {
+    is FunDeclaration -> resolveFileOrBlockScope(declaration)
+    is VarDeclaration -> {
+        val newName = maketemporary(declaration.name, hasLinkage = true)
+        variables[declaration.name.identifier] = newName
+        VarDeclaration(declaration.name, declaration.initializer, declaration.storageClass)
+    }
+}
+
+private fun resolveFileOrBlockScope(funDeclaration: FunDeclaration): FunDeclaration {
+    // File scope and block scope functions can be treated the same.
+    // Block scope functions can't have definitions which is checked in resolve(blockItem).
+    val name = resolve(funDeclaration, hasLinkage = true)
+
+    return scoped {
+        val arguments = funDeclaration.params?.map {
+            val resolvedParam = resolve(it, hasLinkage = false)
+            VarDeclaration(resolvedParam.identifier, StorageClass.NONE)
+        }
+        val body = funDeclaration.body?.map { resolve(it) }
+        FunDeclaration(name.identifier, arguments, body, funDeclaration.storageClass)
+    }
+}
+
+private fun <T : Declaration> resolve(declaration: T, hasLinkage: Boolean): Variable {
+    val identifier = declaration.name.identifier
+
     val alreadyDeclaredInScope =
-        variables.containsKey(name.identifier) &&
-                variables[name.identifier]?.level == scopes.size
+        variables.containsKey(identifier) &&
+                variables[identifier]?.level == scopes.size
 
     if (alreadyDeclaredInScope) {
-        val variable = variables[name.identifier]!!
+        val previousVariable = variables[identifier]!!
 
         // External linkage declarations can be declared multiple times.
-        if (variable.linkage == EXTERNAL && linkage == EXTERNAL) {
-            return variable
+        if (previousVariable.hasLinkage && hasLinkage) {
+            return previousVariable
         }
 
-        if (linkage != variable.linkage) {
-            error(name.line, "Duplicate declaration '${name.identifier}' with different linkage.")
-        } else {
-            error(name.line, "Duplicate declaration '${name.identifier}'.")
+        if (declaration is VarDeclaration) {
+            if (hasLinkage != previousVariable.hasLinkage) {
+                error(declaration.name.line, "Duplicate declaration of '$identifier' with different linkage.")
+            } else {
+                error(declaration.name.line, "Duplicate declaration of '$identifier'.")
+            }
         }
     }
 
-    val uniqueName = maketemporary(name, linkage)
-    variables[name.identifier] = uniqueName
-    return uniqueName
+    return maketemporary(declaration.name, hasLinkage).also { newName ->
+        variables[identifier] = newName
+    }
 }
 
 private fun resolve(expression: Expression): Expression = when (expression) {
@@ -142,50 +166,35 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     }
 }
 
-private fun resolve(funDeclaration: FunDeclaration): FunDeclaration {
-    val name = resolve(funDeclaration.identifier, EXTERNAL)
-    return scoped {
-        val arguments = funDeclaration.params?.map {
-            resolve(it, NONE).identifier
-        }
-        val body = funDeclaration.body?.map { resolve(it) }
-        FunDeclaration(name.identifier, arguments, body)
-    }
-}
-
-private fun resolve(varDeclaration: VarDeclaration): VarDeclaration {
-    //TODO
-    val name = varDeclaration.identifier.identifier
-    return varDeclaration
-}
-
-private fun resolve(declaration: Declaration) = when (declaration) {
-    is FunDeclaration -> resolve(declaration)
-    is VarDeclaration -> resolve(declaration)
-}
-
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
     is Declaration -> {
-        val name = resolve(blockItem.identifier, if (blockItem is FunDeclaration) EXTERNAL else NONE)
+        val name = resolve(blockItem, hasLinkage = blockItem.storageClass == StorageClass.EXTERN)
 
         when (blockItem) {
             is VarDeclaration -> {
                 if (blockItem.initializer == null) {
-                    VarDeclaration(name.identifier, null)
+                    VarDeclaration(name.identifier, null, blockItem.storageClass)
                 } else {
-                    VarDeclaration(name.identifier, resolve(blockItem.initializer))
+                    VarDeclaration(name.identifier, resolve(blockItem.initializer), blockItem.storageClass)
                 }
             }
 
             is FunDeclaration -> {
                 if (blockItem.body != null) {
                     error(
-                        blockItem.identifier.line,
-                        "Nested function '${blockItem.identifier.identifier}' definition not allowed."
+                        blockItem.name.line,
+                        "Nested function '${blockItem.name.identifier}' definition not allowed."
                     )
                 }
 
-                resolve(blockItem)
+                if (blockItem.storageClass == StorageClass.STATIC) {
+                    error(
+                        blockItem.name.line,
+                        "Function declaration '${blockItem.name.identifier}' cannot have 'static' specifier."
+                    )
+                }
+
+                resolveFileOrBlockScope(blockItem)
             }
         }
     }

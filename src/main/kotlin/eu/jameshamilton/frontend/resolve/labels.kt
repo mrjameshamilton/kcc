@@ -107,7 +107,13 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
         is LabeledStatement -> LabeledStatement(unique(blockItem.identifier), resolve(blockItem.statement) as Statement)
         is Goto -> Goto(unique(blockItem.identifier))
         is VarDeclaration -> VarDeclaration(blockItem.name, blockItem.initializer, blockItem.storageClass)
-        is FunDeclaration -> FunDeclaration(blockItem.name, blockItem.params, blockItem.body?.map { resolve(it) }, blockItem.storageClass)
+        is FunDeclaration -> FunDeclaration(
+            blockItem.name,
+            blockItem.params,
+            blockItem.body?.map { resolve(it) },
+            blockItem.storageClass
+        )
+
         is Compound -> Compound(blockItem.block.map { resolve(it) })
         is ExpressionStatement -> ExpressionStatement(blockItem.expression)
         is If -> If(blockItem.condition, resolve(blockItem.thenBranch) as Statement,
@@ -153,5 +159,10 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
         }
     }
 
-    return FunDeclaration(funDeclaration.name, funDeclaration.params, funDeclaration.body?.map(::resolve), funDeclaration.storageClass)
+    return FunDeclaration(
+        funDeclaration.name,
+        funDeclaration.params,
+        funDeclaration.body?.map(::resolve),
+        funDeclaration.storageClass
+    )
 }

@@ -103,11 +103,11 @@ class Parser(private val tokens: List<Token>) {
         expect(LEFT_PAREN, "( expected.")
         val parameters = when {
             match(VOID) -> null
-            else -> mutableListOf<Identifier>().also {
+            else -> mutableListOf<VarDeclaration>().also {
                 do {
                     val type = type()
                     val identifier = expect(IDENTIFIER, "Parameter name expected.")
-                    it.add(Identifier(identifier.lexeme, identifier.line))
+                    it.add(VarDeclaration(Identifier(identifier.lexeme, identifier.line), StorageClass.NONE))
                 } while (match(COMMA))
             }
         }
@@ -279,7 +279,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
     private fun checkStorageClass() = check(EXTERN) || check(STATIC)
-    private fun checkType() = checkAny(INT)
+    private fun checkType() = check(INT)
 
     private fun specifier(): Pair<Type, StorageClass> {
         val types = mutableListOf<Type>()
@@ -302,12 +302,13 @@ class Parser(private val tokens: List<Token>) {
 
         val type = types.single()
 
-        val storageClass = if (storageClasses.size == 1) {
-            storageClasses.single()
-        } else if (storageClasses.isNotEmpty()) {
-            throw error(previous(), "Expected only 1 storage class, found ${storageClasses.joinToString(", ")}.")
-        } else {
-            StorageClass.NONE
+        val storageClass = when {
+            storageClasses.size == 1 -> storageClasses.single()
+            storageClasses.isNotEmpty() -> {
+                throw error(previous(), "Expected only 1 storage class, found ${storageClasses.joinToString(", ")}.")
+            }
+
+            else -> StorageClass.NONE
         }
 
         return Pair(type, storageClass)
@@ -315,7 +316,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun storageClass(): StorageClass = when {
         match(STATIC) -> StorageClass.STATIC
-        match(EXTERN) -> StorageClass.EXTERNAL
+        match(EXTERN) -> StorageClass.EXTERN
         else -> throw error(previous(), "Unexpected storage class '${peek().type}'.")
     }
 

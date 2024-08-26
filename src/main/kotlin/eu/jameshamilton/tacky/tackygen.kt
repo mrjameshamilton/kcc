@@ -223,7 +223,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 is NullStatement -> emptyList<Instruction>()
                 is VarDeclaration -> if (statement.initializer != null) {
                     val src = convert(instructions, statement.initializer)
-                    val dst = TackyVar(statement.identifier.identifier)
+                    val dst = TackyVar(statement.name.identifier)
                     copy(src, dst)
                 }
 
@@ -366,8 +366,8 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
     }
 
     return TackyFunctionDef(
-        funDeclaration.identifier.identifier,
-        funDeclaration.params?.map { it.identifier } ?: emptyList(),
+        funDeclaration.name.identifier,
+        funDeclaration.params?.map { it.name.identifier } ?: emptyList(),
         convert(funDeclaration.body) + listOf(TackyReturn(TackyConstant(0)))
     )
 }

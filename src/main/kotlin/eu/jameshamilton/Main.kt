@@ -11,6 +11,7 @@ import eu.jameshamilton.frontend.check.checklabels
 import eu.jameshamilton.frontend.check.checkswitchcases
 import eu.jameshamilton.frontend.check.checktypes
 import eu.jameshamilton.frontend.error
+import eu.jameshamilton.frontend.printProgram
 import eu.jameshamilton.frontend.resolve.resolve
 import eu.jameshamilton.tacky.convert
 import kotlinx.cli.ArgParser
@@ -104,11 +105,12 @@ fun compile(file: File): File {
     val parsed = parser.parse()
     if (parse) exitProcess(0)
     if (printParsed) {
+        //printProgram(parsed, System.out)
         parsed.declarations.forEach {
-            println(it.identifier)
+            println(it.name)
             when (it) {
                 is FunDeclaration -> it.body?.forEach { println(it) }
-                is VarDeclaration -> println(it.identifier)
+                is VarDeclaration -> println(it)
             }
         }
     }
@@ -120,7 +122,7 @@ fun compile(file: File): File {
         resolved.declarations.forEach {
             when (it) {
                 is FunDeclaration -> it.body?.forEach { println(it) }
-                is VarDeclaration -> println(it.identifier)
+                is VarDeclaration -> println(it)
             }
         }
     }
