@@ -55,8 +55,13 @@ private fun <T> scoped(block: () -> T): T {
     }
 }
 
+private var functionCounter = 0
+
 private fun maketemporary(name: Identifier, hasLinkage: Boolean): Variable {
-    val newName = if (hasLinkage) name.identifier else "${name.identifier}.${scopes.size}.${variables.size}"
+    val newName = when {
+        hasLinkage -> name.identifier
+        else -> "${name.identifier}_${functionCounter}.${scopes.size}.${variables.size}"
+    }
     return Variable(Identifier(newName, name.line), hasLinkage, scopes.size)
 }
 
@@ -65,9 +70,31 @@ fun resolveVariables(program: Program): Program = scoped {
 }
 
 private fun resolveFileScope(declaration: Declaration) = when (declaration) {
-    is FunDeclaration -> resolveFileOrBlockScope(declaration)
+    is FunDeclaration -> {
+        functionCounter++
+        resolveFileOrBlockScope(declaration)
+    }
+
     is VarDeclaration -> {
-        val newName = maketemporary(declaration.name, hasLinkage = true)
+        var hasLinkage = true
+
+        // At file scope: if an identifier with extern is declared at a point
+        // where a prior declaration is visible, and the prior
+        // declaration has linkage, then the linkage is the same
+        // as the previous.
+        //
+        // static int a; // internal linkage
+        // extern int a; // external linkage declared BUT it will actually
+        //               // have internal linkage due to the previous declaration.
+        //
+        if (declaration.storageClass == StorageClass.EXTERN &&
+            variables.containsKey(declaration.name.identifier) &&
+            variables[declaration.name.identifier]!!.hasLinkage
+        ) {
+            hasLinkage = variables[declaration.name.identifier]!!.hasLinkage
+        }
+
+        val newName = maketemporary(declaration.name, hasLinkage)
         variables[declaration.name.identifier] = newName
         VarDeclaration(declaration.name, declaration.initializer, declaration.storageClass)
     }
@@ -127,7 +154,7 @@ private fun resolve(expression: Expression): Expression = when (expression) {
         Assignment(resolve(left), resolve(right))
     }
 
-    is Var -> if (expression.identifier.identifier in variables.keys) {
+    is Var -> if (expression.identifier.identifier in variables) {
         Var(variables[expression.identifier.identifier]!!.identifier)
     } else {
         error(

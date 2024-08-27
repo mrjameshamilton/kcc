@@ -25,7 +25,6 @@ import eu.jameshamilton.tacky.BinaryOp.Subtract
 import eu.jameshamilton.tacky.BinaryOp.Xor
 import eu.jameshamilton.tacky.Copy
 import eu.jameshamilton.tacky.FunctionCall
-import eu.jameshamilton.tacky.FunctionDef
 import eu.jameshamilton.tacky.Jump
 import eu.jameshamilton.tacky.JumpIfNotZero
 import eu.jameshamilton.tacky.JumpIfZero
@@ -42,13 +41,21 @@ import eu.jameshamilton.tacky.Constant as TackyConstant
 import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
 import eu.jameshamilton.tacky.Instruction as TackyInstruction
 import eu.jameshamilton.tacky.Program as TackyProgram
+import eu.jameshamilton.tacky.StaticVariable as TackyStaticVariable
 import eu.jameshamilton.tacky.Unary as TackyUnary
 import eu.jameshamilton.tacky.Value as TackyValue
 import eu.jameshamilton.tacky.Var as TackyVar
 
 fun convert(tackyProgram: TackyProgram): x86Program =
-    x86Program(tackyProgram.items.filterIsInstance<FunctionDef>().map { convert(it) })
+    x86Program(tackyProgram.items.map {
+        when (it) {
+            is TackyStaticVariable -> convert(it)
+            is TackyFunctionDef -> convert(it)
+        }
+    })
 
+private fun convert(staticVariable: TackyStaticVariable): StaticVariable =
+    StaticVariable(staticVariable.name, staticVariable.global, staticVariable.init)
 
 private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
     val instructions = convert(tackyFunctionDef.instructions)
@@ -81,7 +88,7 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
         }
     }
 
-    return x86FunctionDef(tackyFunctionDef.name, prologue + instructions)
+    return x86FunctionDef(tackyFunctionDef.name, tackyFunctionDef.global, prologue + instructions)
 }
 
 private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap { tacky ->

@@ -116,8 +116,8 @@ fun compile(file: File): File {
     }
     val resolved = resolve(parsed)
     checktypes(resolved)
-    checklabels(parsed)
-    checkswitchcases(parsed)
+    checklabels(resolved)
+    checkswitchcases(resolved)
     if (printResolved) {
         resolved.declarations.forEach {
             when (it) {

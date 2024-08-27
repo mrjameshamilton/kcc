@@ -18,7 +18,6 @@ import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunDeclaration
 import eu.jameshamilton.frontend.FunctionCall
 import eu.jameshamilton.frontend.Goto
-import eu.jameshamilton.frontend.Identifier
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
@@ -36,7 +35,7 @@ import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.error
 
-typealias SymbolTable = HashMap<Identifier, SymbolTableEntry>
+typealias SymbolTable = HashMap<String, SymbolTableEntry>
 
 data class SymbolTableEntry(val type: Type, val attr: IdentifierAttr? = null)
 
@@ -70,8 +69,8 @@ private fun checktypes(functionDeclaration: FunDeclaration) {
     // static functions will not be globally visible.
     var global = functionDeclaration.storageClass != STATIC
 
-    if (functionDeclaration.name in symbolTable) {
-        val oldDeclaration = symbolTable[functionDeclaration.name]!!
+    if (functionDeclaration.name.identifier in symbolTable) {
+        val oldDeclaration = symbolTable[functionDeclaration.name.identifier]!!
 
         if (oldDeclaration.type !is FunType) {
             error(
@@ -110,12 +109,12 @@ private fun checktypes(functionDeclaration: FunDeclaration) {
 
     val type = FunType(functionDeclaration.params?.size)
     val attr = FunAttr(alreadyDefined || functionDeclaration.body != null, global)
-    symbolTable[functionDeclaration.name] = SymbolTableEntry(type, attr)
+    symbolTable[functionDeclaration.name.identifier] = SymbolTableEntry(type, attr)
 
     if (functionDeclaration.body != null) {
         functionDeclaration.params?.forEach {
             val type = IntType
-            symbolTable[it.name] = SymbolTableEntry(type, LocalAttr)
+            symbolTable[it.name.identifier] = SymbolTableEntry(type, LocalAttr)
         }
         functionDeclaration.body.forEach { checktypes(it) }
     }
@@ -124,6 +123,7 @@ private fun checktypes(functionDeclaration: FunDeclaration) {
 private fun checklocalscope(varDeclaration: VarDeclaration) {
     when (varDeclaration.storageClass) {
         EXTERN -> {
+            println("check $varDeclaration")
             if (varDeclaration.initializer != null) {
                 error(
                     varDeclaration.name.line,
@@ -131,15 +131,16 @@ private fun checklocalscope(varDeclaration: VarDeclaration) {
                 )
             }
 
-            if (varDeclaration.name in symbolTable) {
-                val oldDeclaration = symbolTable[varDeclaration.name]!!
+            if (varDeclaration.name.identifier in symbolTable) {
+                val oldDeclaration = symbolTable[varDeclaration.name.identifier]!!
                 if (oldDeclaration.type != IntType) {
                     error(varDeclaration.name.line, "Variable '${varDeclaration.name}' previously defined as function.")
                 }
             } else {
                 val type = IntType
                 val attrs = StaticAttr(NoInitializer, true)
-                symbolTable[varDeclaration.name] = SymbolTableEntry(type, attrs)
+                symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(type, attrs)
+                println("HERE2 = ${symbolTable[varDeclaration.name.identifier]}")
             }
         }
 
@@ -155,12 +156,12 @@ private fun checklocalscope(varDeclaration: VarDeclaration) {
 
             val type = IntType
             val attrs = StaticAttr(initialValue, false)
-            symbolTable[varDeclaration.name] = SymbolTableEntry(type, attrs)
+            symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(type, attrs)
         }
 
         else -> {
             val type = IntType
-            symbolTable[varDeclaration.name] = SymbolTableEntry(type, LocalAttr)
+            symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(type, LocalAttr)
             varDeclaration.initializer?.let { checktypes(varDeclaration.initializer) }
         }
     }
@@ -182,8 +183,8 @@ private fun checkfilescope(varDeclaration: VarDeclaration) {
 
     var global = varDeclaration.storageClass != STATIC
 
-    if (varDeclaration.name in symbolTable) {
-        val oldDeclaration = symbolTable[varDeclaration.name]!!
+    if (varDeclaration.name.identifier in symbolTable) {
+        val oldDeclaration = symbolTable[varDeclaration.name.identifier]!!
 
         if (oldDeclaration.type != IntType) {
             error(varDeclaration.name.line, "Variable '${varDeclaration.name}' previously defined as function.")
@@ -213,7 +214,8 @@ private fun checkfilescope(varDeclaration: VarDeclaration) {
 
     val type = IntType
     val attrs = StaticAttr(initialValue, global)
-    symbolTable[varDeclaration.name] = SymbolTableEntry(type, attrs)
+    symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(type, attrs)
+    println("HERE = ${symbolTable[varDeclaration.name.identifier]}")
 }
 
 private fun checktypes(expression: Expression): Any? = when (expression) {
@@ -237,11 +239,11 @@ private fun checktypes(expression: Expression): Any? = when (expression) {
     is FunctionCall -> {
         val identifier = expression.identifier
 
-        if (identifier !in symbolTable) {
+        if (identifier.identifier !in symbolTable) {
             error(identifier.line, "'${identifier.identifier}' is not defined.")
         }
 
-        val type = symbolTable[identifier]!!.type
+        val type = symbolTable[identifier.identifier]!!.type
         if (type !is FunType) {
             error(identifier.line, "'${identifier.identifier}' is not function.")
         }
@@ -257,7 +259,7 @@ private fun checktypes(expression: Expression): Any? = when (expression) {
     }
 
     is UnaryExpr -> checktypes(expression.expression)
-    is Var -> if (symbolTable[expression.identifier]?.type is FunType) {
+    is Var -> if (symbolTable[expression.identifier.identifier]?.type is FunType) {
         error(expression.identifier.line, "'${expression.identifier}' is a function used as a variable.")
     } else {
     }
@@ -307,7 +309,7 @@ private fun checktypes(blockItem: BlockItem): Any? = when (blockItem) {
     is Switch -> {
         val expression = blockItem.expression
         if (expression is Var) {
-            val type = symbolTable[expression.identifier]?.type
+            val type = symbolTable[expression.identifier.identifier]?.type
             if (type is FunType) {
                 error(
                     expression.identifier.line,

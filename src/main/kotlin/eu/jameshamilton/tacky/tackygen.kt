@@ -88,14 +88,19 @@ fun convert(program: Program): TackyProgram {
             .map { (name, entry) -> name to (entry.attr as StaticAttr) }
             .mapNotNull { (name, staticAttr) ->
                 when (staticAttr.initialValue) {
-                    is Initial -> StaticVariable(name.identifier, staticAttr.global, staticAttr.initialValue.value)
-                    Tentative -> StaticVariable(name.identifier, staticAttr.global, 0)
+                    is Initial -> StaticVariable(name, staticAttr.global, staticAttr.initialValue.value)
+                    Tentative -> StaticVariable(name, staticAttr.global, 0)
                     NoInitializer -> null
                 }
             }
 
     return TackyProgram(staticVariables + functions)
 }
+
+private var count = 0
+private fun maketemporary(): String = "tmp.${count++}"
+private var labels = 0
+private fun makelabel(name: String): LabelIdentifier = "${name}_${labels++}"
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
@@ -105,11 +110,6 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         UnaryOp.Not -> TackyUnaryOp.Not
         PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement -> unreachable("special case")
     }
-
-    var count = 0
-    fun maketemporary(): String = "tmp.${count++}"
-    var labels = 0
-    fun makelabel(name: String): LabelIdentifier = "${name}_${labels++}"
 
     val switches = resolveSwitchCases(funDeclaration)
 
@@ -246,7 +246,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 is ExpressionStatement -> convert(instructions, statement.expression)
                 is NullStatement -> emptyList<Instruction>()
                 is VarDeclaration -> {
-                    if (symbolTable[statement.name]?.attr is LocalAttr && statement.initializer != null) {
+                    if (symbolTable[statement.name.identifier]?.attr is LocalAttr && statement.initializer != null) {
                         val src = convert(instructions, statement.initializer)
                         val dst = TackyVar(statement.name.identifier)
                         copy(src, dst)
@@ -391,7 +391,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         instructions
     } ?: emptyList()
 
-    val attr = symbolTable[funDeclaration.name]?.attr as FunAttr
+    val attr = symbolTable[funDeclaration.name.identifier]?.attr as FunAttr
 
     return TackyFunctionDef(
         funDeclaration.name.identifier,

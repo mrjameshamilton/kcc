@@ -44,6 +44,7 @@ fun emit(x86program: x86Program): String = buildString {
 
         is Pseudo -> unreachable("pseudo instruction not emitted")
         is Stack -> "${operand.loc}(%rbp)"
+        is Data -> "${operand.identifier}(%rip)"
     }
 
     fun format(op: UnaryOp): String = when (op) {
@@ -62,7 +63,9 @@ fun emit(x86program: x86Program): String = buildString {
         RightShift -> "sarl"
     }
 
-    fun emit(functionName: String, instructions: List<Instruction>) {
+    fun emit(functionName: String, functionId: Int, instructions: List<Instruction>) {
+        fun label(identifier: String): String = ".L${functionName}${functionId}_${identifier}"
+
         instructions.forEach {
             when (it) {
                 is Mov -> appendLine("    movl ${format(it.src)}, ${format(it.dst)}")
@@ -79,9 +82,9 @@ fun emit(x86program: x86Program): String = buildString {
                 is IDiv -> appendLine("    idivl ${format(it.operand)}")
                 Cdq -> appendLine("    cdq")
                 is Cmp -> appendLine("    cmpl ${format(it.src1)}, ${format(it.src2)}")
-                is Jmp -> appendLine("    jmp .L${functionName}_${it.identifier}")
-                is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} .L${functionName}_${it.identifier}")
-                is Label -> appendLine(".L${functionName}_${it.identifier}:")
+                is Jmp -> appendLine("    jmp ${label(it.identifier)}")
+                is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} ${label(it.identifier)}")
+                is Label -> appendLine("${label(it.identifier)}:")
                 is SetCC -> appendLine("    set${it.conditionCode.toString().lowercase()} ${format(it.operand)}")
                 is Call -> appendLine("    call ${it.identifier}@PLT")
                 is AllocateStack -> appendLine("    subq $${it.i}, %rsp")
@@ -91,22 +94,58 @@ fun emit(x86program: x86Program): String = buildString {
         }
     }
 
-    fun emit(functionDef: x86FunctionDef) {
+    fun emit(staticVariable: StaticVariable) {
+        if (staticVariable.global) {
+            appendLine("    .globl ${staticVariable.name}")
+        }
+
+        if (staticVariable.init == 0) {
+            appendLine(
+                """
+            |    .bss
+            |    .align 4
+            |${staticVariable.name}:
+            |    .zero 4    
+            """.trimMargin()
+            )
+        } else {
+            appendLine(
+                """
+            |    .data
+            |    .align 4
+            |${staticVariable.name}:
+            |    .long ${staticVariable.init}  
+            """.trimMargin()
+            )
+        }
+        appendLine()
+    }
+
+    fun emit(id: Int, functionDef: x86FunctionDef) {
+        if (functionDef.global) {
+            appendLine("    .globl ${functionDef.name}")
+            appendLine("    .type ${functionDef.name},@function")
+        }
         appendLine(
             """
-            |    .globl ${functionDef.name}
+            |    .text
             |${functionDef.name}:
             |    pushq %rbp
             |    movq  %rsp, %rbp
         """.trimMargin()
         )
 
-        emit(functionDef.instructions)
-        emit(functionDef.name, functionDef.instructions)
+        emit(functionDef.name, id, functionDef.instructions)
+
+        appendLine()
     }
 
-    x86program.functions.forEach {
+    x86program.items.filterIsInstance<StaticVariable>().forEach {
         emit(it)
+    }
+
+    x86program.items.filterIsInstance<x86FunctionDef>().forEachIndexed { id, function ->
+        emit(id, function)
     }
 
     appendLine(""".section .note-GNU-stack,"",@progbits""")

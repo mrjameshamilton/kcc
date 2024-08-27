@@ -2,9 +2,11 @@ package eu.jameshamilton.codegen
 
 const val STACK_ALIGNMENT_BYTES = 16
 
-data class Program(val functions: List<FunctionDef>)
+data class Program(val items: List<TopLevel>)
 
-data class FunctionDef(val name: String, val instructions: List<Instruction>)
+sealed class TopLevel
+data class FunctionDef(val name: String, val global: Boolean, val instructions: List<Instruction>) : TopLevel()
+data class StaticVariable(val name: String, val global: Boolean, val init: Int) : TopLevel()
 
 sealed class Instruction
 
@@ -55,10 +57,13 @@ enum class Size(val bytes: Int, val suffix: String) {
 
 typealias Bytes = Int
 
+sealed interface Memory
 data class Pseudo(val identifier: String) : Operand()
-data class Stack(val position: Int, val size: Bytes = 4) : Operand() {
+data class Stack(val position: Int, val size: Bytes = 4) : Operand(), Memory {
     val loc: Int = position * size
 }
+
+data class Data(val identifier: String) : Operand(), Memory
 
 operator fun Instruction.plus(other: Instruction) = listOf(this, other)
 operator fun Instruction.plus(other: List<Instruction>) = listOf(this) + other
