@@ -62,7 +62,7 @@ fun emit(x86program: x86Program): String = buildString {
         RightShift -> "sarl"
     }
 
-    fun emit(instructions: List<Instruction>) {
+    fun emit(functionName: String, instructions: List<Instruction>) {
         instructions.forEach {
             when (it) {
                 is Mov -> appendLine("    movl ${format(it.src)}, ${format(it.dst)}")
@@ -79,9 +79,9 @@ fun emit(x86program: x86Program): String = buildString {
                 is IDiv -> appendLine("    idivl ${format(it.operand)}")
                 Cdq -> appendLine("    cdq")
                 is Cmp -> appendLine("    cmpl ${format(it.src1)}, ${format(it.src2)}")
-                is Jmp -> appendLine("    jmp .L${it.identifier}")
-                is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} .L${it.identifier}")
-                is Label -> appendLine(".L${it.identifier}:")
+                is Jmp -> appendLine("    jmp .L${functionName}_${it.identifier}")
+                is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} .L${functionName}_${it.identifier}")
+                is Label -> appendLine(".L${functionName}_${it.identifier}:")
                 is SetCC -> appendLine("    set${it.conditionCode.toString().lowercase()} ${format(it.operand)}")
                 is Call -> appendLine("    call ${it.identifier}@PLT")
                 is AllocateStack -> appendLine("    subq $${it.i}, %rsp")
@@ -102,6 +102,7 @@ fun emit(x86program: x86Program): String = buildString {
         )
 
         emit(functionDef.instructions)
+        emit(functionDef.name, functionDef.instructions)
     }
 
     x86program.functions.forEach {

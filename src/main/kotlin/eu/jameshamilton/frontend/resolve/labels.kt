@@ -37,8 +37,8 @@ private class SwitchIdentifier(identifier: String, val caseLabels: MutableList<I
     ResolveIdentifier(identifier)
 
 private val labels = Stack<ResolveIdentifier>()
-private var functionCounter = 0
-private var idCounter = 0
+private var loopCounter = 0
+private var switchCounter = 0
 private val caseLabelCounter = mutableMapOf<SwitchIdentifier, Int>()
 
 private fun <T> scoped(resolveIdentifier: ResolveIdentifier, block: (label: ResolveIdentifier) -> T): T {
@@ -47,15 +47,16 @@ private fun <T> scoped(resolveIdentifier: ResolveIdentifier, block: (label: Reso
 }
 
 private fun <T> loop(block: (label: ResolveIdentifier) -> T): T =
-    scoped(LoopIdentifier("${"loop"}_${functionCounter}.${idCounter++}"), block)
+    scoped(LoopIdentifier("${"loop"}_${loopCounter++}"), block)
 
 private fun <T> switch(block: (label: ResolveIdentifier) -> T): T =
-    scoped(SwitchIdentifier("${"switch"}_${functionCounter}.${idCounter++}", mutableListOf()), block)
+    scoped(SwitchIdentifier("${"switch"}_${switchCounter++}", mutableListOf()), block)
 
-// Create a label unique for the whole program, since the same
-// label could appear in multiple functions.
+// Labels will be unique per function, when translated to
+// assembly they must be globally unique but this is handled
+// when emitting code.
 private fun unique(identifier: Identifier): Identifier {
-    return Identifier(identifier.identifier + "_" + functionCounter, identifier.line)
+    return Identifier(identifier.identifier, identifier.line)
 }
 
 private fun resolveLabels(declaration: Declaration) = when (declaration) {
@@ -64,8 +65,6 @@ private fun resolveLabels(declaration: Declaration) = when (declaration) {
 }
 
 private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
-    functionCounter++
-    idCounter = 0
 
     fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
         is DoWhile -> loop { label ->
