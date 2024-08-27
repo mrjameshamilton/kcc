@@ -361,7 +361,10 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun unary(): Expression = when {
-        match(MINUS) -> UnaryExpr(Negate, prefix())
+        match(MINUS) -> when (val expression = prefix()) {
+            is Constant -> Constant(-expression.value)
+            else -> UnaryExpr(Negate, expression)
+        }
         match(TILDE) -> UnaryExpr(Complement, prefix())
         match(EXCLAMATION) -> UnaryExpr(Not, prefix())
         else -> postfix()
