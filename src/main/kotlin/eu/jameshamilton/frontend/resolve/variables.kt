@@ -57,14 +57,6 @@ private fun <T> scoped(block: () -> T): T {
 
 private var functionCounter = 0
 
-private fun maketemporary(name: Identifier, hasLinkage: Boolean): Variable {
-    val newName = when {
-        hasLinkage -> name.identifier
-        else -> "${name.identifier}_${functionCounter}.${scopes.size}.${variables.size}"
-    }
-    return Variable(Identifier(newName, name.line), hasLinkage, scopes.size)
-}
-
 fun resolveVariables(program: Program): Program = scoped {
     Program(program.declarations.map { resolveFileScope(it) })
 }
@@ -94,9 +86,9 @@ private fun resolveFileScope(declaration: Declaration) = when (declaration) {
             hasLinkage = variables[declaration.name.identifier]!!.hasLinkage
         }
 
-        val newName = maketemporary(declaration.name, hasLinkage)
+        val newName = Variable(declaration.name, hasLinkage, scopes.size)
         variables[declaration.name.identifier] = newName
-        VarDeclaration(declaration.name, declaration.initializer, declaration.storageClass)
+        VarDeclaration(newName.identifier, declaration.initializer, declaration.storageClass)
     }
 }
 
@@ -139,8 +131,14 @@ private fun <T : Declaration> resolve(declaration: T, hasLinkage: Boolean): Vari
         }
     }
 
-    return maketemporary(declaration.name, hasLinkage).also { newName ->
-        variables[identifier] = newName
+    val newName = if (declaration is FunDeclaration || declaration.storageClass == StorageClass.EXTERN) {
+        declaration.name.identifier
+    } else {
+        "${declaration.name.identifier}_${functionCounter}.${scopes.size}.${variables.size}"
+    }
+
+    return Variable(Identifier(newName, declaration.name.line), hasLinkage, scopes.size).also {
+        variables[identifier] = it
     }
 }
 

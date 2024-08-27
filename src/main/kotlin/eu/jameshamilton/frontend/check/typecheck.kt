@@ -123,7 +123,6 @@ private fun checktypes(functionDeclaration: FunDeclaration) {
 private fun checklocalscope(varDeclaration: VarDeclaration) {
     when (varDeclaration.storageClass) {
         EXTERN -> {
-            println("check $varDeclaration")
             if (varDeclaration.initializer != null) {
                 error(
                     varDeclaration.name.line,
@@ -140,7 +139,6 @@ private fun checklocalscope(varDeclaration: VarDeclaration) {
                 val type = IntType
                 val attrs = StaticAttr(NoInitializer, true)
                 symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(type, attrs)
-                println("HERE2 = ${symbolTable[varDeclaration.name.identifier]}")
             }
         }
 
@@ -215,7 +213,6 @@ private fun checkfilescope(varDeclaration: VarDeclaration) {
     val type = IntType
     val attrs = StaticAttr(initialValue, global)
     symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(type, attrs)
-    println("HERE = ${symbolTable[varDeclaration.name.identifier]}")
 }
 
 private fun checktypes(expression: Expression): Any? = when (expression) {
