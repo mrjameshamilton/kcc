@@ -35,7 +35,7 @@ fun printTacky(program: Program) {
 private fun printTacky(staticVariable: StaticVariable) {
     if (staticVariable.global) print("global ")
     print("int ")
-    print(staticVariable.name)
+    print("$" + staticVariable.name)
     print(" = ")
     print(staticVariable.init)
     println()
@@ -43,7 +43,7 @@ private fun printTacky(staticVariable: StaticVariable) {
 
 private fun printTacky(functionDef: FunctionDef) {
     if (functionDef.global) print("global ")
-    println("${functionDef.name}(${functionDef.parameters.joinToString(", ") { "int $it" }}):")
+    println("${functionDef.name}(${functionDef.parameters.joinToString(", ") { "int $$it" }}):")
     println("  entry:")
     functionDef.instructions.forEach {
         printTacky(it)
