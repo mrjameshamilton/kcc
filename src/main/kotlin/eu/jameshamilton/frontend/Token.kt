@@ -19,7 +19,7 @@ enum class TokenType {
 
     EXTERN, STATIC,
 
-    CONSTANT,
+    CONSTANT_INT, CONSTANT_LONG,
 
     // Conditionals.
     IF, ELSE, QUESTION, COLON,

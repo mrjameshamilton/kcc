@@ -3,7 +3,7 @@ long add(int a, int b) {
 }
 
 int main(void) {
-    long a = 9223372036854775807lL;
+    long x = 9223372036854775807l;
     long a = add(2147483645, 2147483645);
     /* Test returning a long from a function call */
     if (a == 4294967290l) {

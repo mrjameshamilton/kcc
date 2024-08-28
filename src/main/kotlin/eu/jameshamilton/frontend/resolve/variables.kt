@@ -193,7 +193,7 @@ private fun resolve(expression: Expression): Expression = when (expression) {
         }
     }
 
-    is Cast -> TODO()
+    is Cast -> Cast(expression.targetType, resolve(expression.expression))
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {

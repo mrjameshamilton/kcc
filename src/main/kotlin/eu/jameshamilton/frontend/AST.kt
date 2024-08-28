@@ -106,30 +106,50 @@ data class Switch(
         get() = if (id == null) null else Identifier(id.identifier + "_break", id.line)
 }
 
-sealed class Expression
+sealed class Expression(open val type: Type? = null)
 
-data class Constant(val value: Any) : Expression()
+data class Constant(val value: Any, override val type: Type? = null) : Expression(type)
 
-data class UnaryExpr(val op: UnaryOp, val expression: Expression) : Expression()
+data class UnaryExpr(val op: UnaryOp, val expression: Expression, override val type: Type? = null) : Expression(type)
 
-enum class UnaryOp {
-    Complement, Negate, Not, PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement
+enum class UnaryOp(private val c: String) {
+    Complement("~"), Negate("-"), Not("!"), PrefixIncrement("++"), PostfixIncrement("++"), PrefixDecrement("--"), PostfixDecrement(
+        "--"
+    );
+
+    override fun toString(): String = c
 }
 
-data class BinaryExpr(val left: Expression, val operator: BinaryOp, val right: Expression) : Expression()
-enum class BinaryOp {
-    Add, Subtract, Multiply, Divide, Remainder,
-    And, Or, Xor, LeftShift, RightShift,
-    LogicalAnd, LogicalOr, Equal, NotEqual, LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual
+data class BinaryExpr(
+    val left: Expression,
+    val operator: BinaryOp,
+    val right: Expression,
+    override val type: Type? = null
+) : Expression(type)
+
+enum class BinaryOp(private val c: String) {
+    Add("+"), Subtract("-"), Multiply("*"), Divide("/"), Remainder("%"),
+    And("&"), Or("|"), Xor("^"), LeftShift("<<"), RightShift(">>"),
+    LogicalAnd("&&"), LogicalOr("||"), Equal("=="), NotEqual("!="), LessThan("<"), GreaterThan(">"), LessThanOrEqual("<="), GreaterThanOrEqual(
+        ">="
+    );
+
+    override fun toString(): String = c
 }
 
-data class Var(val identifier: Identifier) : Expression()
-data class Assignment(val lvalue: Expression, val value: Expression) : Expression()
-data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression) :
-    Expression()
+data class Var(val identifier: Identifier, override val type: Type? = null) : Expression(type)
+data class Assignment(val lvalue: Expression, val value: Expression, override val type: Type? = null) : Expression(type)
+data class Conditional(
+    val condition: Expression, val thenBranch: Expression, val elseBranch: Expression,
+    override val type: Type? = null
+) :
+    Expression(type)
 
-data class Cast(val targetType: Type, val expression: Expression) : Expression()
-data class FunctionCall(val identifier: Identifier, val arguments: List<Expression> = emptyList()) : Expression()
+data class Cast(val targetType: Type, val expression: Expression, override val type: Type? = null) : Expression(type)
+data class FunctionCall(
+    val identifier: Identifier, val arguments: List<Expression> = emptyList(),
+    override val type: Type? = null
+) : Expression(type)
 
 class Identifier(val identifier: String, val line: Int) {
     override fun equals(other: Any?): Boolean {

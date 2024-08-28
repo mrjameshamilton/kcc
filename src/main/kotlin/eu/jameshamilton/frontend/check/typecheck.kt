@@ -261,7 +261,7 @@ private fun checktypes(expression: Expression): Any? = when (expression) {
     } else {
     }
 
-    is Cast -> TODO()
+    is Cast -> checktypes(expression.expression)
 }
 
 private fun checktypes(blockItem: BlockItem): Any? = when (blockItem) {

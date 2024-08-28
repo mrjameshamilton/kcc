@@ -8,7 +8,8 @@ import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
-import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
+import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DEFAULT
@@ -222,18 +223,22 @@ class Scanner(private val source: String) {
 
         //    while (isDigit(peek())) advance()
         //}
+
+        // Use BigInteger for consistency: the parser will
+        // check the ranges can convert to the correct type.
+
+        // long long constant.
         if (match('l', 'l') || match('L', 'L')) {
-            // long long constant.
             if (peek().lowercaseChar() == 'l') {
                 error(line, "Unexpected character '${peek()}'.")
             }
-            addToken(CONSTANT, source.substring(start, current - 2).toLong())
+            addToken(CONSTANT_LONG, source.substring(start, current - 2).toBigInteger())
             return
         } else if (match('l') || match('L')) {
             if (peek().lowercaseChar() == 'l') {
                 error(line, "Unexpected character '${peek()}'.")
             } else {
-                addToken(CONSTANT, source.substring(start, current - 1).toLong())
+                addToken(CONSTANT_LONG, source.substring(start, current - 1).toBigInteger())
             }
             return
         }
@@ -244,9 +249,9 @@ class Scanner(private val source: String) {
         }
 
         try {
-            addToken(CONSTANT, source.substring(start, current).toLong())
+            addToken(CONSTANT_INT, source.substring(start, current).toBigInteger())
         } catch (e: NumberFormatException) {
-            error(line, "Number out of range: ${source.substring(start, current)}")
+            error(line, "Error parsing number: ${source.substring(start, current)}")
         }
     }
 

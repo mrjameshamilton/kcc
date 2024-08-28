@@ -11,6 +11,7 @@ import eu.jameshamilton.frontend.check.checklabels
 import eu.jameshamilton.frontend.check.checkswitchcases
 import eu.jameshamilton.frontend.check.checktypes
 import eu.jameshamilton.frontend.error
+import eu.jameshamilton.frontend.printProgram
 import eu.jameshamilton.frontend.resolve.resolve
 import eu.jameshamilton.tacky.convert
 import eu.jameshamilton.tacky.printTacky
@@ -104,7 +105,6 @@ fun compile(file: File): File {
     val parser = Parser(tokens)
     val parsed = parser.parse()
     if (printParsed) {
-        //printProgram(parsed, System.out)
         parsed.declarations.forEach {
             println(it.name)
             when (it) {
@@ -119,10 +119,16 @@ fun compile(file: File): File {
     checklabels(resolved)
     checkswitchcases(resolved)
     if (printResolved) {
+        printProgram(parsed, System.out)
         resolved.declarations.forEach {
             when (it) {
-                is FunDeclaration -> it.body?.forEach { println(it) }
-                is VarDeclaration -> println(it)
+                is FunDeclaration -> it.body?.forEach {
+                    println(it)
+                }
+
+                is VarDeclaration -> {
+                    println(it)
+                }
             }
         }
     }

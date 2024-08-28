@@ -27,7 +27,8 @@ import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
-import eu.jameshamilton.frontend.TokenType.CONSTANT
+import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
+import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DEFAULT
@@ -88,6 +89,7 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.unreachable
+import java.math.BigInteger
 
 class Parser(private val tokens: List<Token>) {
     private var current = 0
@@ -363,11 +365,21 @@ class Parser(private val tokens: List<Token>) {
             }
         }
 
-        match(CONSTANT) -> {
-            val literal = previous().literal as Long
+        match(CONSTANT_INT) -> {
+            val literal = previous().literal as BigInteger
             when {
-                literal >= Int.MIN_VALUE && literal <= Int.MAX_VALUE -> Constant(literal.toInt())
-                else -> Constant(literal)
+                literal >= Int.MIN_VALUE.toBigInteger() && literal <= Int.MAX_VALUE.toBigInteger() -> Constant(literal.toInt())
+                literal >= Long.MIN_VALUE.toBigInteger() && literal <= Long.MAX_VALUE.toBigInteger() -> Constant(literal.toLong())
+                else -> throw error(previous(), "Integer out of supported range.")
+            }
+        }
+
+        match(CONSTANT_LONG) -> {
+            val literal = previous().literal as BigInteger
+            if (literal >= Long.MIN_VALUE.toBigInteger() && literal <= Long.MAX_VALUE.toBigInteger()) {
+                Constant(literal.toLong())
+            } else {
+                throw error(previous(), "Long constant out of supported range.")
             }
         }
 
