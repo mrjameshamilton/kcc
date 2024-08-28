@@ -9,7 +9,7 @@ import eu.jameshamilton.frontend.Scanner
 import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.check.checklabels
 import eu.jameshamilton.frontend.check.checkswitchcases
-import eu.jameshamilton.frontend.check.checktypes
+import eu.jameshamilton.frontend.check.typecheck
 import eu.jameshamilton.frontend.error
 import eu.jameshamilton.frontend.printProgram
 import eu.jameshamilton.frontend.resolve.resolve
@@ -105,32 +105,15 @@ fun compile(file: File): File {
     val parser = Parser(tokens)
     val parsed = parser.parse()
     if (printParsed) {
-        parsed.declarations.forEach {
-            println(it.name)
-            when (it) {
-                is FunDeclaration -> it.body?.forEach { println(it) }
-                is VarDeclaration -> println(it)
-            }
-        }
+        printProgram(parsed, System.out)
     }
     if (parse) exitProcess(0)
     val resolved = resolve(parsed)
-    checktypes(resolved)
-    checklabels(resolved)
-    checkswitchcases(resolved)
+    val typed = typecheck(resolved)
+    checklabels(typed)
+    checkswitchcases(typed)
     if (printResolved) {
-        printProgram(parsed, System.out)
-        resolved.declarations.forEach {
-            when (it) {
-                is FunDeclaration -> it.body?.forEach {
-                    println(it)
-                }
-
-                is VarDeclaration -> {
-                    println(it)
-                }
-            }
-        }
+        printProgram(typed, System.out)
     }
     if (validate) exitProcess(0)
     val tackye = convert(resolved)

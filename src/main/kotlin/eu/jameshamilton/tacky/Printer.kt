@@ -95,7 +95,7 @@ private fun printTacky(instruction: Instruction) {
             print(" = ")
             print(instruction.name + "(")
             instruction.arguments.forEachIndexed { index, arg ->
-                printTacky(arg);
+                printTacky(arg)
                 if (index != instruction.arguments.lastIndex) print(", ")
             }
             println(")")

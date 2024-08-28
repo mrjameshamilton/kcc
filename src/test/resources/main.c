@@ -1,13 +1,17 @@
-long add(int a, int b) {
-    return (long) -a + (long) b;
-}
+// Test that we correctly infer type of bitshift expression;
+// x << y has type of x, not common type of x and y
+
+int x = 1L;
 
 int main(void) {
-    long x = 9223372036854775807l;
-    long a = add(2147483645, 2147483645);
-    /* Test returning a long from a function call */
-    if (a == 4294967290l) {
-        return 1;
+    int x = 100;
+    switch (x << 2l) {  // x << 2 == 400
+        // these cases are duplicates b/c they'll both be converted to
+        // the type of the switch expression - which is int, NOT long
+        case 34359738768l:  // 2**35 + 400
+            return 1;
+        case 400:
+            return 0;
     }
-    return 0;
+    return 10;
 }

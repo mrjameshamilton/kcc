@@ -25,7 +25,7 @@ private fun PrintStream.scoped(block: PrintStream.() -> Unit) {
 fun printProgram(program: Program, os: PrintStream) {
     eu.jameshamilton.frontend.os = PrintStream(os)
     program.declarations.forEach { print(it) }
-    os.close()
+    //os.close()
 }
 
 fun printDefinition(declaration: Declaration) {
@@ -34,7 +34,13 @@ fun printDefinition(declaration: Declaration) {
         StorageClass.STATIC -> os.print("static ")
         StorageClass.EXTERN -> os.print("external ")
     }
-    os.print("${declaration.type} ${declaration.name.identifier}")
+    when (declaration) {
+        is FunDeclaration ->
+            os.print("${(declaration.type as FunType?)?.returnType} ${declaration.name.identifier}")
+
+        is VarDeclaration ->
+            os.print("${declaration.type} ${declaration.name.identifier}")
+    }
 }
 
 fun print(declaration: Declaration) = os.scoped {
@@ -89,17 +95,35 @@ fun printBlockItem(blockItem: BlockItem) {
             os.println(";")
         }
 
-        is DefaultCase -> TODO()
-        is ExpressionCase -> TODO()
-        is LabeledStatement -> TODO()
-        is Break -> TODO()
+        is DefaultCase -> {
+            os.printlnIndent("default:")
+            os.scoped {
+                printBlockItem(blockItem.statement)
+            }
+        }
+
+        is ExpressionCase -> {
+            os.printIndent("case ")
+            printExpression(blockItem.expression)
+            os.println(":")
+            os.scoped {
+                printBlockItem(blockItem.statement)
+            }
+        }
+
+        is LabeledStatement -> {
+            os.printlnIndent("${blockItem.identifier}: ")
+            printBlockItem(blockItem.statement)
+        }
+
+        is Break -> os.printlnIndent("break ${blockItem.identifier}")
         is Compound -> {
             blockItem.block.forEach {
                 printBlockItem(it)
             }
         }
 
-        is Continue -> TODO()
+        is Continue -> os.printlnIndent("continue ${blockItem.identifier}")
         is DoWhile -> TODO()
         is ExpressionStatement -> {
             os.printIndent()
@@ -124,7 +148,7 @@ fun printBlockItem(blockItem: BlockItem) {
             os.printlnIndent("}")
         }
 
-        is Goto -> TODO()
+        is Goto -> os.printlnIndent("goto ${blockItem.identifier};")
         is If -> {
             os.printIndent("if (")
             printExpression(blockItem.condition)
@@ -142,8 +166,25 @@ fun printBlockItem(blockItem: BlockItem) {
             os.println(";")
         }
 
-        is Switch -> TODO()
-        is While -> TODO()
+        is Switch -> {
+            os.printIndent("switch (")
+            printExpression(blockItem.expression)
+            os.println(") {")
+            os.scoped {
+                printBlockItem(blockItem.statement)
+            }
+            os.printlnIndent("}")
+        }
+
+        is While -> {
+            os.printIndent("while (")
+            printExpression(blockItem.condition)
+            os.println(") {")
+            os.scoped {
+                printBlockItem(blockItem.body)
+            }
+            os.printlnIndent("}")
+        }
     }
 
 }
@@ -164,7 +205,7 @@ fun printExpression(expression: Expression) {
         }
 
         is Conditional -> TODO()
-        is Constant -> os.print(expression.value)
+        is Constant -> os.print("/* type = ${expression.type} */ ${expression.value}")
         is FunctionCall -> {
             os.print("/* type = ${expression.type} = */ ${expression.identifier.identifier}(")
             expression.arguments.forEachIndexed { index, expr ->

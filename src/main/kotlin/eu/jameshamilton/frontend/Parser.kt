@@ -123,7 +123,13 @@ class Parser(private val tokens: List<Token>) {
             null
         }
 
-        return FunDeclaration(name, parameters, body, returnType, storageClass)
+        return FunDeclaration(
+            name,
+            parameters,
+            body,
+            FunType(parameters?.map { it.type }.orEmpty(), returnType),
+            storageClass
+        )
     }
 
     private fun blockItem(): BlockItem = when {

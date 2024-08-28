@@ -89,7 +89,7 @@ fun convert(program: Program): TackyProgram {
             .map { (name, entry) -> name to (entry.attr as StaticAttr) }
             .mapNotNull { (name, staticAttr) ->
                 when (staticAttr.initialValue) {
-                    is Initial -> StaticVariable(name, staticAttr.global, staticAttr.initialValue.value)
+                    is Initial -> StaticVariable(name, staticAttr.global, staticAttr.initialValue.value as Int)
                     Tentative -> StaticVariable(name, staticAttr.global, 0)
                     NoInitializer -> null
                 }

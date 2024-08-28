@@ -65,7 +65,9 @@ fun checklabels(function: FunDeclaration) {
         is DefaultCase -> check(item.statement)
     }
 
-    function.body?.map(::check)
+    function.body?.forEach {
+        check(it)
+    }
 
     gotoLabels.forEach {
         if (!labels.contains(it)) {

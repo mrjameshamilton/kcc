@@ -32,7 +32,7 @@ data class FunDeclaration(
     override val name: Identifier,
     val params: List<VarDeclaration>?,
     val body: Block?,
-    override val type: Type,
+    override val type: FunType,
     override val storageClass: StorageClass = EXTERN
 ) : Declaration(name, type)
 

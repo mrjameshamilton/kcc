@@ -23,7 +23,6 @@ import eu.jameshamilton.frontend.Identifier
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
-import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
@@ -102,8 +101,7 @@ private fun resolveFileOrBlockScope(funDeclaration: FunDeclaration): FunDeclarat
     return scoped {
         val arguments = funDeclaration.params?.map {
             val resolvedParam = resolve(it, hasLinkage = false)
-            // TODO
-            VarDeclaration(resolvedParam.identifier, IntType, StorageClass.NONE)
+            VarDeclaration(resolvedParam.identifier, it.type, StorageClass.NONE)
         }
         val body = funDeclaration.body?.map { resolve(it) }
         FunDeclaration(name.identifier, arguments, body, funDeclaration.type, funDeclaration.storageClass)
