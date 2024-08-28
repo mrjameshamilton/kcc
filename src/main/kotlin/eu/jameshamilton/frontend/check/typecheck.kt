@@ -4,6 +4,7 @@ import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
+import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
@@ -16,11 +17,13 @@ import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunDeclaration
+import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.FunctionCall
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
+import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
@@ -29,6 +32,7 @@ import eu.jameshamilton.frontend.StorageClass
 import eu.jameshamilton.frontend.StorageClass.EXTERN
 import eu.jameshamilton.frontend.StorageClass.STATIC
 import eu.jameshamilton.frontend.Switch
+import eu.jameshamilton.frontend.Type
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
@@ -40,10 +44,6 @@ typealias SymbolTable = HashMap<String, SymbolTableEntry>
 data class SymbolTableEntry(val type: Type, val attr: IdentifierAttr? = null)
 
 val symbolTable = SymbolTable()
-
-sealed class Type
-data object IntType : Type()
-data class FunType(val paramCount: Int?) : Type()
 
 sealed class IdentifierAttr
 data class FunAttr(val defined: Boolean, val global: Boolean) : IdentifierAttr()
@@ -79,7 +79,7 @@ private fun checktypes(functionDeclaration: FunDeclaration) {
             )
         }
 
-        if (oldDeclaration.type.paramCount != functionDeclaration.params?.size) {
+        if (oldDeclaration.type.paramsTypes.size != functionDeclaration.params?.size) {
             error(
                 functionDeclaration.name.line,
                 "Function '${functionDeclaration.name}' previously defined with incompatible type."
@@ -107,7 +107,7 @@ private fun checktypes(functionDeclaration: FunDeclaration) {
         global = oldAttr.global
     }
 
-    val type = FunType(functionDeclaration.params?.size)
+    val type = FunType(functionDeclaration.params?.map { it.type }.orEmpty(), functionDeclaration.type)
     val attr = FunAttr(alreadyDefined || functionDeclaration.body != null, global)
     symbolTable[functionDeclaration.name.identifier] = SymbolTableEntry(type, attr)
 
@@ -144,7 +144,7 @@ private fun checklocalscope(varDeclaration: VarDeclaration) {
 
         STATIC -> {
             val initialValue = when (varDeclaration.initializer) {
-                is Constant -> Initial(varDeclaration.initializer.value)
+                is Constant -> Initial(varDeclaration.initializer.value as Int)
                 null -> Initial(0)
                 else -> error(
                     varDeclaration.name.line,
@@ -167,7 +167,7 @@ private fun checklocalscope(varDeclaration: VarDeclaration) {
 
 private fun checkfilescope(varDeclaration: VarDeclaration) {
     var initialValue = when (varDeclaration.initializer) {
-        is Constant -> Initial(varDeclaration.initializer.value)
+        is Constant -> Initial(varDeclaration.initializer.value as Int)
         null -> when (varDeclaration.storageClass) {
             EXTERN -> NoInitializer
             else -> Tentative
@@ -245,10 +245,10 @@ private fun checktypes(expression: Expression): Any? = when (expression) {
             error(identifier.line, "'${identifier.identifier}' is not function.")
         }
 
-        if (type.paramCount != null && expression.arguments.size != type.paramCount) {
+        if (expression.arguments.size != type.paramsTypes.size) {
             error(
                 identifier.line,
-                "'${identifier.identifier}' called with wrong number of arguments (${expression.arguments.size} found, expected ${type.paramCount})."
+                "'${identifier.identifier}' called with wrong number of arguments (${expression.arguments.size} found, expected ${type.paramsTypes.size})."
             )
         }
 
@@ -260,6 +260,8 @@ private fun checktypes(expression: Expression): Any? = when (expression) {
         error(expression.identifier.line, "'${expression.identifier}' is a function used as a variable.")
     } else {
     }
+
+    is Cast -> TODO()
 }
 
 private fun checktypes(blockItem: BlockItem): Any? = when (blockItem) {

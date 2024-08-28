@@ -61,7 +61,12 @@ private fun unique(identifier: Identifier): Identifier {
 
 private fun resolveLabels(declaration: Declaration) = when (declaration) {
     is FunDeclaration -> resolveLabels(declaration)
-    is VarDeclaration -> VarDeclaration(declaration.name, declaration.initializer, declaration.storageClass)
+    is VarDeclaration -> VarDeclaration(
+        declaration.name,
+        declaration.initializer,
+        declaration.type,
+        declaration.storageClass
+    )
 }
 
 private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
@@ -105,11 +110,18 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
 
         is LabeledStatement -> LabeledStatement(unique(blockItem.identifier), resolve(blockItem.statement) as Statement)
         is Goto -> Goto(unique(blockItem.identifier))
-        is VarDeclaration -> VarDeclaration(blockItem.name, blockItem.initializer, blockItem.storageClass)
+        is VarDeclaration -> VarDeclaration(
+            blockItem.name,
+            blockItem.initializer,
+            blockItem.type,
+            blockItem.storageClass
+        )
+
         is FunDeclaration -> FunDeclaration(
             blockItem.name,
             blockItem.params,
             blockItem.body?.map { resolve(it) },
+            blockItem.type,
             blockItem.storageClass
         )
 
@@ -162,6 +174,7 @@ private fun resolveLabels(funDeclaration: FunDeclaration): FunDeclaration {
         funDeclaration.name,
         funDeclaration.params,
         funDeclaration.body?.map(::resolve),
+        funDeclaration.type,
         funDeclaration.storageClass
     )
 }

@@ -23,6 +23,7 @@ import eu.jameshamilton.frontend.BinaryOp.Subtract
 import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
+import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
@@ -134,7 +135,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
     }
 
     fun convert(instructions: MutableList<Instruction>, expression: Expression): Value = when (expression) {
-        is Constant -> TackyConstant(expression.value)
+        is Constant -> TackyConstant(expression.value as Int)
         is UnaryExpr -> buildTacky(instructions) {
             val src = convert(instructions, expression.expression)
             when (expression.op) {
@@ -237,6 +238,8 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             call(expression.identifier.identifier, arguments, result)
             result
         }
+
+        is Cast -> TODO()
     }
 
     fun convert(instructions: MutableList<Instruction>, statement: BlockItem) {

@@ -41,6 +41,7 @@ import eu.jameshamilton.frontend.TokenType.LEFT_BRACKET
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
 import eu.jameshamilton.frontend.TokenType.LESS
 import eu.jameshamilton.frontend.TokenType.LESS_EQUAL
+import eu.jameshamilton.frontend.TokenType.LONG
 import eu.jameshamilton.frontend.TokenType.MINUS
 import eu.jameshamilton.frontend.TokenType.MINUS_EQUAL
 import eu.jameshamilton.frontend.TokenType.PERCENT
@@ -221,13 +222,32 @@ class Scanner(private val source: String) {
 
         //    while (isDigit(peek())) advance()
         //}
+        if (match('l', 'l') || match('L', 'L')) {
+            // long long constant.
+            if (peek().lowercaseChar() == 'l') {
+                error(line, "Unexpected character '${peek()}'.")
+            }
+            addToken(CONSTANT, source.substring(start, current - 2).toLong())
+            return
+        } else if (match('l') || match('L')) {
+            if (peek().lowercaseChar() == 'l') {
+                error(line, "Unexpected character '${peek()}'.")
+            } else {
+                addToken(CONSTANT, source.substring(start, current - 1).toLong())
+            }
+            return
+        }
 
         if (isAlpha(peek())) {
             identifier()
             error(line, "Invalid identifier '${source.substring(start, current)}'.")
         }
 
-        addToken(CONSTANT, source.substring(start, current).toInt())
+        try {
+            addToken(CONSTANT, source.substring(start, current).toLong())
+        } catch (e: NumberFormatException) {
+            error(line, "Number out of range: ${source.substring(start, current)}")
+        }
     }
 
     private fun string() {
@@ -250,19 +270,30 @@ class Scanner(private val source: String) {
 
     private fun peekNext(): Char = if (current + 1 >= source.length) 0.toChar() else source[current + 1]
 
-    private fun match(expected: Char): Boolean {
+    private fun match(expected: Char, ignoreCase: Boolean = false): Boolean {
         if (isAtEnd()) return false
-        if (source[current] != expected) return false
+        if (ignoreCase) {
+            if (source[current].lowercaseChar() != expected) return false
+        } else {
+            if (source[current] != expected) return false
+        }
 
         current++
         return true
     }
 
-    private fun match(expected: Char, expectedNext: Char): Boolean {
+    private fun match(expected: Char, expectedNext: Char, ignoreCase: Boolean = false): Boolean {
         if (isAtEnd()) return false
-        if (peek() == expected && peekNext() == expectedNext) {
-            current += 2
-            return true
+        if (ignoreCase) {
+            if (peek().lowercaseChar() == expected && peekNext().lowercaseChar() == expectedNext) {
+                current += 2
+                return true
+            }
+        } else {
+            if (peek() == expected && peekNext() == expectedNext) {
+                current += 2
+                return true
+            }
         }
 
         return false
@@ -282,6 +313,7 @@ class Scanner(private val source: String) {
             "return" to RETURN,
             "void" to VOID,
             "int" to INT,
+            "long" to LONG,
             "if" to IF,
             "else" to ELSE,
             "goto" to GOTO,

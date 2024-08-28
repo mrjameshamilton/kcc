@@ -4,6 +4,7 @@ import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
+import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
@@ -22,6 +23,7 @@ import eu.jameshamilton.frontend.Identifier
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
+import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
@@ -88,7 +90,7 @@ private fun resolveFileScope(declaration: Declaration) = when (declaration) {
 
         val newName = Variable(declaration.name, hasLinkage, scopes.size)
         variables[declaration.name.identifier] = newName
-        VarDeclaration(newName.identifier, declaration.initializer, declaration.storageClass)
+        VarDeclaration(newName.identifier, declaration.initializer, declaration.type, declaration.storageClass)
     }
 }
 
@@ -100,10 +102,11 @@ private fun resolveFileOrBlockScope(funDeclaration: FunDeclaration): FunDeclarat
     return scoped {
         val arguments = funDeclaration.params?.map {
             val resolvedParam = resolve(it, hasLinkage = false)
-            VarDeclaration(resolvedParam.identifier, StorageClass.NONE)
+            // TODO
+            VarDeclaration(resolvedParam.identifier, IntType, StorageClass.NONE)
         }
         val body = funDeclaration.body?.map { resolve(it) }
-        FunDeclaration(name.identifier, arguments, body, funDeclaration.storageClass)
+        FunDeclaration(name.identifier, arguments, body, funDeclaration.type, funDeclaration.storageClass)
     }
 }
 
@@ -189,6 +192,8 @@ private fun resolve(expression: Expression): Expression = when (expression) {
             FunctionCall(name.identifier, expression.arguments.map { resolve(it) })
         }
     }
+
+    is Cast -> TODO()
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
@@ -198,9 +203,14 @@ private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
         when (blockItem) {
             is VarDeclaration -> {
                 if (blockItem.initializer == null) {
-                    VarDeclaration(name.identifier, null, blockItem.storageClass)
+                    VarDeclaration(name.identifier, blockItem.type, blockItem.storageClass)
                 } else {
-                    VarDeclaration(name.identifier, resolve(blockItem.initializer), blockItem.storageClass)
+                    VarDeclaration(
+                        name.identifier,
+                        resolve(blockItem.initializer),
+                        blockItem.type,
+                        blockItem.storageClass
+                    )
                 }
             }
 

@@ -11,28 +11,33 @@ typealias Block = List<BlockItem>
 sealed class BlockItem
 sealed class Statement : BlockItem()
 
-sealed class Declaration(open val name: Identifier, open val storageClass: StorageClass = NONE) : BlockItem()
+sealed class Declaration(open val name: Identifier, open val type: Type, open val storageClass: StorageClass = NONE) :
+    BlockItem()
+
 data class VarDeclaration(
     override val name: Identifier,
     val initializer: Expression?,
+    override val type: Type,
     override val storageClass: StorageClass = NONE
-) : Declaration(name) {
-    constructor(identifier: Identifier, storageClass: StorageClass) : this(identifier, null, storageClass)
+) : Declaration(name, type) {
+    constructor(identifier: Identifier, type: Type, storageClass: StorageClass) : this(
+        identifier,
+        null,
+        type,
+        storageClass
+    )
 }
 
 data class FunDeclaration(
     override val name: Identifier,
     val params: List<VarDeclaration>?,
     val body: Block?,
+    override val type: Type,
     override val storageClass: StorageClass = EXTERN
-) : Declaration(name)
+) : Declaration(name, type)
 
 enum class StorageClass {
     NONE, STATIC, EXTERN
-}
-
-enum class Type {
-    INT
 }
 
 sealed class UnlabeledStatement : Statement()
@@ -103,7 +108,7 @@ data class Switch(
 
 sealed class Expression
 
-data class Constant(val value: Int) : Expression()
+data class Constant(val value: Any) : Expression()
 
 data class UnaryExpr(val op: UnaryOp, val expression: Expression) : Expression()
 
@@ -123,6 +128,7 @@ data class Assignment(val lvalue: Expression, val value: Expression) : Expressio
 data class Conditional(val condition: Expression, val thenBranch: Expression, val elseBranch: Expression) :
     Expression()
 
+data class Cast(val targetType: Type, val expression: Expression) : Expression()
 data class FunctionCall(val identifier: Identifier, val arguments: List<Expression> = emptyList()) : Expression()
 
 class Identifier(val identifier: String, val line: Int) {
@@ -139,3 +145,4 @@ class Identifier(val identifier: String, val line: Int) {
 
     override fun toString(): String = identifier
 }
+

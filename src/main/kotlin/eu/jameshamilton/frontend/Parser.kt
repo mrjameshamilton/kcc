@@ -59,6 +59,7 @@ import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
 import eu.jameshamilton.frontend.TokenType.LESS
 import eu.jameshamilton.frontend.TokenType.LESS_EQUAL
+import eu.jameshamilton.frontend.TokenType.LONG
 import eu.jameshamilton.frontend.TokenType.MINUS
 import eu.jameshamilton.frontend.TokenType.MINUS_EQUAL
 import eu.jameshamilton.frontend.TokenType.PERCENT
@@ -105,9 +106,9 @@ class Parser(private val tokens: List<Token>) {
             match(VOID) -> null
             else -> mutableListOf<VarDeclaration>().also {
                 do {
-                    val type = type()
+                    val type = typeSpecifier()
                     val identifier = expect(IDENTIFIER, "Parameter name expected.")
-                    it.add(VarDeclaration(Identifier(identifier.lexeme, identifier.line), StorageClass.NONE))
+                    it.add(VarDeclaration(Identifier(identifier.lexeme, identifier.line), type, StorageClass.NONE))
                 } while (match(COMMA))
             }
         }
@@ -120,7 +121,7 @@ class Parser(private val tokens: List<Token>) {
             null
         }
 
-        return FunDeclaration(name, parameters, body, storageClass)
+        return FunDeclaration(name, parameters, body, returnType, storageClass)
     }
 
     private fun blockItem(): BlockItem = when {
@@ -260,8 +261,8 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun varDeclaration(type: Type, identifier: Identifier, storageClass: StorageClass): VarDeclaration = when {
-        match(EQUAL) -> VarDeclaration(identifier, expression(), storageClass)
-        else -> VarDeclaration(identifier, null, storageClass)
+        match(EQUAL) -> VarDeclaration(identifier, expression(), type, storageClass)
+        else -> VarDeclaration(identifier, type, storageClass)
     }.also {
         expect(SEMICOLON, "Expected semicolon.")
     }
@@ -279,28 +280,35 @@ class Parser(private val tokens: List<Token>) {
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
     private fun checkStorageClass() = check(EXTERN) || check(STATIC)
-    private fun checkType() = check(INT)
+    private fun checkType() = check(INT) || check(LONG)
 
-    private fun specifier(): Pair<Type, StorageClass> {
+    private fun typeSpecifier() = specifier(allowStorageClass = false).first
+    private fun specifier(allowStorageClass: Boolean = true): Pair<Type, StorageClass> {
         val types = mutableListOf<Type>()
         val storageClasses = mutableListOf<StorageClass>()
 
         do {
             when (peek().type) {
-                INT -> types.add(type())
-                EXTERN, STATIC -> storageClasses.add(storageClass())
+                INT, LONG -> types.add(type())
+                EXTERN, STATIC -> if (allowStorageClass) {
+                    storageClasses.add(storageClass())
+                } else {
+                    throw error(peek(), "Storage class specifiers not allowed here.")
+                }
+
                 else -> throw error(peek(), "Unexpected specifier '${peek().lexeme}'.")
             }
             // IDENTIFIER would be next, followed by either of these:
-        } while (!(checkNext(SEMICOLON) || checkNext(EQUAL) || checkNext(LEFT_PAREN)))
+        } while (
+            !(checkNext(SEMICOLON) || checkNext(EQUAL) || check(LEFT_PAREN) || checkNext(LEFT_PAREN)
+                    || checkNext(COMMA) || check(RIGHT_PAREN) || checkNext(RIGHT_PAREN))
+        )
 
-        if (types.size > 1) {
-            throw error(previous(), "Expected only 1 type, found ${types.joinToString(", ")}.")
-        } else if (types.isEmpty()) {
-            throw error(previous(), "Expected at least one type.")
+        val type = when (types) {
+            listOf(IntType) -> IntType
+            listOf(IntType, LongType), listOf(LongType, IntType), listOf(LongType) -> LongType
+            else -> throw error(peek(), "Unexpected type '${peek().lexeme}'.")
         }
-
-        val type = types.single()
 
         val storageClass = when {
             storageClasses.size == 1 -> storageClasses.single()
@@ -321,13 +329,22 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun type(): Type = when {
-        match(INT) -> Type.INT
+        match(INT) -> IntType
+        match(LONG) -> LongType
         else -> throw error(previous(), "Unexpected type '${peek().type}'.")
     }
 
     private fun primary(): Expression = when {
-        match(LEFT_PAREN) -> expression().also {
-            expect(RIGHT_PAREN, "Expected closing ')' after expression.")
+        match(LEFT_PAREN) -> when {
+            checkType() -> {
+                val type = typeSpecifier()
+                expect(RIGHT_PAREN, "Expected ')' after expression.")
+                Cast(type, unary())
+            }
+
+            else -> expression().also {
+                expect(RIGHT_PAREN, "Expected closing ')' after expression.")
+            }
         }
 
         match(IDENTIFIER) -> {
@@ -346,7 +363,13 @@ class Parser(private val tokens: List<Token>) {
             }
         }
 
-        match(CONSTANT) -> Constant(previous().literal as Int)
+        match(CONSTANT) -> {
+            val literal = previous().literal as Long
+            when {
+                literal >= Int.MIN_VALUE && literal <= Int.MAX_VALUE -> Constant(literal.toInt())
+                else -> Constant(literal)
+            }
+        }
 
         else -> throw error(
             previous(),
@@ -362,9 +385,15 @@ class Parser(private val tokens: List<Token>) {
 
     private fun unary(): Expression = when {
         match(MINUS) -> when (val expression = prefix()) {
-            is Constant -> Constant(-expression.value)
+            is Constant -> when (expression.value) {
+                is Int -> Constant(-expression.value)
+                is Long -> Constant(-expression.value)
+                else -> throw error(peek(), "Unexpected expression value.")
+            }
+
             else -> UnaryExpr(Negate, expression)
         }
+
         match(TILDE) -> UnaryExpr(Complement, prefix())
         match(EXCLAMATION) -> UnaryExpr(Not, prefix())
         else -> postfix()

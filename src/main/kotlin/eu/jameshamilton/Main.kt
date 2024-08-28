@@ -103,7 +103,6 @@ fun compile(file: File): File {
     if (lex) exitProcess(0)
     val parser = Parser(tokens)
     val parsed = parser.parse()
-    if (parse) exitProcess(0)
     if (printParsed) {
         //printProgram(parsed, System.out)
         parsed.declarations.forEach {
@@ -114,6 +113,7 @@ fun compile(file: File): File {
             }
         }
     }
+    if (parse) exitProcess(0)
     val resolved = resolve(parsed)
     checktypes(resolved)
     checklabels(resolved)
