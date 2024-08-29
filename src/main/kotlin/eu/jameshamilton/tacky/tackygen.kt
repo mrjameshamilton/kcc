@@ -35,17 +35,21 @@ import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunDeclaration
+import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.FunctionCall
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
+import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.LabeledStatement
+import eu.jameshamilton.frontend.LongType
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.SwitchCase
+import eu.jameshamilton.frontend.Type
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
 import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
@@ -60,6 +64,7 @@ import eu.jameshamilton.frontend.check.Initial
 import eu.jameshamilton.frontend.check.LocalAttr
 import eu.jameshamilton.frontend.check.NoInitializer
 import eu.jameshamilton.frontend.check.StaticAttr
+import eu.jameshamilton.frontend.check.SymbolTableEntry
 import eu.jameshamilton.frontend.check.Tentative
 import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.frontend.check.symbolTable
@@ -86,11 +91,18 @@ fun convert(program: Program): TackyProgram {
     val staticVariables: List<StaticVariable> =
         symbolTable
             .filterValues { it.attr is StaticAttr }
-            .map { (name, entry) -> name to (entry.attr as StaticAttr) }
-            .mapNotNull { (name, staticAttr) ->
-                when (staticAttr.initialValue) {
-                    is Initial -> StaticVariable(name, staticAttr.global, staticAttr.initialValue.value as Int)
-                    Tentative -> StaticVariable(name, staticAttr.global, 0)
+            .map { Triple(it.key, it.value.type, it.value.attr as StaticAttr) }
+            .mapNotNull { (name, type, attr) ->
+                when (attr.initialValue) {
+                    is Initial -> StaticVariable(name, attr.global, type, attr.initialValue.value)
+                    Tentative -> StaticVariable(
+                        name, attr.global, type, when (type) {
+                            is IntType -> 0
+                            is LongType -> 0L
+                            else -> unreachable("invalid type $type")
+                        }
+                    )
+
                     NoInitializer -> null
                 }
             }
@@ -99,7 +111,13 @@ fun convert(program: Program): TackyProgram {
 }
 
 private var count = 0
-private fun maketemporary(): String = "tmp.${count++}"
+private fun maketemporary(type: Type?): TackyVar {
+    val name = "tmp.${count++}"
+    // TODO: null check
+    symbolTable[name] = SymbolTableEntry(type!!, LocalAttr)
+    return TackyVar(name)
+}
+
 private var labels = 0
 private fun makelabel(name: String): LabelIdentifier = "${name}_${labels++}"
 
@@ -135,19 +153,19 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
     }
 
     fun convert(instructions: MutableList<Instruction>, expression: Expression): Value = when (expression) {
-        is Constant -> TackyConstant(expression.value as Int)
+        is Constant -> TackyConstant(expression.value)
         is UnaryExpr -> buildTacky(instructions) {
             val src = convert(instructions, expression.expression)
             when (expression.op) {
                 PostfixIncrement -> {
-                    val dst = TackyVar(maketemporary())
+                    val dst = maketemporary(expression.type)
                     copy(src, dst)
                     increment(src)
                     dst
                 }
 
                 PostfixDecrement -> {
-                    val dst = TackyVar(maketemporary())
+                    val dst = maketemporary(expression.type)
                     copy(src, dst)
                     increment(src, -1)
                     dst
@@ -156,7 +174,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 PrefixIncrement -> increment(src)
                 PrefixDecrement -> increment(src, -1)
                 else -> {
-                    val dst = TackyVar(maketemporary())
+                    val dst = maketemporary(expression.type)
                     val op = convert(expression.op)
                     unaryOp(op, src, dst)
                 }
@@ -165,7 +183,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
         is BinaryExpr -> when (expression.operator) {
             LogicalAnd -> buildTacky(instructions) {
-                val dst = TackyVar(maketemporary())
+                val dst = maketemporary(expression.type)
                 val falseLabel = makelabel("and_false_label")
                 val endLabel = makelabel("and_end_label")
 
@@ -182,7 +200,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             }
 
             LogicalOr -> buildTacky(instructions) {
-                val dst = TackyVar(maketemporary())
+                val dst = maketemporary(expression.type)
                 val falseLabel = makelabel("or_false_label")
                 val endLabel = makelabel("or_end_label")
 
@@ -201,7 +219,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             else -> buildTacky(instructions) {
                 val v1 = convert(instructions, expression.left)
                 val v2 = convert(instructions, expression.right)
-                val dst = TackyVar(maketemporary())
+                val dst = maketemporary(expression.type)
                 val tackyOp = convert(expression.operator)
                 binaryOp(tackyOp, v1, v2, dst)
                 dst
@@ -217,7 +235,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
         is Var -> TackyVar(expression.identifier.identifier)
         is Conditional -> buildTacky(instructions) {
-            val result = TackyVar(maketemporary())
+            val result = maketemporary(expression.type)
             val condition = convert(instructions, expression.condition)
             val elseLabel = makelabel("else_label")
             val endLabel = makelabel("end_label")
@@ -234,12 +252,26 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
         is FunctionCall -> buildTacky(instructions) {
             val arguments = expression.arguments.map { convert(instructions, it) }
-            val result = TackyVar(maketemporary())
+            val result = maketemporary(expression.type)
             call(expression.identifier.identifier, arguments, result)
             result
         }
 
-        is Cast -> TODO()
+        is Cast -> buildTacky(instructions) {
+            val result = convert(instructions, expression.expression)
+            if (expression.targetType == expression.expression.type) {
+                nop()
+            } else {
+                val dst = maketemporary(expression.type)
+                symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
+                when (expression.targetType) {
+                    is FunType -> unreachable("cast to function type not possible")
+                    IntType -> truncate(result, dst)
+                    LongType -> signextend(result, dst)
+                }
+                dst
+            }
+        }
     }
 
     fun convert(instructions: MutableList<Instruction>, statement: BlockItem) {
@@ -348,7 +380,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                         require(statement.breakLabel != null)
 
                         val breakLabel = statement.breakLabel!!.identifier
-                        val temp = TackyVar(maketemporary())
+                        val temp = maketemporary(statement.expression.type)
 
                         cases.forEach { case ->
                             require(case.label != null)
@@ -400,7 +432,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         funDeclaration.name.identifier,
         attr.global,
         funDeclaration.params?.map { it.name.identifier } ?: emptyList(),
-        convert(funDeclaration.body) + listOf(TackyReturn(TackyConstant(0)))
+        convert(funDeclaration.body) + listOf(Return(TackyConstant(0)))
     )
 }
 
@@ -457,12 +489,22 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     }
 
     fun ret(value: Value) {
-        instructions += TackyReturn(value)
+        instructions += Return(value)
     }
 
     fun call(identifier: String, arguments: List<Value>, result: Value): Value {
         instructions += TackyFunctionCall(identifier, arguments, result)
         return result
+    }
+
+    fun signextend(src: Value, dst: Value): Value {
+        instructions += SignExtend(src, dst)
+        return dst
+    }
+
+    fun truncate(src: Value, dst: Value): Value {
+        instructions += Truncate(src, dst)
+        return dst
     }
 
     fun nop(): Value = TackyConstant(0)

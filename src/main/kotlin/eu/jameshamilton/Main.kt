@@ -3,10 +3,8 @@ package eu.jameshamilton
 import eu.jameshamilton.codegen.convert
 import eu.jameshamilton.codegen.emit
 import eu.jameshamilton.codegen.replacePseudoRegisters
-import eu.jameshamilton.frontend.FunDeclaration
 import eu.jameshamilton.frontend.Parser
 import eu.jameshamilton.frontend.Scanner
-import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.check.checklabels
 import eu.jameshamilton.frontend.check.checkswitchcases
 import eu.jameshamilton.frontend.check.typecheck
@@ -116,7 +114,7 @@ fun compile(file: File): File {
         printProgram(typed, System.out)
     }
     if (validate) exitProcess(0)
-    val tackye = convert(resolved)
+    val tackye = convert(typed)
     if (printTacky) printTacky(tackye)
     if (tacky) exitProcess(0)
     val x86AST = convert(tackye)

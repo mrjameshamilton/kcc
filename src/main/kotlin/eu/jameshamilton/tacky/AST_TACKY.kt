@@ -1,5 +1,7 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.Type
+
 
 data class Program(val items: List<TopLevel>)
 
@@ -12,12 +14,18 @@ data class FunctionDef(
     val instructions: List<Instruction>
 ) : TopLevel()
 
-data class StaticVariable(val name: String, val global: Boolean, val init: Int) : TopLevel()
+data class StaticVariable(val name: String, val global: Boolean, val type: Type, val init: Any) : TopLevel() {
+    init {
+        require(init is Int || init is Long)
+    }
+}
 
 sealed class Instruction
 data class FunctionCall(val name: String, val arguments: List<Value>, val dst: Value) : Instruction()
 
-data class TackyReturn(val value: Value) : Instruction()
+data class Return(val value: Value) : Instruction()
+data class SignExtend(val src: Value, val dst: Value) : Instruction()
+data class Truncate(val src: Value, val dst: Value) : Instruction()
 data class Unary(val op: UnaryOp, val src: Value, val dst: Value) : Instruction()
 enum class UnaryOp {
     Complement, Negate, Not
@@ -31,7 +39,7 @@ enum class BinaryOp {
 }
 
 sealed class Value
-data class Constant(val value: Int) : Value()
+data class Constant(val value: Any) : Value()
 data class Var(val name: String) : Value()
 
 typealias LabelIdentifier = String

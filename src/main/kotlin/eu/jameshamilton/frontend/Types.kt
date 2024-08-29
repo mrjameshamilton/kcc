@@ -1,6 +1,8 @@
 package eu.jameshamilton.frontend
 
 sealed class Type
+
+//data object Unknown : Type()
 data object IntType : Type() {
     override fun toString() = "int"
 }

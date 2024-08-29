@@ -1,5 +1,7 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.FunType
+import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.tacky.BinaryOp.Add
 import eu.jameshamilton.tacky.BinaryOp.And
 import eu.jameshamilton.tacky.BinaryOp.Divide
@@ -43,7 +45,14 @@ private fun printTacky(staticVariable: StaticVariable) {
 
 private fun printTacky(functionDef: FunctionDef) {
     if (functionDef.global) print("global ")
-    println("${functionDef.name}(${functionDef.parameters.joinToString(", ") { "int $$it" }}):")
+
+    val funType = symbolTable[functionDef.name]?.type as FunType?
+    funType?.let { print("${it.returnType} ") }
+    val types = funType?.paramsTypes.orEmpty()
+    print(functionDef.name)
+    println(
+        "(${functionDef.parameters.zip(types).joinToString(", ") { "${it.second} ${it.first}" }}):"
+    )
     println("  entry:")
     functionDef.instructions.forEach {
         printTacky(it)
@@ -115,7 +124,7 @@ private fun printTacky(instruction: Instruction) {
         }
 
         is Label -> println("  ${instruction.identifier}:")
-        is TackyReturn -> {
+        is Return -> {
             print("    return ")
             printTacky(instruction.value)
             println()
@@ -133,12 +142,35 @@ private fun printTacky(instruction: Instruction) {
             printTacky(instruction.src)
             println()
         }
+
+        is SignExtend -> {
+            print("    ")
+            printTacky(instruction.dst)
+            print(" = sext ")
+            printTacky(instruction.src)
+            println()
+        }
+
+        is Truncate -> {
+            print("    ")
+            printTacky(instruction.dst)
+            print(" = trunc ")
+            printTacky(instruction.src)
+            println()
+        }
     }
 }
 
 private fun printTacky(value: Value) {
     when (value) {
-        is Constant -> print(value.value)
-        is Var -> print("$${value.name}")
+        is Constant -> when (value.value) {
+            is Long -> print("int ${value.value}")
+            is Int -> print("long ${value.value}")
+        }
+
+        is Var -> when (val type = symbolTable[value.name]?.type) {
+            null -> print("??? $${value.name}")
+            else -> print("$type $${value.name}")
+        }
     }
 }

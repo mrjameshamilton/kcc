@@ -29,7 +29,9 @@ import eu.jameshamilton.tacky.Jump
 import eu.jameshamilton.tacky.JumpIfNotZero
 import eu.jameshamilton.tacky.JumpIfZero
 import eu.jameshamilton.tacky.Label
-import eu.jameshamilton.tacky.TackyReturn
+import eu.jameshamilton.tacky.Return
+import eu.jameshamilton.tacky.SignExtend
+import eu.jameshamilton.tacky.Truncate
 import eu.jameshamilton.tacky.UnaryOp.Complement
 import eu.jameshamilton.tacky.UnaryOp.Negate
 import eu.jameshamilton.tacky.UnaryOp.Not
@@ -55,7 +57,7 @@ fun convert(tackyProgram: TackyProgram): x86Program =
     })
 
 private fun convert(staticVariable: TackyStaticVariable): StaticVariable =
-    StaticVariable(staticVariable.name, staticVariable.global, staticVariable.init)
+    StaticVariable(staticVariable.name, staticVariable.global, staticVariable.init as Int)
 
 private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
     val instructions = convert(tackyFunctionDef.instructions)
@@ -94,13 +96,13 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
 private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap { tacky ->
 
     fun convert(value: TackyValue): Operand = when (value) {
-        is TackyConstant -> Imm(value.value)
+        is TackyConstant -> Imm(value.value as Int)
         is TackyVar -> Pseudo(value.name)
     }
 
     buildX86 {
         when (tacky) {
-            is TackyReturn -> {
+            is Return -> {
                 val src = convert(tacky.value)
                 mov(src, AX)
                 ret()
@@ -225,6 +227,9 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val result = convert(tacky.dst)
                 mov(AX, result)
             }
+
+            is SignExtend -> TODO()
+            is Truncate -> TODO()
         }
     }
 }

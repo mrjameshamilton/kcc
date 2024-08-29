@@ -10,8 +10,13 @@ int main(void) {
         // the type of the switch expression - which is int, NOT long
         case 34359738768l:  // 2**35 + 400
             return 1;
-        case 400:
+        case 401:
             return 0;
     }
-    return 10;
+    long a = 10L;
+    int b = a;
+    return (long)10;
+}
+
+int foo(int x, long y) {
 }
