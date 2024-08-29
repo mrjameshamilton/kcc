@@ -225,16 +225,17 @@ class Scanner(private val source: String) {
         //}
 
         // Use BigInteger for consistency: the parser will
-        // check the ranges can convert to the correct type.
+        // check the ranges and convert to the correct type.
 
-        // long long constant.
         if (match('l', 'l') || match('L', 'L')) {
+            // long long constant.
             if (peek().lowercaseChar() == 'l') {
                 error(line, "Unexpected character '${peek()}'.")
             }
             addToken(CONSTANT_LONG, source.substring(start, current - 2).toBigInteger())
             return
         } else if (match('l') || match('L')) {
+            // long constant
             if (peek().lowercaseChar() == 'l') {
                 error(line, "Unexpected character '${peek()}'.")
             } else {
