@@ -56,6 +56,7 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
+import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
@@ -111,10 +112,9 @@ fun convert(program: Program): TackyProgram {
 }
 
 private var count = 0
-private fun maketemporary(type: Type?): TackyVar {
+private fun maketemporary(type: Type): TackyVar {
     val name = "tmp.${count++}"
-    // TODO: null check
-    symbolTable[name] = SymbolTableEntry(type!!, LocalAttr)
+    symbolTable[name] = SymbolTableEntry(type, LocalAttr)
     return TackyVar(name)
 }
 
@@ -268,6 +268,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     is FunType -> unreachable("cast to function type not possible")
                     IntType -> truncate(result, dst)
                     LongType -> signextend(result, dst)
+                    Unknown -> unreachable("${expression.targetType} unknown")
                 }
                 dst
             }

@@ -15,6 +15,7 @@ int main(void) {
     }
     long a = 10L;
     int b = a;
+    b = 1;
     return (long)10;
 }
 

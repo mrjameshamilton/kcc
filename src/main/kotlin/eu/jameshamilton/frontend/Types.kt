@@ -2,7 +2,7 @@ package eu.jameshamilton.frontend
 
 sealed class Type
 
-//data object Unknown : Type()
+data object Unknown : Type()
 data object IntType : Type() {
     override fun toString() = "int"
 }
@@ -16,8 +16,9 @@ data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type() {
         "(${paramsTypes.joinToString(separator = ", ") { it.toString() }}) -> $returnType"
 }
 
-operator fun Type.plus(other: Type) = when {
-    this == other -> this
+operator fun Type.plus(other: Type) = when (other) {
+    this -> this
+    Unknown -> Unknown
     else -> LongType
 }
 

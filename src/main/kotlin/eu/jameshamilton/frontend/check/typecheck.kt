@@ -47,6 +47,7 @@ import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.Type
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
+import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
@@ -272,10 +273,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     is Assignment -> {
         val left = typecheck(expression.lvalue)
         val right = typecheck(expression.value)
-
-        require(left.type != null && right.type != null)
-
-        Assignment(left, right.cast(left.type!!), left.type)
+        Assignment(left, right.cast(left.type), left.type)
     }
 
     is BinaryExpr -> {
@@ -285,7 +283,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             And, Or -> BinaryExpr(left, expression.operator, right, IntType)
             LeftShift, RightShift -> BinaryExpr(left, expression.operator, right, left.type)
             else -> {
-                val commonType = left.type!! + right.type!!
+                val commonType = left.type + right.type
 
                 val type = when (expression.operator) {
                     Add, Multiply, Subtract, Divide, Remainder -> commonType
@@ -302,9 +300,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         val thenBranch = typecheck(expression.thenBranch)
         val elseBranch = typecheck(expression.elseBranch)
 
-        require(thenBranch.type != null && elseBranch.type != null)
-
-        val common = thenBranch.type!! + elseBranch.type!!
+        val common = thenBranch.type + elseBranch.type
 
         Conditional(condition, thenBranch.cast(common), elseBranch.cast(common), common)
     }
@@ -354,7 +350,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     }
 
     is Var -> {
-        val type = symbolTable[expression.identifier.identifier]?.type
+        val type = symbolTable[expression.identifier.identifier]?.type ?: Unknown
 
         if (type is FunType) {
             error(expression.identifier.line, "'${expression.identifier}' is a function used as a variable.")
