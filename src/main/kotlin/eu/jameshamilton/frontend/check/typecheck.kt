@@ -5,12 +5,21 @@ import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp.Add
 import eu.jameshamilton.frontend.BinaryOp.And
 import eu.jameshamilton.frontend.BinaryOp.Divide
+import eu.jameshamilton.frontend.BinaryOp.Equal
+import eu.jameshamilton.frontend.BinaryOp.GreaterThan
+import eu.jameshamilton.frontend.BinaryOp.GreaterThanOrEqual
 import eu.jameshamilton.frontend.BinaryOp.LeftShift
+import eu.jameshamilton.frontend.BinaryOp.LessThan
+import eu.jameshamilton.frontend.BinaryOp.LessThanOrEqual
+import eu.jameshamilton.frontend.BinaryOp.LogicalAnd
+import eu.jameshamilton.frontend.BinaryOp.LogicalOr
 import eu.jameshamilton.frontend.BinaryOp.Multiply
+import eu.jameshamilton.frontend.BinaryOp.NotEqual
 import eu.jameshamilton.frontend.BinaryOp.Or
 import eu.jameshamilton.frontend.BinaryOp.Remainder
 import eu.jameshamilton.frontend.BinaryOp.RightShift
 import eu.jameshamilton.frontend.BinaryOp.Subtract
+import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
@@ -279,18 +288,23 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     is BinaryExpr -> {
         val left = typecheck(expression.left)
         val right = typecheck(expression.right)
+        val commonType = left.type + right.type
+
         when (expression.operator) {
-            And, Or -> BinaryExpr(left, expression.operator, right, IntType)
-            LeftShift, RightShift -> BinaryExpr(left, expression.operator, right, left.type)
-            else -> {
-                val commonType = left.type + right.type
+            LogicalAnd, LogicalOr -> {
+                BinaryExpr(left, expression.operator, right, IntType)
+            }
 
-                val type = when (expression.operator) {
-                    Add, Multiply, Subtract, Divide, Remainder -> commonType
-                    else -> IntType
-                }
+            LeftShift, RightShift -> {
+                BinaryExpr(left, expression.operator, right, left.type)
+            }
 
-                BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), type)
+            Add, Multiply, Subtract, Divide, Remainder, And, Or, Xor -> {
+                BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
+            }
+
+            Equal, NotEqual, LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> {
+                BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
             }
         }
     }

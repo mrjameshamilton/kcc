@@ -1,5 +1,7 @@
 package eu.jameshamilton.codegen
 
+import eu.jameshamilton.codegen.RegisterAlias.EAX
+import eu.jameshamilton.codegen.RegisterAlias.RAX
 import eu.jameshamilton.codegen.RegisterName.AX
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.DI
@@ -103,12 +105,12 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
             // implemented then memory/register use will be optimized.
             when (index) {
                 // First six parameters are passed in registers.
-                0 -> mov(type, DI, Pseudo(type, param))
-                1 -> mov(type, SI, Pseudo(type, param))
-                2 -> mov(type, DX, Pseudo(type, param))
-                3 -> mov(type, CX, Pseudo(type, param))
-                4 -> mov(type, R8, Pseudo(type, param))
-                5 -> mov(type, R9, Pseudo(type, param))
+                0 -> mov(type, DI.x(type), Pseudo(type, param))
+                1 -> mov(type, SI.x(type), Pseudo(type, param))
+                2 -> mov(type, DX.x(type), Pseudo(type, param))
+                3 -> mov(type, CX.x(type), Pseudo(type, param))
+                4 -> mov(type, R8.x(type), Pseudo(type, param))
+                5 -> mov(type, R9.x(type), Pseudo(type, param))
                 else -> {
                     // The rest on the stack.
 
@@ -118,7 +120,13 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
                     // Then push the parameters in reverse order.
                     val parameterIndex = index - 6
 
-                    mov(type, Stack(position = stackParameterOffset + parameterIndex, size = 8), Pseudo(type, param))
+                    val alignment = 8
+
+                    mov(
+                        type,
+                        Stack(position = ((stackParameterOffset + parameterIndex) * alignment)),
+                        Pseudo(type, param)
+                    )
                 }
             }
         }
@@ -151,7 +159,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         when (tacky) {
             is Return -> {
                 val src = convert(tacky.value)
-                mov(src.type, src, AX)
+                mov(src.type, src, AX.x(src.type))
                 ret()
             }
 
@@ -179,10 +187,10 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     Divide, Remainder -> {
                         // division / remainder use EAX + EDX together:
                         // the division result is stored in EAX; the remainder in EDX.
-                        mov(src1.type, src1, AX)
+                        mov(src1.type, src1, AX.x(src1.type))
                         cdq(src1.type)
                         idiv(src1.type, src2)
-                        mov(src1.type, if (tacky.op == Divide) AX else DX, dst)
+                        mov(src1.type, if (tacky.op == Divide) AX.x(src1.type) else DX.x(src1.type), dst)
                     }
 
                     LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal, NotEqual -> {
@@ -248,12 +256,12 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     // implemented then memory/register use will be optimized.
                     val src = convert(param)
                     when (index) {
-                        0 -> mov(src.type, src, DI)
-                        1 -> mov(src.type, src, SI)
-                        2 -> mov(src.type, src, DX)
-                        3 -> mov(src.type, src, CX)
-                        4 -> mov(src.type, src, R8)
-                        5 -> mov(src.type, src, R9)
+                        0 -> mov(src.type, src, DI.x(src.type))
+                        1 -> mov(src.type, src, SI.x(src.type))
+                        2 -> mov(src.type, src, DX.x(src.type))
+                        3 -> mov(src.type, src, CX.x(src.type))
+                        4 -> mov(src.type, src, R8.x(src.type))
+                        5 -> mov(src.type, src, R9.x(src.type))
                     }
                 }
 
@@ -262,8 +270,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     if (argument is Register || argument is Imm || argument.type is Quadword) {
                         push(argument)
                     } else {
-                        mov(Longword, argument, AX)
-                        push(AX)
+                        movl(argument, EAX)
+                        push(RAX)
                     }
                 }
 
@@ -275,7 +283,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 }
 
                 val result = convert(tacky.dst)
-                mov(result.type, AX, result)
+                mov(result.type, AX.x(result.type), result)
             }
 
             is SignExtend -> {

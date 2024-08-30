@@ -18,10 +18,10 @@ import eu.jameshamilton.codegen.RegisterName.R8
 import eu.jameshamilton.codegen.RegisterName.R9
 import eu.jameshamilton.codegen.RegisterName.SI
 import eu.jameshamilton.codegen.RegisterName.SP
-import eu.jameshamilton.codegen.Size.BYTE
-import eu.jameshamilton.codegen.Size.LONG
-import eu.jameshamilton.codegen.Size.QUAD
-import eu.jameshamilton.codegen.Size.WORD
+import eu.jameshamilton.codegen.RegisterSize.BYTE
+import eu.jameshamilton.codegen.RegisterSize.LONG
+import eu.jameshamilton.codegen.RegisterSize.QUAD
+import eu.jameshamilton.codegen.RegisterSize.WORD
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
 import eu.jameshamilton.unreachable
@@ -45,24 +45,24 @@ fun emit(x86program: x86Program): String = buildString {
         }
 
         is Pseudo -> unreachable("pseudo instruction not emitted")
-        is Stack -> "${operand.loc}(%rbp)"
+        is Stack -> "${operand.position}(%rbp)"
         is Data -> "${operand.identifier}(%rip)"
     }
 
     fun format(op: UnaryOp): String = when (op) {
-        Neg -> "negl"
-        Not -> "notl"
+        Neg -> "neg"
+        Not -> "not"
     }
 
     fun format(op: BinaryOp): String = when (op) {
-        Add -> "addl"
-        Sub -> "subl"
-        Mul -> "imull"
-        And -> "andl"
-        Or -> "orl"
-        Xor -> "xorl"
-        LeftShift -> "sall"
-        RightShift -> "sarl"
+        Add -> "add"
+        Sub -> "sub"
+        Mul -> "imul"
+        And -> "and"
+        Or -> "or"
+        Xor -> "xor"
+        LeftShift -> "sal"
+        RightShift -> "sar"
     }
 
     fun emit(functionName: String, functionId: Int, instructions: List<Instruction>) {
@@ -70,8 +70,8 @@ fun emit(x86program: x86Program): String = buildString {
 
         instructions.forEach {
             when (it) {
-                is Mov -> appendLine("    movl ${format(it.src)}, ${format(it.dst)}")
-                is Movsx -> TODO()
+                is Mov -> appendLine("    mov${it.type.suffix} ${format(it.src)}, ${format(it.dst)}")
+                is Movsx -> appendLine("    movslq ${format(it.src)}, ${format(it.dst)}")
                 Ret -> appendLine(
                     """
                     |    movq %rbp, %rsp
@@ -80,11 +80,11 @@ fun emit(x86program: x86Program): String = buildString {
                 """.trimMargin()
                 )
 
-                is Unary -> appendLine("    ${format(it.op)} ${format(it.operand)}")
-                is Binary -> appendLine("    ${format(it.op)} ${format(it.src)}, ${format(it.dst)}")
-                is IDiv -> appendLine("    idivl ${format(it.operand)}")
-                is Cdq -> appendLine("    cdq")
-                is Cmp -> appendLine("    cmpl ${format(it.src1)}, ${format(it.src2)}")
+                is Unary -> appendLine("    ${format(it.op)}${it.type.suffix} ${format(it.operand)}")
+                is Binary -> appendLine("    ${format(it.op)}${it.type.suffix} ${format(it.src)}, ${format(it.dst)}")
+                is IDiv -> appendLine("    idiv${it.type.suffix} ${format(it.operand)}")
+                is Cdq -> appendLine("    c${if (it.type is Longword) "dq" else "qo"}")
+                is Cmp -> appendLine("    cmp${it.type.suffix} ${format(it.src1)}, ${format(it.src2)}")
                 is Jmp -> appendLine("    jmp ${label(it.identifier)}")
                 is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} ${label(it.identifier)}")
                 is Label -> appendLine("${label(it.identifier)}:")
@@ -104,18 +104,18 @@ fun emit(x86program: x86Program): String = buildString {
             appendLine(
                 """
             |    .bss
-            |    .align 4
+            |    .align ${staticVariable.alignment}
             |${staticVariable.name}:
-            |    .zero 4    
+            |    .zero ${staticVariable.size}
             """.trimMargin()
             )
         } else {
             appendLine(
                 """
             |    .data
-            |    .align 4
+            |    .align ${staticVariable.alignment}
             |${staticVariable.name}:
-            |    .long ${staticVariable.init}  
+            |    .${staticVariable.initType} ${staticVariable.init}  
             """.trimMargin()
             )
         }

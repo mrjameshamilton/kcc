@@ -435,6 +435,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         attr.global,
         funDeclaration.body != null,
         funDeclaration.params?.map { it.name.identifier } ?: emptyList(),
+        // TODO: don't add return for declarations?
         convert(funDeclaration.body) + listOf(Return(TackyConstant(0)))
     )
 }

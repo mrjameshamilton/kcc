@@ -6,26 +6,24 @@ import eu.jameshamilton.codegen.ConditionCode.GE
 import eu.jameshamilton.codegen.ConditionCode.L
 import eu.jameshamilton.codegen.ConditionCode.LE
 import eu.jameshamilton.codegen.ConditionCode.NE
+import eu.jameshamilton.codegen.RegisterAlias.SP
 
 class Builder(var instructions: List<Instruction> = mutableListOf()) {
     fun mov(type: TypeX86, src: Operand, dst: Operand): Builder {
         instructions += Mov(type, src, dst)
         return this
     }
+
     fun movl(src: Operand, dst: Operand): Builder {
         return mov(Longword, src, dst)
     }
 
+    fun movq(src: Operand, dst: Operand): Builder {
+        return mov(Quadword, src, dst)
+    }
+
     fun mov(type: TypeX86, i: Int, dst: Operand): Builder {
         return mov(type, Imm(type, i), dst)
-    }
-
-    fun mov(type: TypeX86, registerName: RegisterName, dst: Operand): Builder {
-        return mov(type, Register(registerName), dst)
-    }
-
-    fun mov(type: TypeX86, src: Operand, dst: RegisterName): Builder {
-        return mov(type, src, Register(dst))
     }
 
     fun movsx(src: Operand, dst: Operand): Builder {
@@ -33,25 +31,9 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return this
     }
 
-    fun movsx(registerName: RegisterName, dst: Operand): Builder {
-        return movsx(Register(registerName), dst)
-    }
-
-    fun movsx(src: Operand, dst: RegisterName): Builder {
-        return movsx(src, Register(dst))
-    }
-
-    fun movsx(src: RegisterName, dst: RegisterName): Builder {
-        return movsx(Register(src), Register(dst))
-    }
-
     fun cdq(type: TypeX86): Builder {
         instructions += Cdq(type)
         return this
-    }
-
-    fun idiv(type: TypeX86, registerName: RegisterName): Builder {
-        return idiv(type, Register(registerName))
     }
 
     fun idiv(type: TypeX86, operand: Operand): Builder {
@@ -66,11 +48,6 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
 
     fun binary(type: TypeX86, binaryOp: BinaryOp, src: Operand, dst: Operand): Builder {
         instructions += Binary(binaryOp, type, src, dst)
-        return this
-    }
-
-    fun binary(type: TypeX86, binaryOp: BinaryOp, src: RegisterName, dst: Operand): Builder {
-        instructions += Binary(binaryOp, type, Register(src), dst)
         return this
     }
 
@@ -91,24 +68,12 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return binary(type, BinaryOp.Add, src, dst)
     }
 
-    fun add(type: TypeX86, bytes: Int, registerName: RegisterName): Builder {
-        return binary(type, BinaryOp.Add, Imm(type, bytes), Register(registerName))
-    }
-
-    fun sub(type: TypeX86, bytes: Int, registerName: RegisterName): Builder {
-        return binary(type, BinaryOp.Sub, Imm(type, bytes), Register(registerName))
-    }
-
     fun sub(type: TypeX86, src: Operand, dst: Operand): Builder {
         return binary(type, BinaryOp.Sub, src, dst)
     }
 
     fun imul(type: TypeX86, src: Operand, dst: Operand): Builder {
         return binary(type, BinaryOp.Mul, src, dst)
-    }
-
-    fun imul(type: TypeX86, src: Operand, dst: RegisterName): Builder {
-        return binary(type, BinaryOp.Mul, src, Register(dst))
     }
 
     fun and(type: TypeX86, src: Operand, dst: Operand): Builder {
@@ -138,14 +103,6 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
 
     fun cmp(type: TypeX86, i: Int, src2: Operand): Builder {
         return cmp(type, Imm(type, i), src2)
-    }
-
-    fun cmp(type: TypeX86, registerName: RegisterName, src2: Operand): Builder {
-        return cmp(type, Register(registerName), src2)
-    }
-
-    fun cmp(type: TypeX86, src1: Operand, registerName: RegisterName): Builder {
-        return cmp(type, src1, Register(registerName))
     }
 
     fun setcc(code: ConditionCode, src: Operand): Builder {
@@ -205,21 +162,17 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return this
     }
 
-    fun push(registerName: RegisterName): Builder {
-        return push(Register(registerName, Size.QUAD))
-    }
-
     fun call(name: String): Builder {
         instructions += Call(name)
         return this
     }
 
     fun allocate(i: Int): Builder {
-        return sub(Quadword, i, RegisterName.SP)
+        return sub(Quadword, Imm(Quadword, i), SP)
     }
 
     fun deallocate(i: Int): Builder {
-        return add(Quadword, i, RegisterName.SP)
+        return add(Quadword, Imm(Quadword, i), SP)
     }
 }
 

@@ -44,7 +44,12 @@ enum class BinaryOp {
 }
 
 sealed class Value
-data class Constant(val value: Any) : Value()
+data class Constant(val value: Any) : Value() {
+    init {
+        require(value is Int || value is Long)
+    }
+}
+
 data class Var(val type: Type, val name: String) : Value()
 
 typealias LabelIdentifier = String

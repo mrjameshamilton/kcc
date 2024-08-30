@@ -159,7 +159,7 @@ fun printBlockItem(blockItem: BlockItem) {
             os.printlnIndent("}")
         }
 
-        NullStatement -> TODO()
+        NullStatement -> os.print(";")
         is ReturnStatement -> {
             os.printIndent("return ")
             printExpression(blockItem.value)
@@ -204,7 +204,14 @@ fun printExpression(expression: Expression) {
             printExpression(expression.right)
         }
 
-        is Conditional -> TODO()
+        is Conditional -> {
+            printExpression(expression.condition)
+            os.print(" ? ")
+            printExpression(expression.thenBranch)
+            os.print(" : ")
+            printExpression(expression.elseBranch)
+        }
+
         is Constant -> os.print("/* type = ${expression.type} */ ${expression.value}")
         is FunctionCall -> {
             os.print("/* type = ${expression.type} = */ ${expression.identifier.identifier}(")

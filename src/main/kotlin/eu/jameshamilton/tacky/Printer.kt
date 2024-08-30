@@ -36,8 +36,8 @@ fun printTacky(program: Program) {
 
 private fun printTacky(staticVariable: StaticVariable) {
     if (staticVariable.global) print("global ")
-    print("int ")
-    print("$" + staticVariable.name)
+    print("${staticVariable.type} ")
+    print(staticVariable.name)
     print(" = ")
     print(staticVariable.init)
     println()
@@ -48,16 +48,15 @@ private fun printTacky(functionDef: FunctionDef) {
 
     val funType = symbolTable[functionDef.name]?.type as FunType?
     funType?.let { print("${it.returnType} ") }
-    val types = funType?.paramsTypes.orEmpty()
     print(functionDef.name)
     println(
-        "(${functionDef.parameters.joinToString(", ") { "${it.second} ${it.first}" }}):"
+        "(${functionDef.parameters.joinToString(", ") { "${it.second} ${it.first}" }}) {"
     )
     println("  entry:")
     functionDef.instructions.forEach {
         printTacky(it)
     }
-    println()
+    println("}")
 }
 
 private fun printTacky(instruction: Instruction) {
@@ -69,8 +68,8 @@ private fun printTacky(instruction: Instruction) {
                 Multiply -> "*"
                 Divide -> "/"
                 Remainder -> "%"
-                And -> "&&"
-                Or -> "||"
+                And -> "&"
+                Or -> "|"
                 Xor -> "^"
                 LeftShift -> "<<"
                 RightShift -> ">>"
@@ -82,7 +81,7 @@ private fun printTacky(instruction: Instruction) {
                 GreaterThanOrEqual -> ">="
             }
             print("    ")
-            printTacky(instruction.dst)
+            printTacky(instruction.dst, printType = false)
             print(" = ")
             printTacky(instruction.src1)
             print(" $op ")
@@ -92,7 +91,7 @@ private fun printTacky(instruction: Instruction) {
 
         is Copy -> {
             print("    ")
-            printTacky(instruction.dst)
+            printTacky(instruction.dst, printType = false)
             print(" = ")
             printTacky(instruction.src)
             println()
@@ -100,7 +99,7 @@ private fun printTacky(instruction: Instruction) {
 
         is FunctionCall -> {
             print("    ")
-            printTacky(instruction.dst)
+            printTacky(instruction.dst, printType = false)
             print(" = ")
             print(instruction.name + "(")
             instruction.arguments.forEachIndexed { index, arg ->
@@ -137,7 +136,7 @@ private fun printTacky(instruction: Instruction) {
                 UnaryOp.Not -> "!"
             }
             print("    ")
-            printTacky(instruction.dst)
+            printTacky(instruction.dst, printType = false)
             print(" = $op")
             printTacky(instruction.src)
             println()
@@ -145,7 +144,7 @@ private fun printTacky(instruction: Instruction) {
 
         is SignExtend -> {
             print("    ")
-            printTacky(instruction.dst)
+            printTacky(instruction.dst, printType = false)
             print(" = sext ")
             printTacky(instruction.src)
             println()
@@ -153,7 +152,7 @@ private fun printTacky(instruction: Instruction) {
 
         is Truncate -> {
             print("    ")
-            printTacky(instruction.dst)
+            printTacky(instruction.dst, printType = false)
             print(" = trunc ")
             printTacky(instruction.src)
             println()
@@ -161,16 +160,17 @@ private fun printTacky(instruction: Instruction) {
     }
 }
 
-private fun printTacky(value: Value) {
+private fun printTacky(value: Value, printType: Boolean = true) {
     when (value) {
         is Constant -> when (value.value) {
-            is Long -> print("int ${value.value}")
-            is Int -> print("long ${value.value}")
+            is Int -> print("int ${value.value}")
+            is Long -> print("long ${value.value}")
         }
 
-        is Var -> when (val type = symbolTable[value.name]?.type) {
-            null -> print("??? $${value.name}")
-            else -> print("$type $${value.name}")
+        is Var -> if (printType) {
+            print("${value.type} $${value.name}")
+        } else {
+            print("$${value.name}")
         }
     }
 }

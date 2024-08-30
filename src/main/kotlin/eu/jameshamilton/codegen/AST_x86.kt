@@ -1,5 +1,16 @@
 package eu.jameshamilton.codegen
 
+import eu.jameshamilton.codegen.RegisterName.AX
+import eu.jameshamilton.codegen.RegisterName.CX
+import eu.jameshamilton.codegen.RegisterName.DX
+import eu.jameshamilton.codegen.RegisterName.SI
+import eu.jameshamilton.codegen.RegisterName.SP
+import eu.jameshamilton.codegen.RegisterSize.BYTE
+import eu.jameshamilton.codegen.RegisterSize.LONG
+import eu.jameshamilton.codegen.RegisterSize.QUAD
+import eu.jameshamilton.codegen.RegisterSize.WORD
+import eu.jameshamilton.unreachable
+
 const val STACK_ALIGNMENT_BYTES = 16
 
 data class Program(val items: List<TopLevel>)
@@ -12,11 +23,30 @@ data class FunctionDef(
     val instructions: List<Instruction>
 ) : TopLevel()
 
-data class StaticVariable(val name: String, val global: Boolean, val alignment: Int, val init: Any) : TopLevel() {
+// TODO: make this a type?
+typealias StaticInit = Any
+
+data class StaticVariable(val name: String, val global: Boolean, val alignment: Int, val init: StaticInit) :
+    TopLevel() {
     init {
         require(init is Int || init is Long)
     }
+
+    val size: Int
+        get() = when (this.init) {
+            is Int -> 4
+            is Long -> 8
+            else -> unreachable("No size for ${this}.")
+        }
+
+    val initType: String
+        get() = when (this.init) {
+            is Int -> "long"
+            is Long -> "quad"
+            else -> unreachable("No size for ${this}.")
+        }
 }
+
 
 sealed class Instruction
 
@@ -54,7 +84,7 @@ data class Imm(override val type: TypeX86, val value: Any) : Operand(type) {
     }
 }
 
-data class Register(val name: RegisterName, val size: Size = Size.LONG) : Operand(Unknown)
+data class Register(val name: RegisterName, val size: RegisterSize) : Operand(Unknown)
 
 // EAX is the full 32-bit value
 // AX is the lower 16-bits
@@ -65,16 +95,53 @@ enum class RegisterName {
     AX, CX, DX, DI, SI, R8, R9, R10, R11, SP;
 }
 
-enum class Size(val suffix: String) {
+enum class RegisterSize(val suffix: String) {
     BYTE("b"), WORD("w"), LONG("d"), QUAD("")
 }
+
+object RegisterAlias {
+    val SP = Register(RegisterName.SP, QUAD)
+
+    val RAX = Register(AX, QUAD)
+    val EAX = Register(AX, LONG)
+    val AL = Register(AX, BYTE)
+    val AH = Register(AX, BYTE)
+
+    val RDX = Register(DX, QUAD)
+    val EDX = Register(DX, LONG)
+
+    val RDI = Register(DX, QUAD)
+    val EDI = Register(DX, LONG)
+
+    val RSI = Register(SI, QUAD)
+    val ESI = Register(SI, LONG)
+
+    val RCX = Register(CX, QUAD)
+    val ECX = Register(CX, LONG)
+}
+
+val RegisterName.b: Register
+    get() = Register(this, BYTE)
+val RegisterName.w: Register
+    get() = Register(this, WORD)
+val RegisterName.d: Register
+    get() = Register(this, LONG)
+val RegisterName.q: Register
+    get() = Register(this, QUAD)
+
+fun RegisterName.x(type: TypeX86) = when (type) {
+    Longword -> Register(this, LONG)
+    Quadword -> Register(this, QUAD)
+    Unknown -> unreachable("No size for ${this}.")
+}
+
+val Register.b: Register
+    get() = Register(this.name, BYTE)
 
 typealias Bytes = Int
 
 sealed interface Memory
 data class Pseudo(override val type: TypeX86, val identifier: String) : Operand(type)
-data class Stack(val position: Int, val size: Bytes = 4) : Operand(Unknown), Memory {
-    val loc: Int = position * size
-}
+data class Stack(val position: Int) : Operand(Unknown), Memory
 
 data class Data(val identifier: String) : Operand(Unknown), Memory

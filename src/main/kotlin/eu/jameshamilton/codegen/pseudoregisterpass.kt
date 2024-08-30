@@ -11,23 +11,23 @@ import eu.jameshamilton.codegen.BinaryOp.Xor
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
-import eu.jameshamilton.unreachable
+import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.floor
 
 
 fun replacePseudoRegisters(program: Program): Program {
-    val registers = mutableMapOf<Pseudo, Stack>()
+    val registers = LinkedHashMap<Pseudo, Stack>()
 
     fun allocate(op: Operand): Operand = when (op) {
         is Pseudo -> if (op.isStatic) {
             Data(op.identifier)
         } else {
-            val size = when (op.type) {
-                Longword -> 4
-                Quadword -> 8
-                Unknown -> unreachable("invalid type: ${op.type}")
+            // Always allocate 8 bytes to ensure correct alignment
+            // even if the type requires less space than 8.
+            registers.computeIfAbsent(op) {
+                Stack(-((registers.size + 1) * Quadword.size))
             }
-            registers.computeIfAbsent(op) { Stack(-(registers.size + 1), size) }
         }
 
         else -> op
@@ -39,12 +39,22 @@ fun replacePseudoRegisters(program: Program): Program {
                 val src = allocate(instruction.src)
                 val dst = allocate(instruction.dst)
 
-                // mov can't have both operands as memory locations.
-                if (src is Memory && dst is Memory) {
-                    mov(instruction.type, src, R10)
-                    mov(instruction.type, R10, dst)
-                } else {
-                    mov(instruction.type, src, dst)
+                when {
+                    src is Imm && src.type == Quadword && dst is Memory -> {
+                        // cannot mov quadwords directly into memory.
+                        mov(instruction.type, src, R10.q)
+                        mov(instruction.type, R10.q, dst)
+                    }
+
+                    src is Memory && dst is Memory -> {
+                        // mov can't have both operands as memory locations.
+                        mov(instruction.type, src, R10.x(instruction.type))
+                        mov(instruction.type, R10.x(instruction.type), dst)
+                    }
+
+                    else -> {
+                        mov(instruction.type, src, dst)
+                    }
                 }
             }
 
@@ -54,19 +64,21 @@ fun replacePseudoRegisters(program: Program): Program {
 
                 when {
                     src is Imm && dst is Memory -> {
-                        mov(Longword, src, R10)
-                        movsx(R10, R11)
-                        mov(Quadword, R11, dst)
+                        movl(src, R10.d)
+                        movsx(R10.d, R11.q)
+                        movq(R11.q, dst)
                     }
 
                     src is Imm -> {
-                        mov(Longword, src, R10)
-                        movsx(R10, dst)
+                        // mov src into long register, which
+                        // results in the upper 32bits set to zero.
+                        movl(src, R10.d)
+                        movsx(R10.q, dst)
                     }
 
                     dst is Memory -> {
-                        movsx(src, R10)
-                        mov(Longword, R10, dst)
+                        movsx(src, R10.q)
+                        movq(R10.q, dst)
                     }
                 }
             }
@@ -78,54 +90,125 @@ fun replacePseudoRegisters(program: Program): Program {
                 val right = allocate(instruction.dst)
                 when (instruction.op) {
                     // These can't have both operands as memory locations.
-                    Add, Sub, And, Or, Xor -> if (left is Memory && right is Memory) {
-                        mov(instruction.type, left, R10)
-                        binary(instruction.type, instruction.op, R10, right)
-                    } else {
-                        binary(instruction.type, instruction.op, left, right)
+                    Add, Sub, And, Or, Xor -> when {
+                        left is Imm && left.type is Quadword || right is Imm && right.type is Quadword -> {
+                            if (left.type is Quadword && right.type is Quadword) {
+                                mov(instruction.type, left, R10.q)
+                                mov(instruction.type, right, R11.q)
+                                binary(instruction.type, instruction.op, R10.q, R11.q)
+                            } else {
+                                mov(instruction.type, left, R10.q)
+                                binary(instruction.type, instruction.op, R10.q, right)
+                            }
+                        }
+
+                        left is Memory && right is Memory -> {
+                            mov(instruction.type, left, R10.x(instruction.type))
+                            binary(instruction.type, instruction.op, R10.x(instruction.type), right)
+                        }
+
+                        else -> {
+                            binary(instruction.type, instruction.op, left, right)
+                        }
                     }
 
-                    Mul -> if (right is Memory) {
-                        // imul can't use memory address as its destination.
-                        mov(instruction.type, right, R11)
-                        imul(instruction.type, left, R11)
-                        mov(instruction.type, R11, right)
-                    } else {
-                        binary(instruction.type, instruction.op, left, right)
+                    Mul -> when {
+                        left is Imm && left.type == Quadword && right is Memory -> {
+                            // imul can't use memory address as its destination.
+                            // can't have Quadword immediate source
+                            mov(instruction.type, left, R10.q)
+                            mov(instruction.type, right, R11.x(instruction.type))
+                            imul(instruction.type, R10.q, R11.x(instruction.type))
+                            mov(instruction.type, R11.x(instruction.type), right)
+                        }
+
+                        left is Imm && left.type == Quadword -> {
+                            mov(instruction.type, left, R10.q)
+                            binary(instruction.type, instruction.op, R10.q, right)
+                        }
+
+                        right is Memory -> {
+                            // imul can't use memory address as its destination.
+                            mov(instruction.type, right, R11.x(instruction.type))
+                            imul(instruction.type, left, R11.x(instruction.type))
+                            mov(instruction.type, R11.x(instruction.type), right)
+                        }
+
+                        else -> {
+                            binary(instruction.type, instruction.op, left, right)
+                        }
                     }
 
-                    LeftShift, RightShift -> if (left is Memory) {
-                        mov(instruction.type, left, CX)
-                        binary(instruction.type, instruction.op, CX, right)
-                        mov(instruction.type, CX, left)
-                    } else {
-                        binary(instruction.type, instruction.op, left, right)
+                    LeftShift, RightShift -> {
+                        val (count, dst) = Pair(left, right)
+                        // count can only be the CX register or immediate.
+                        when {
+                            count is Imm -> {
+                                binary(instruction.type, instruction.op, count, dst)
+                            }
+
+                            else -> {
+                                mov(instruction.type, count, CX.x(instruction.type))
+                                binary(instruction.type, instruction.op, CX.x(instruction.type), dst)
+                            }
+                        }
                     }
                 }
             }
 
             is Cdq -> cdq(instruction.type)
             is IDiv -> {
-                val operand = allocate(instruction.operand)
-                if (operand is Imm) {
-                    mov(instruction.type, operand, R10)
-                    idiv(instruction.type, R10)
-                } else {
-                    idiv(instruction.type, operand)
+                when (val operand = allocate(instruction.operand)) {
+                    is Imm -> {
+                        mov(instruction.type, operand, R10.x(instruction.type))
+                        idiv(instruction.type, R10.x(instruction.type))
+                    }
+
+                    else -> {
+                        idiv(instruction.type, operand)
+                    }
                 }
             }
 
             is Cmp -> {
                 val src1 = allocate(instruction.src1)
                 val src2 = allocate(instruction.src2)
-                if (src1 is Memory && src2 is Memory) {
-                    mov(instruction.type, src1, R10)
-                    cmp(instruction.type, R10, src2)
-                } else if (src2 is Imm) {
-                    mov(instruction.type, src2, R11)
-                    cmp(instruction.type, src1, R11)
-                } else {
-                    cmp(instruction.type, src1, src2)
+                when {
+                    src1 is Imm && src1.type == Quadword -> when {
+                        // cmp cannot have a quadword immediate value
+                        // as either operand.
+                        src1.type == Quadword && src2.type == Quadword -> {
+                            mov(instruction.type, src1, R10.q)
+                            mov(instruction.type, src2, R11.q)
+                            cmp(instruction.type, R10.q, R11.q)
+                        }
+
+                        src1.type == Quadword -> {
+                            mov(instruction.type, src1, R10.q)
+                            cmp(instruction.type, R10.q, src2)
+                        }
+
+                        src2.type == Quadword -> {
+                            mov(instruction.type, src2, R10.q)
+                            cmp(instruction.type, src1, R10.q)
+                        }
+                    }
+
+                    src2 is Imm -> {
+                        // cmp cannot have an immediate second operand.
+                        mov(instruction.type, src2, R10.x(src2.type))
+                        cmp(instruction.type, src1, R10.x(src2.type))
+                    }
+
+                    src1 is Memory && src2 is Memory -> {
+                        // cmp cannot have both operands as memory.
+                        mov(instruction.type, src1, R10.x(instruction.type))
+                        cmp(instruction.type, R10.x(instruction.type), src2)
+                    }
+
+                    else -> {
+                        cmp(instruction.type, src1, src2)
+                    }
                 }
             }
 
@@ -134,16 +217,24 @@ fun replacePseudoRegisters(program: Program): Program {
             is Label -> label(instruction.identifier)
             is SetCC -> {
                 val operand = allocate(instruction.operand)
-                // setcc uses 1 byte registers.
-                if (operand is Register && operand.size != Size.BYTE) {
-                    setcc(instruction.conditionCode, Register(operand.name, Size.BYTE))
+                if (operand is Register) {
+                    // setcc uses 1 byte registers.
+                    setcc(instruction.conditionCode, operand.b)
                 } else {
                     setcc(instruction.conditionCode, operand)
                 }
             }
 
             is Call -> call(instruction.identifier)
-            is Push -> push(allocate(instruction.operand))
+            is Push -> {
+                val operand = allocate(instruction.operand)
+                if (operand is Imm && operand.type is Quadword) {
+                    movq(operand, R10.q)
+                    push(R10.q)
+                } else {
+                    push(operand)
+                }
+            }
         }
     }
 
@@ -153,9 +244,8 @@ fun replacePseudoRegisters(program: Program): Program {
 
     fun fixup(functionDef: FunctionDef): FunctionDef = with(functionDef.instructions.flatMap(::fixup)) {
         val prologue = buildX86 {
-            val total = registers.map { it.value.size }.sum()
-            val roundedStackSize = (ceil(total / STACK_ALIGNMENT_BYTES.toFloat()) * STACK_ALIGNMENT_BYTES).toInt()
-            allocate(roundedStackSize)
+            val maxStack = registers.lastEntry()?.value?.position ?: 0
+            allocate(abs(maxStack).roundUpToNearestMultiple(STACK_ALIGNMENT_BYTES))
         }
         return FunctionDef(functionDef.name, functionDef.global, functionDef.defined, prologue + this)
     }
@@ -167,3 +257,6 @@ fun replacePseudoRegisters(program: Program): Program {
 
     return Program(program.items.map { fixup(it) })
 }
+
+fun Int.roundUpToNearestMultiple(n: Int) = (ceil(this / n.toFloat()) * n).toInt()
+fun Int.roundDownToNearestMultiple(n: Int) = (floor(this / n.toFloat()) * n).toInt()
