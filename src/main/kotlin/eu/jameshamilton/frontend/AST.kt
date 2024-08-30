@@ -155,7 +155,9 @@ enum class BinaryOp(private val c: String) {
 }
 
 data class Var(val identifier: Identifier, override val type: Type = Unknown) : Expression(type)
-data class Assignment(val lvalue: Expression, val value: Expression, override val type: Type = Unknown) : Expression(type)
+data class Assignment(val lvalue: Expression, val value: Expression, override val type: Type = Unknown) :
+    Expression(type)
+
 data class Conditional(
     val condition: Expression, val thenBranch: Expression, val elseBranch: Expression,
     override val type: Type = Unknown

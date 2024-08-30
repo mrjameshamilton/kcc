@@ -51,7 +51,7 @@ private fun printTacky(functionDef: FunctionDef) {
     val types = funType?.paramsTypes.orEmpty()
     print(functionDef.name)
     println(
-        "(${functionDef.parameters.zip(types).joinToString(", ") { "${it.second} ${it.first}" }}):"
+        "(${functionDef.parameters.joinToString(", ") { "${it.second} ${it.first}" }}):"
     )
     println("  entry:")
     functionDef.instructions.forEach {

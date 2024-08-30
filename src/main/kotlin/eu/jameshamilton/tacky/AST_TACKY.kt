@@ -1,5 +1,6 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.Type
 
 
@@ -8,11 +9,15 @@ data class Program(val items: List<TopLevel>)
 sealed class TopLevel
 
 data class FunctionDef(
+    val type: FunType,
     val name: String,
     val global: Boolean,
-    val parameters: List<String>,
+    val defined: Boolean,
+    val parameterNames: List<String>,
     val instructions: List<Instruction>
-) : TopLevel()
+) : TopLevel() {
+    val parameters by lazy { type.paramsTypes.zip(parameterNames) }
+}
 
 data class StaticVariable(val name: String, val global: Boolean, val type: Type, val init: Any) : TopLevel() {
     init {
@@ -40,7 +45,7 @@ enum class BinaryOp {
 
 sealed class Value
 data class Constant(val value: Any) : Value()
-data class Var(val name: String) : Value()
+data class Var(val type: Type, val name: String) : Value()
 
 typealias LabelIdentifier = String
 

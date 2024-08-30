@@ -4,7 +4,7 @@
 int x = 1L;
 
 int main(void) {
-    int x = 100;
+    static int x = 100;
     switch (x << 2l) {  // x << 2 == 400
         // these cases are duplicates b/c they'll both be converted to
         // the type of the switch expression - which is int, NOT long

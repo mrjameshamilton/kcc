@@ -115,7 +115,7 @@ private var count = 0
 private fun maketemporary(type: Type): TackyVar {
     val name = "tmp.${count++}"
     symbolTable[name] = SymbolTableEntry(type, LocalAttr)
-    return TackyVar(name)
+    return TackyVar(type, name)
 }
 
 private var labels = 0
@@ -233,7 +233,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             value
         }
 
-        is Var -> TackyVar(expression.identifier.identifier)
+        is Var -> TackyVar(expression.type, expression.identifier.identifier)
         is Conditional -> buildTacky(instructions) {
             val result = maketemporary(expression.type)
             val condition = convert(instructions, expression.condition)
@@ -284,7 +284,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 is VarDeclaration -> {
                     if (symbolTable[statement.name.identifier]?.attr is LocalAttr && statement.initializer != null) {
                         val src = convert(instructions, statement.initializer)
-                        val dst = TackyVar(statement.name.identifier)
+                        val dst = TackyVar(statement.type, statement.name.identifier)
                         copy(src, dst)
                     }
                 }
@@ -430,8 +430,10 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
     val attr = symbolTable[funDeclaration.name.identifier]?.attr as FunAttr
 
     return TackyFunctionDef(
+        funDeclaration.type,
         funDeclaration.name.identifier,
         attr.global,
+        funDeclaration.body != null,
         funDeclaration.params?.map { it.name.identifier } ?: emptyList(),
         convert(funDeclaration.body) + listOf(Return(TackyConstant(0)))
     )

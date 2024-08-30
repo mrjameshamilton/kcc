@@ -8,34 +8,54 @@ import eu.jameshamilton.codegen.ConditionCode.LE
 import eu.jameshamilton.codegen.ConditionCode.NE
 
 class Builder(var instructions: List<Instruction> = mutableListOf()) {
-    fun mov(src: Operand, dst: Operand): Builder {
-        instructions += Mov(src, dst)
+    fun mov(type: TypeX86, src: Operand, dst: Operand): Builder {
+        instructions += Mov(type, src, dst)
+        return this
+    }
+    fun movl(src: Operand, dst: Operand): Builder {
+        return mov(Longword, src, dst)
+    }
+
+    fun mov(type: TypeX86, i: Int, dst: Operand): Builder {
+        return mov(type, Imm(type, i), dst)
+    }
+
+    fun mov(type: TypeX86, registerName: RegisterName, dst: Operand): Builder {
+        return mov(type, Register(registerName), dst)
+    }
+
+    fun mov(type: TypeX86, src: Operand, dst: RegisterName): Builder {
+        return mov(type, src, Register(dst))
+    }
+
+    fun movsx(src: Operand, dst: Operand): Builder {
+        instructions += Movsx(src, dst)
         return this
     }
 
-    fun mov(i: Int, dst: Operand): Builder {
-        return mov(Imm(i), dst)
+    fun movsx(registerName: RegisterName, dst: Operand): Builder {
+        return movsx(Register(registerName), dst)
     }
 
-    fun mov(registerName: RegisterName, dst: Operand): Builder {
-        return mov(Register(registerName), dst)
+    fun movsx(src: Operand, dst: RegisterName): Builder {
+        return movsx(src, Register(dst))
     }
 
-    fun mov(src: Operand, dst: RegisterName): Builder {
-        return mov(src, Register(dst))
+    fun movsx(src: RegisterName, dst: RegisterName): Builder {
+        return movsx(Register(src), Register(dst))
     }
 
-    fun cdq(): Builder {
-        instructions += Cdq
+    fun cdq(type: TypeX86): Builder {
+        instructions += Cdq(type)
         return this
     }
 
-    fun idiv(registerName: RegisterName): Builder {
-        return idiv(Register(registerName))
+    fun idiv(type: TypeX86, registerName: RegisterName): Builder {
+        return idiv(type, Register(registerName))
     }
 
-    fun idiv(operand: Operand): Builder {
-        instructions += IDiv(operand)
+    fun idiv(type: TypeX86, operand: Operand): Builder {
+        instructions += IDiv(type, operand)
         return this
     }
 
@@ -44,80 +64,88 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return this
     }
 
-    fun binary(binaryOp: BinaryOp, src: Operand, dst: Operand): Builder {
-        instructions += Binary(binaryOp, src, dst)
+    fun binary(type: TypeX86, binaryOp: BinaryOp, src: Operand, dst: Operand): Builder {
+        instructions += Binary(binaryOp, type, src, dst)
         return this
     }
 
-    fun binary(binaryOp: BinaryOp, src: RegisterName, dst: Operand): Builder {
-        instructions += Binary(binaryOp, Register(src), dst)
+    fun binary(type: TypeX86, binaryOp: BinaryOp, src: RegisterName, dst: Operand): Builder {
+        instructions += Binary(binaryOp, type, Register(src), dst)
         return this
     }
 
-    fun unary(unaryOp: UnaryOp, src: Operand): Builder {
-        instructions += Unary(unaryOp, src)
+    fun unary(type: TypeX86, unaryOp: UnaryOp, src: Operand): Builder {
+        instructions += Unary(unaryOp, type, src)
         return this
     }
 
-    fun not(src: Operand): Builder {
-        return unary(UnaryOp.Not, src)
+    fun not(type: TypeX86, src: Operand): Builder {
+        return unary(type, UnaryOp.Not, src)
     }
 
-    fun neg(src: Operand): Builder {
-        return unary(UnaryOp.Neg, src)
+    fun neg(type: TypeX86, src: Operand): Builder {
+        return unary(type, UnaryOp.Neg, src)
     }
 
-    fun add(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.Add, src, dst)
+    fun add(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.Add, src, dst)
     }
 
-    fun sub(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.Sub, src, dst)
+    fun add(type: TypeX86, bytes: Int, registerName: RegisterName): Builder {
+        return binary(type, BinaryOp.Add, Imm(type, bytes), Register(registerName))
     }
 
-    fun imul(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.Mul, src, dst)
+    fun sub(type: TypeX86, bytes: Int, registerName: RegisterName): Builder {
+        return binary(type, BinaryOp.Sub, Imm(type, bytes), Register(registerName))
     }
 
-    fun imul(src: Operand, dst: RegisterName): Builder {
-        return binary(BinaryOp.Mul, src, Register(dst))
+    fun sub(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.Sub, src, dst)
     }
 
-    fun and(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.And, src, dst)
+    fun imul(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.Mul, src, dst)
     }
 
-    fun or(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.Or, src, dst)
+    fun imul(type: TypeX86, src: Operand, dst: RegisterName): Builder {
+        return binary(type, BinaryOp.Mul, src, Register(dst))
     }
 
-    fun xor(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.Xor, src, dst)
+    fun and(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.And, src, dst)
     }
 
-    fun sal(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.LeftShift, src, dst)
+    fun or(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.Or, src, dst)
     }
 
-    fun sar(src: Operand, dst: Operand): Builder {
-        return binary(BinaryOp.RightShift, src, dst)
+    fun xor(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.Xor, src, dst)
     }
 
-    fun cmp(src1: Operand, src2: Operand): Builder {
-        instructions += Cmp(src1, src2)
+    fun sal(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.LeftShift, src, dst)
+    }
+
+    fun sar(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.RightShift, src, dst)
+    }
+
+    fun cmp(type: TypeX86, src1: Operand, src2: Operand): Builder {
+        instructions += Cmp(type, src1, src2)
         return this
     }
 
-    fun cmp(i: Int, src2: Operand): Builder {
-        return cmp(Imm(i), src2)
+    fun cmp(type: TypeX86, i: Int, src2: Operand): Builder {
+        return cmp(type, Imm(type, i), src2)
     }
 
-    fun cmp(registerName: RegisterName, src2: Operand): Builder {
-        return cmp(Register(registerName), src2)
+    fun cmp(type: TypeX86, registerName: RegisterName, src2: Operand): Builder {
+        return cmp(type, Register(registerName), src2)
     }
 
-    fun cmp(src1: Operand, registerName: RegisterName): Builder {
-        return cmp(src1, Register(registerName))
+    fun cmp(type: TypeX86, src1: Operand, registerName: RegisterName): Builder {
+        return cmp(type, src1, Register(registerName))
     }
 
     fun setcc(code: ConditionCode, src: Operand): Builder {
@@ -187,13 +215,11 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
     }
 
     fun allocate(i: Int): Builder {
-        instructions += AllocateStack(i)
-        return this
+        return sub(Quadword, i, RegisterName.SP)
     }
 
     fun deallocate(i: Int): Builder {
-        instructions += DeallocateStack(i)
-        return this
+        return add(Quadword, i, RegisterName.SP)
     }
 }
 

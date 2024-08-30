@@ -17,6 +17,7 @@ import eu.jameshamilton.codegen.RegisterName.R11
 import eu.jameshamilton.codegen.RegisterName.R8
 import eu.jameshamilton.codegen.RegisterName.R9
 import eu.jameshamilton.codegen.RegisterName.SI
+import eu.jameshamilton.codegen.RegisterName.SP
 import eu.jameshamilton.codegen.Size.BYTE
 import eu.jameshamilton.codegen.Size.LONG
 import eu.jameshamilton.codegen.Size.QUAD
@@ -32,6 +33,7 @@ fun emit(x86program: x86Program): String = buildString {
         is Imm -> "$${operand.value}"
 
         is Register -> when (operand.name) {
+            SP -> "%rsp"
             AX, CX, DX, DI, SI -> when (operand.size) {
                 BYTE -> "%${operand.name.name.lowercase().first()}l"
                 WORD -> "%${operand.name.name.lowercase()}"
@@ -69,6 +71,7 @@ fun emit(x86program: x86Program): String = buildString {
         instructions.forEach {
             when (it) {
                 is Mov -> appendLine("    movl ${format(it.src)}, ${format(it.dst)}")
+                is Movsx -> TODO()
                 Ret -> appendLine(
                     """
                     |    movq %rbp, %rsp
@@ -80,15 +83,13 @@ fun emit(x86program: x86Program): String = buildString {
                 is Unary -> appendLine("    ${format(it.op)} ${format(it.operand)}")
                 is Binary -> appendLine("    ${format(it.op)} ${format(it.src)}, ${format(it.dst)}")
                 is IDiv -> appendLine("    idivl ${format(it.operand)}")
-                Cdq -> appendLine("    cdq")
+                is Cdq -> appendLine("    cdq")
                 is Cmp -> appendLine("    cmpl ${format(it.src1)}, ${format(it.src2)}")
                 is Jmp -> appendLine("    jmp ${label(it.identifier)}")
                 is JmpCC -> appendLine("    j${it.conditionCode.toString().lowercase()} ${label(it.identifier)}")
                 is Label -> appendLine("${label(it.identifier)}:")
                 is SetCC -> appendLine("    set${it.conditionCode.toString().lowercase()} ${format(it.operand)}")
                 is Call -> appendLine("    call ${it.identifier}@PLT")
-                is AllocateStack -> appendLine("    subq $${it.i}, %rsp")
-                is DeallocateStack -> appendLine("    addq $${it.i}, %rsp")
                 is Push -> appendLine("    pushq ${format(it.operand)}")
             }
         }
