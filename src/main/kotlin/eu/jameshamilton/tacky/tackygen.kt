@@ -260,7 +260,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         is Cast -> buildTacky(instructions) {
             val result = convert(instructions, expression.expression)
             if (expression.targetType == expression.expression.type) {
-                nop()
+                result
             } else {
                 val dst = maketemporary(expression.type)
                 symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
