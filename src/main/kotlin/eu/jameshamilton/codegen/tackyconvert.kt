@@ -47,6 +47,7 @@ import eu.jameshamilton.tacky.Truncate
 import eu.jameshamilton.tacky.UnaryOp.Complement
 import eu.jameshamilton.tacky.UnaryOp.Negate
 import eu.jameshamilton.tacky.UnaryOp.Not
+import eu.jameshamilton.tacky.ZeroExtend
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Instruction as x86Instruction
@@ -305,6 +306,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 }
                 movl(truncated, dst)
             }
+
+            is ZeroExtend -> TODO()
         }
     }
 }

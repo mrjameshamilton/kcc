@@ -71,7 +71,9 @@ import eu.jameshamilton.frontend.check.SymbolTableEntry
 import eu.jameshamilton.frontend.check.Tentative
 import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.frontend.check.symbolTable
+import eu.jameshamilton.frontend.isSigned
 import eu.jameshamilton.unreachable
+import kotlin.math.sign
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.BinaryOp.Add as TackyBinaryOpAdd
@@ -100,8 +102,8 @@ fun convert(program: Program): TackyProgram {
                     is Initial -> StaticVariable(name, attr.global, type, attr.initialValue.value)
                     Tentative -> StaticVariable(
                         name, attr.global, type, when (type) {
-                            is IntType -> 0
-                            is LongType -> 0L
+                            is IntType, UIntType -> 0
+                            is LongType, ULongType -> 0L
                             else -> unreachable("invalid type $type")
                         }
                     )
@@ -266,11 +268,15 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             } else {
                 val dst = maketemporary(expression.type)
                 symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
-                when (expression.targetType) {
-                    is FunType -> unreachable("cast to function type not possible")
-                    IntType, UIntType -> truncate(result, dst)
-                    LongType, ULongType -> signextend(result, dst)
-                    Unknown -> unreachable("${expression.targetType} unknown")
+                val t1 = expression.targetType
+                val t2 = expression.expression.type
+                when {
+                    // if both types are the same size, it doesn't matter
+                    // if they are signed or unsigned when converted to assembly.
+                    t1.size == t2.size -> copy(result, dst)
+                    t1.size < t2.size -> truncate(result, dst)
+                    t2.isSigned -> signextend(result, dst)
+                    else -> zeroextend(result, dst)
                 }
                 dst
             }
@@ -505,6 +511,11 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
 
     fun signextend(src: Value, dst: Value): Value {
         instructions += SignExtend(src, dst)
+        return dst
+    }
+
+    fun zeroextend(src: Value, dst: Value): Value {
+        instructions += ZeroExtend(src, dst)
         return dst
     }
 

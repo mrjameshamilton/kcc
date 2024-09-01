@@ -109,22 +109,22 @@ private fun printTacky(instruction: Instruction) {
             println(")")
         }
 
-        is Jump -> println("    jump ${instruction.target}")
+        is Jump -> println("    jmp ${instruction.target}")
         is JumpIfNotZero -> {
-            print("    jumpIfNotZero ")
+            print("    jne ")
             printTacky(instruction.condition)
             println(" ${instruction.target}")
         }
 
         is JumpIfZero -> {
-            print("    jumpIfZero ")
+            print("    jeq ")
             printTacky(instruction.condition)
             println(" ${instruction.target}")
         }
 
         is Label -> println("  ${instruction.identifier}:")
         is Return -> {
-            print("    return ")
+            print("    ret ")
             printTacky(instruction.value)
             println()
         }
@@ -150,6 +150,14 @@ private fun printTacky(instruction: Instruction) {
             println()
         }
 
+        is ZeroExtend -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = zext ")
+            printTacky(instruction.src)
+            println()
+        }
+
         is Truncate -> {
             print("    ")
             printTacky(instruction.dst, printType = false)
@@ -157,6 +165,7 @@ private fun printTacky(instruction: Instruction) {
             printTacky(instruction.src)
             println()
         }
+
     }
 }
 

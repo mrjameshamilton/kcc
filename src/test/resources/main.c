@@ -1,12 +1,18 @@
-static unsigned int u = 4294967299L;
+/* Test initializing and updating unsigned global variables */
+static unsigned long x = 9223372036854775803ul; // 2^63 - 5
 
-int main(void) {
+// make sure these are initialized to zero
+unsigned long zero_long;
+unsigned zero_int;
 
-    static unsigned long x = 1u;
-    /* only one "L" suffix is permitted on a long
-     * Note: an "LL" suffix is standard-compliant and indicates
-     * a long long constant, which our implementation doesn't support,
-     * but an "lL" suffix is invalid
-     */
-    return 1 + 1;
+int main(void)
+{
+    if (x != 9223372036854775803ul)
+        return 0;
+    x = x + 10;
+    if (x != 9223372036854775813ul)
+        return 0;
+    if (zero_long || zero_int)
+        return 0;
+    return 1;
 }

@@ -28,7 +28,7 @@ typealias StaticInit = Any
 data class StaticVariable(val name: String, val global: Boolean, val alignment: Int, val init: StaticInit) :
     TopLevel() {
     init {
-        require(init is Int || init is Long)
+        require(init is Int || init is Long || init is UInt || init is ULong)
     }
 
     val size: Int
@@ -79,7 +79,7 @@ data class Call(val identifier: String) : Instruction()
 sealed class Operand(open val type: TypeX86)
 data class Imm(override val type: TypeX86, val value: Any) : Operand(type) {
     init {
-        require(value is Int || value is Long)
+        require(value is Int || value is Long || value is UInt || value is ULong)
     }
 }
 

@@ -21,7 +21,7 @@ data class FunctionDef(
 
 data class StaticVariable(val name: String, val global: Boolean, val type: Type, val init: Any) : TopLevel() {
     init {
-        require(init is Int || init is Long)
+        require(init is Int || init is Long || init is UInt || init is ULong)
     }
 }
 
@@ -30,6 +30,7 @@ data class FunctionCall(val name: String, val arguments: List<Value>, val dst: V
 
 data class Return(val value: Value) : Instruction()
 data class SignExtend(val src: Value, val dst: Value) : Instruction()
+data class ZeroExtend(val src: Value, val dst: Value) : Instruction()
 data class Truncate(val src: Value, val dst: Value) : Instruction()
 data class Unary(val op: UnaryOp, val src: Value, val dst: Value) : Instruction()
 enum class UnaryOp {
@@ -46,7 +47,7 @@ enum class BinaryOp {
 sealed class Value
 data class Constant(val value: Any) : Value() {
     init {
-        require(value is Int || value is Long)
+        require(value is Int || value is Long || value is UInt || value is ULong)
     }
 }
 
