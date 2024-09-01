@@ -233,8 +233,8 @@ class Scanner(private val source: String) {
         // Use BigInteger for consistency: the parser will
         // check the ranges and convert to the correct type.
 
-        if (match('l', 'l', ignoreCase = true)) {
-            // long long constant.
+        if (match('l', 'l') || match('L', 'L')) {
+            // TODO: long long constant
             if (peek().lowercaseChar() == 'l') {
                 error(line, "Unexpected character '${peek()}'.")
             }
