@@ -54,6 +54,8 @@ import eu.jameshamilton.frontend.StorageClass.EXTERN
 import eu.jameshamilton.frontend.StorageClass.STATIC
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.Type
+import eu.jameshamilton.frontend.UIntType
+import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
 import eu.jameshamilton.frontend.Unknown
@@ -79,7 +81,7 @@ sealed class InitialValue
 data object Tentative : InitialValue()
 data class Initial(val value: Any) : InitialValue() {
     init {
-        require(value is Int || value is Long)
+        require(value is Int || value is Long || value is UInt || value is ULong)
     }
 }
 
@@ -188,7 +190,7 @@ private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
 
         STATIC -> {
             val initialValue = when (varDeclaration.initializer) {
-                is Constant -> Initial(varDeclaration.initializer.value as Int)
+                is Constant -> Initial(varDeclaration.initializer.value)
                 null -> Initial(0)
                 else -> error(
                     varDeclaration.name.line,
@@ -198,6 +200,7 @@ private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
 
             val attrs = StaticAttr(initialValue, false)
             symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(varDeclaration.type, attrs)
+            initializer = varDeclaration.initializer?.let { typecheck(varDeclaration.initializer) }
         }
 
         else -> {
@@ -323,6 +326,8 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         val type = when (expression.value) {
             is Long -> LongType
             is Int -> IntType
+            is ULong -> ULongType
+            is UInt -> UIntType
             else -> error("Invalid type for ${expression.value}")
         }
         Constant(expression.value, type)
