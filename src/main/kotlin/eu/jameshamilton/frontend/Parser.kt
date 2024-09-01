@@ -29,6 +29,8 @@ import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
 import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
 import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
+import eu.jameshamilton.frontend.TokenType.CONSTANT_UINT
+import eu.jameshamilton.frontend.TokenType.CONSTANT_ULONG
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DEFAULT
@@ -74,11 +76,13 @@ import eu.jameshamilton.frontend.TokenType.RETURN
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
 import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
+import eu.jameshamilton.frontend.TokenType.SIGNED
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STATIC
 import eu.jameshamilton.frontend.TokenType.SWITCH
 import eu.jameshamilton.frontend.TokenType.TILDE
+import eu.jameshamilton.frontend.TokenType.UNSIGNED
 import eu.jameshamilton.frontend.TokenType.VOID
 import eu.jameshamilton.frontend.TokenType.WHILE
 import eu.jameshamilton.frontend.UnaryOp.Complement
@@ -288,16 +292,16 @@ class Parser(private val tokens: List<Token>) {
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
     private fun checkStorageClass() = check(EXTERN) || check(STATIC)
-    private fun checkType() = check(INT) || check(LONG)
+    private fun checkType() = check(INT) || check(LONG) || check(SIGNED) || check(UNSIGNED)
 
     private fun typeSpecifier() = specifier(allowStorageClass = false).first
     private fun specifier(allowStorageClass: Boolean = true): Pair<Type, StorageClass> {
-        val types = mutableListOf<Type>()
+        val typeTokens = mutableListOf<TokenType>()
         val storageClasses = mutableListOf<StorageClass>()
 
         do {
             when (peek().type) {
-                INT, LONG -> types.add(type())
+                INT, LONG, SIGNED, UNSIGNED -> typeTokens.add(advance().type)
                 EXTERN, STATIC -> if (allowStorageClass) {
                     storageClasses.add(storageClass())
                 } else {
@@ -306,17 +310,9 @@ class Parser(private val tokens: List<Token>) {
 
                 else -> throw error(peek(), "Unexpected specifier '${peek().lexeme}'.")
             }
-            // IDENTIFIER would be next, followed by either of these:
-        } while (
-            !(checkNext(SEMICOLON) || checkNext(EQUAL) || check(LEFT_PAREN) || checkNext(LEFT_PAREN)
-                    || checkNext(COMMA) || check(RIGHT_PAREN) || checkNext(RIGHT_PAREN))
-        )
+        } while (!check(IDENTIFIER) && !check(RIGHT_PAREN))
 
-        val type = when (types) {
-            listOf(IntType) -> IntType
-            listOf(IntType, LongType), listOf(LongType, IntType), listOf(LongType) -> LongType
-            else -> throw error(peek(), "Unexpected type '${peek().lexeme}'.")
-        }
+        val type = type(typeTokens)
 
         val storageClass = when {
             storageClasses.size == 1 -> storageClasses.single()
@@ -336,10 +332,25 @@ class Parser(private val tokens: List<Token>) {
         else -> throw error(previous(), "Unexpected storage class '${peek().type}'.")
     }
 
-    private fun type(): Type = when {
-        match(INT) -> IntType
-        match(LONG) -> LongType
-        else -> throw error(previous(), "Unexpected type '${peek().type}'.")
+    private fun type(types: List<TokenType>): Type = when {
+        types.isEmpty() -> {
+            throw error(previous(), "Expected at least one type specifier.")
+        }
+
+        types.contains(SIGNED) && types.contains(UNSIGNED) -> {
+            throw error(previous(), "Invalid type specifier '${types.joinToString(", ")}'")
+        }
+
+        types.distinct().size != types.count() -> {
+            throw error(previous(), "Duplicate type specifiers '${types.joinToString(", ")}'.")
+        }
+
+        types.containsAll(setOf(UNSIGNED, LONG)) -> ULongType
+        types.contains(UNSIGNED) -> UIntType
+        types.contains(LONG) -> LongType
+
+        // Default type is int.
+        else -> IntType
     }
 
     private fun primary(): Expression = when {
@@ -371,21 +382,53 @@ class Parser(private val tokens: List<Token>) {
             }
         }
 
-        match(CONSTANT_INT) -> {
+        match(CONSTANT_INT, CONSTANT_UINT) -> {
             val literal = previous().literal as BigInteger
-            when {
-                literal >= Int.MIN_VALUE.toBigInteger() && literal <= Int.MAX_VALUE.toBigInteger() -> Constant(literal.toInt())
-                literal >= Long.MIN_VALUE.toBigInteger() && literal <= Long.MAX_VALUE.toBigInteger() -> Constant(literal.toLong())
-                else -> throw error(previous(), "Integer out of supported range.")
+            val unsigned = previous().type == CONSTANT_UINT
+
+            if (unsigned) {
+                when {
+                    literal >= BigInteger.ZERO && literal <= Int.MAX_VALUE.toBigInteger() -> {
+                        Constant(literal.toInt().toUInt())
+                    }
+
+                    literal >= BigInteger.ZERO && literal <= (BigInteger.TWO.pow(64) - BigInteger.ONE) -> {
+                        Constant(literal.toLong().toULong())
+                    }
+
+                    else -> throw error(previous(), "unsigned integer out of supported range.")
+                }
+            } else {
+                when {
+                    literal >= Int.MIN_VALUE.toBigInteger() && literal <= Int.MAX_VALUE.toBigInteger() -> {
+                        Constant(literal.toInt())
+                    }
+
+                    literal >= Long.MIN_VALUE.toBigInteger() && literal <= Long.MAX_VALUE.toBigInteger() -> {
+                        Constant(literal.toLong())
+                    }
+
+                    else -> throw error(previous(), "Integer out of supported range.")
+                }
             }
         }
 
-        match(CONSTANT_LONG) -> {
+        match(CONSTANT_LONG, CONSTANT_ULONG) -> {
+
             val literal = previous().literal as BigInteger
-            if (literal >= Long.MIN_VALUE.toBigInteger() && literal <= Long.MAX_VALUE.toBigInteger()) {
-                Constant(literal.toLong())
+            val unsigned = previous().type == CONSTANT_ULONG
+            if (unsigned) {
+                if (literal >= BigInteger.ZERO && literal <= (BigInteger.TWO.pow(64) - BigInteger.ONE)) {
+                    Constant(literal.toLong().toULong())
+                } else {
+                    throw error(previous(), "Unsigned long constant out of supported range.")
+                }
             } else {
-                throw error(previous(), "Long constant out of supported range.")
+                if (literal >= Long.MIN_VALUE.toBigInteger() && literal <= Long.MAX_VALUE.toBigInteger()) {
+                    Constant(literal.toLong())
+                } else {
+                    throw error(previous(), "Long constant out of supported range.")
+                }
             }
         }
 
@@ -406,7 +449,7 @@ class Parser(private val tokens: List<Token>) {
             is Constant -> when (expression.value) {
                 is Int -> Constant(-expression.value)
                 is Long -> Constant(-expression.value)
-                else -> throw error(peek(), "Unexpected expression value.")
+                else -> UnaryExpr(Negate, expression)
             }
 
             else -> UnaryExpr(Negate, expression)

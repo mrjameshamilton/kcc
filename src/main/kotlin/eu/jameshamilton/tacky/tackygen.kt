@@ -50,6 +50,8 @@ import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.SwitchCase
 import eu.jameshamilton.frontend.Type
+import eu.jameshamilton.frontend.UIntType
+import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp
 import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
@@ -266,8 +268,8 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
                 when (expression.targetType) {
                     is FunType -> unreachable("cast to function type not possible")
-                    IntType -> truncate(result, dst)
-                    LongType -> signextend(result, dst)
+                    IntType, UIntType -> truncate(result, dst)
+                    LongType, ULongType -> signextend(result, dst)
                     Unknown -> unreachable("${expression.targetType} unknown")
                 }
                 dst

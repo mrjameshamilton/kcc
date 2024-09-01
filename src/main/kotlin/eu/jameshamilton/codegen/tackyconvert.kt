@@ -12,6 +12,8 @@ import eu.jameshamilton.codegen.RegisterName.SI
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.LongType
+import eu.jameshamilton.frontend.UIntType
+import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.check.FunAttr
 import eu.jameshamilton.frontend.check.LocalAttr
@@ -97,8 +99,8 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
         tackyFunctionDef.parameters.forEachIndexed { index, (tackyType, param) ->
             val type = when (tackyType) {
                 is FunType, Unknown -> unreachable("Invalid type")
-                IntType -> Longword
-                LongType -> Quadword
+                IntType, UIntType -> Longword
+                LongType, ULongType -> Quadword
             }
             // Copy all parameters from registers into stack locations,
             // to simplify things. Later, when register allocation is
@@ -149,8 +151,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         }
 
         is TackyVar -> when (value.type) {
-            IntType -> Pseudo(Longword, value.name)
-            LongType -> Pseudo(Quadword, value.name)
+            IntType, UIntType -> Pseudo(Longword, value.name)
+            LongType, ULongType -> Pseudo(Quadword, value.name)
             is FunType, Unknown -> unreachable("invalid type")
         }
     }

@@ -11,6 +11,14 @@ data object LongType : Type() {
     override fun toString(): String = "long"
 }
 
+data object UIntType : Type() {
+    override fun toString(): String = "unsigned int"
+}
+
+data object ULongType : Type() {
+    override fun toString(): String = "unsigned long"
+}
+
 data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type() {
     override fun toString(): String =
         "(${paramsTypes.joinToString(separator = ", ") { it.toString() }}) -> $returnType"
