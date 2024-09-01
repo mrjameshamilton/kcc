@@ -4,7 +4,6 @@ import eu.jameshamilton.codegen.RegisterName.AX
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.DX
 import eu.jameshamilton.codegen.RegisterName.SI
-import eu.jameshamilton.codegen.RegisterName.SP
 import eu.jameshamilton.codegen.RegisterSize.BYTE
 import eu.jameshamilton.codegen.RegisterSize.LONG
 import eu.jameshamilton.codegen.RegisterSize.QUAD

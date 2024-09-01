@@ -10,6 +10,8 @@ import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
 import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
 import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
+import eu.jameshamilton.frontend.TokenType.CONSTANT_UINT
+import eu.jameshamilton.frontend.TokenType.CONSTANT_ULONG
 import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DEFAULT
@@ -57,12 +59,14 @@ import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
 import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
+import eu.jameshamilton.frontend.TokenType.SIGNED
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STATIC
 import eu.jameshamilton.frontend.TokenType.STRING
 import eu.jameshamilton.frontend.TokenType.SWITCH
 import eu.jameshamilton.frontend.TokenType.TILDE
+import eu.jameshamilton.frontend.TokenType.UNSIGNED
 import eu.jameshamilton.frontend.TokenType.VOID
 import eu.jameshamilton.frontend.TokenType.WHILE
 import kotlin.system.exitProcess
@@ -224,22 +228,44 @@ class Scanner(private val source: String) {
         //    while (isDigit(peek())) advance()
         //}
 
+        var unsigned = match('u', ignoreCase = true)
+
         // Use BigInteger for consistency: the parser will
         // check the ranges and convert to the correct type.
 
-        if (match('l', 'l') || match('L', 'L')) {
+        if (match('l', 'l', ignoreCase = true)) {
             // long long constant.
             if (peek().lowercaseChar() == 'l') {
                 error(line, "Unexpected character '${peek()}'.")
             }
-            addToken(CONSTANT_LONG, source.substring(start, current - 2).toBigInteger())
+            val endIndex = if (unsigned) current - 3 else current - 2
+
+            unsigned = unsigned || match('u', ignoreCase = true)
+
+            if (peek().lowercaseChar() == 'l' || peek().lowercaseChar() == 'u') {
+                error(line, "Unexpected character '${peek()}'.")
+            }
+
+            addToken(if (unsigned) CONSTANT_ULONG else CONSTANT_LONG, source.substring(start, endIndex).toBigInteger())
+
             return
-        } else if (match('l') || match('L')) {
+        } else if (match('l', ignoreCase = true)) {
             // long constant
             if (peek().lowercaseChar() == 'l') {
                 error(line, "Unexpected character '${peek()}'.")
             } else {
-                addToken(CONSTANT_LONG, source.substring(start, current - 1).toBigInteger())
+                val endIndex = if (unsigned) current - 2 else current - 1
+
+                unsigned = unsigned || match('u', ignoreCase = true)
+
+                if (peek().lowercaseChar() == 'l' || peek().lowercaseChar() == 'u') {
+                    error(line, "Unexpected character '${peek()}'.")
+                }
+
+                addToken(
+                    if (unsigned) CONSTANT_ULONG else CONSTANT_LONG,
+                    source.substring(start, endIndex).toBigInteger()
+                )
             }
             return
         }
@@ -249,10 +275,10 @@ class Scanner(private val source: String) {
             error(line, "Invalid identifier '${source.substring(start, current)}'.")
         }
 
-        try {
+        if (unsigned) {
+            addToken(CONSTANT_UINT, source.substring(start, current - 1).toBigInteger())
+        } else {
             addToken(CONSTANT_INT, source.substring(start, current).toBigInteger())
-        } catch (e: NumberFormatException) {
-            error(line, "Error parsing number: ${source.substring(start, current)}")
         }
     }
 
@@ -333,6 +359,8 @@ class Scanner(private val source: String) {
             "default" to DEFAULT,
             "extern" to EXTERN,
             "static" to STATIC,
+            "signed" to SIGNED,
+            "unsigned" to UNSIGNED,
         )
     }
 }
