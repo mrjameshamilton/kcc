@@ -1,18 +1,38 @@
-/* Test initializing and updating unsigned global variables */
-static unsigned long x = 9223372036854775803ul; // 2^63 - 5
+int main(void) {
+    /* Define constant doubles in a few different formats,
+     * and make sure we can lex all of them.
+     * Note that these can all be respresented exactly,
+     * without rounding
+     */
 
-// make sure these are initialized to zero
-unsigned long zero_long;
-unsigned zero_int;
+    double x = 8Lu;
+    /* Several ways to define 1 */
+    double a = 1.0;
+    double b = 1.;
+    double c = 1E0;
+    double d = .01e+2;
 
-int main(void)
-{
-    if (x != 9223372036854775803ul)
-        return 0;
-    x = x + 10;
-    if (x != 9223372036854775813ul)
-        return 0;
-    if (zero_long || zero_int)
-        return 0;
-    return 1;
+    /* Make sure they all have the correct value */
+    if (! (a == b && a == c && a == d) )
+        return 1;
+    if (a + b + c + d != 4.0)
+        return 2;
+
+    /* Several ways to define .125 */
+    double e = .125;
+    double f = 12.5e-2;
+    double g = 125.E-3;
+    double h = 1250000000e-10;
+
+    /* Make sure they all have the correct value */
+    if (! (e == f && e == g && e == h) )
+        return 3;
+    if (e + f + g + h != 0.5)
+        return 4;
+
+
+
+
+    return 0;
+
 }

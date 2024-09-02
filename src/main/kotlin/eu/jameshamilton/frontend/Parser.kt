@@ -27,6 +27,7 @@ import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
+import eu.jameshamilton.frontend.TokenType.CONSTANT_DOUBLE
 import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
 import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
 import eu.jameshamilton.frontend.TokenType.CONSTANT_UINT
@@ -35,6 +36,7 @@ import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DEFAULT
 import eu.jameshamilton.frontend.TokenType.DO
+import eu.jameshamilton.frontend.TokenType.DOUBLE
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
@@ -292,7 +294,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
     private fun checkStorageClass() = check(EXTERN) || check(STATIC)
-    private fun checkType() = check(INT) || check(LONG) || check(SIGNED) || check(UNSIGNED)
+    private fun checkType() = check(INT) || check(LONG) || check(DOUBLE) || check(SIGNED) || check(UNSIGNED)
 
     private fun typeSpecifier() = specifier(allowStorageClass = false).first
     private fun specifier(allowStorageClass: Boolean = true): Pair<Type, StorageClass> {
@@ -300,9 +302,9 @@ class Parser(private val tokens: List<Token>) {
         val storageClasses = mutableListOf<StorageClass>()
 
         do {
-            when (peek().type) {
-                INT, LONG, SIGNED, UNSIGNED -> typeTokens.add(advance().type)
-                EXTERN, STATIC -> if (allowStorageClass) {
+            when {
+                checkType() -> typeTokens.add(advance().type)
+                checkStorageClass() -> if (allowStorageClass) {
                     storageClasses.add(storageClass())
                 } else {
                     throw error(peek(), "Storage class specifiers not allowed here.")
@@ -333,6 +335,12 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun type(types: List<TokenType>): Type = when {
+        types == listOf(DOUBLE) -> DoubleType
+
+        types.contains(DOUBLE) -> {
+            throw error(previous(), "`double` cannot be combined with other types '${types.joinToString(", ")}'.")
+        }
+
         types.isEmpty() -> {
             throw error(previous(), "Expected at least one type specifier.")
         }
@@ -431,6 +439,8 @@ class Parser(private val tokens: List<Token>) {
                 }
             }
         }
+
+        match(CONSTANT_DOUBLE) -> Constant(previous().literal as Double)
 
         else -> throw error(
             previous(),

@@ -8,6 +8,7 @@ import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
+import eu.jameshamilton.frontend.TokenType.CONSTANT_DOUBLE
 import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
 import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
 import eu.jameshamilton.frontend.TokenType.CONSTANT_UINT
@@ -16,6 +17,7 @@ import eu.jameshamilton.frontend.TokenType.CONTINUE
 import eu.jameshamilton.frontend.TokenType.DECREMENT
 import eu.jameshamilton.frontend.TokenType.DEFAULT
 import eu.jameshamilton.frontend.TokenType.DO
+import eu.jameshamilton.frontend.TokenType.DOUBLE
 import eu.jameshamilton.frontend.TokenType.DOUBLE_AMPERSAND
 import eu.jameshamilton.frontend.TokenType.DOUBLE_EQUAL
 import eu.jameshamilton.frontend.TokenType.DOUBLE_GREATER
@@ -198,13 +200,20 @@ class Scanner(private val source: String) {
 
             ',' -> addToken(COMMA)
 
+            '.' -> when {
+                // double doesn't need a leading 0
+                isDigit(peek()) -> double()
+                else -> error(line, "Unexpected character '$c'")
+            }
+
             '"' -> string()
+
             ' ', '\t', '\r' -> {}
             '\n' -> line++
             else -> when {
                 isDigit(c) -> number()
                 isAlpha(c) -> identifier()
-                else -> error(line, "Unexpected character.")
+                else -> error(line, "Unexpected character '$c'.")
             }
         }
     }
@@ -222,51 +231,35 @@ class Scanner(private val source: String) {
     private fun number() {
         while (isDigit(peek())) advance()
 
-        //if (peek() == '.' && isDigit(peekNext())) {
-        //    advance()
-
-        //    while (isDigit(peek())) advance()
-        //}
+        if (match('.') || match('e', ignoreCase = true)) {
+            double()
+            return
+        }
 
         var unsigned = match('u', ignoreCase = true)
 
         // Use BigInteger for consistency: the parser will
         // check the ranges and convert to the correct type.
 
-        if (match('l', 'l') || match('L', 'L')) {
-            // TODO: long long constant
-            if (peek().lowercaseChar() == 'l') {
-                error(line, "Unexpected character '${peek()}'.")
+        if (match('l', ignoreCase = true)) {
+            // long constant
+            val endIndex = if (unsigned) current - 2 else current - 1
+
+            @Suppress("ControlFlowWithEmptyBody")
+            if (match(prev())) {
+                // TODO: long long
             }
-            val endIndex = if (unsigned) current - 3 else current - 2
 
             unsigned = unsigned || match('u', ignoreCase = true)
 
-            if (peek().lowercaseChar() == 'l' || peek().lowercaseChar() == 'u') {
+            if (isAlphaNumeric(peek())) {
                 error(line, "Unexpected character '${peek()}'.")
             }
 
-            addToken(if (unsigned) CONSTANT_ULONG else CONSTANT_LONG, source.substring(start, endIndex).toBigInteger())
-
-            return
-        } else if (match('l', ignoreCase = true)) {
-            // long constant
-            if (peek().lowercaseChar() == 'l') {
-                error(line, "Unexpected character '${peek()}'.")
-            } else {
-                val endIndex = if (unsigned) current - 2 else current - 1
-
-                unsigned = unsigned || match('u', ignoreCase = true)
-
-                if (peek().lowercaseChar() == 'l' || peek().lowercaseChar() == 'u') {
-                    error(line, "Unexpected character '${peek()}'.")
-                }
-
-                addToken(
-                    if (unsigned) CONSTANT_ULONG else CONSTANT_LONG,
-                    source.substring(start, endIndex).toBigInteger()
-                )
-            }
+            addToken(
+                if (unsigned) CONSTANT_ULONG else CONSTANT_LONG,
+                source.substring(start, endIndex).toBigInteger()
+            )
             return
         }
 
@@ -280,6 +273,28 @@ class Scanner(private val source: String) {
         } else {
             addToken(CONSTANT_INT, source.substring(start, current).toBigInteger())
         }
+    }
+
+    private fun double() {
+        while (isDigit(peek())) advance()
+
+        if (match('e', ignoreCase = true)) {
+            // consume 'e'
+            if (!(isDigit(peek()) || peek() == '+' || peek() == '-')) error(line, "Unexpected character '${peek()}'.")
+        }
+
+        if (match('+') || match('-')) {
+            // continue
+            if (!isDigit(peek())) error(line, "Unexpected character '${peek()}'.")
+        }
+
+        while (isDigit(peek())) advance()
+
+        // Catch invalid suffixes.
+        if (isAlphaNumeric(peek()) || peek() == '.') error(line, "Unexpected character '${peek()}'.")
+
+        val substring = source.substring(start, current)
+        addToken(CONSTANT_DOUBLE, (if (substring.startsWith('.')) "0$substring" else substring).toDouble())
     }
 
     private fun string() {
@@ -299,6 +314,7 @@ class Scanner(private val source: String) {
     }
 
     private fun peek(): Char = if (isAtEnd()) 0.toChar() else source[current]
+    private fun prev(): Char = if (current <= 0) 0.toChar() else source[current - 1]
 
     private fun peekNext(): Char = if (current + 1 >= source.length) 0.toChar() else source[current + 1]
 
@@ -346,6 +362,9 @@ class Scanner(private val source: String) {
             "void" to VOID,
             "int" to INT,
             "long" to LONG,
+            "double" to DOUBLE,
+            "signed" to SIGNED,
+            "unsigned" to UNSIGNED,
             "if" to IF,
             "else" to ELSE,
             "goto" to GOTO,
@@ -359,8 +378,6 @@ class Scanner(private val source: String) {
             "default" to DEFAULT,
             "extern" to EXTERN,
             "static" to STATIC,
-            "signed" to SIGNED,
-            "unsigned" to UNSIGNED,
         )
     }
 }

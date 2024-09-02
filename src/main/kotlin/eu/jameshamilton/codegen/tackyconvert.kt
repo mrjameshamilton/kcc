@@ -10,6 +10,7 @@ import eu.jameshamilton.codegen.RegisterName.DX
 import eu.jameshamilton.codegen.RegisterName.R8
 import eu.jameshamilton.codegen.RegisterName.R9
 import eu.jameshamilton.codegen.RegisterName.SI
+import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.LongType
@@ -107,6 +108,7 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
                 is FunType, Unknown -> unreachable("Invalid type")
                 IntType, UIntType -> Longword
                 LongType, ULongType -> Quadword
+                DoubleType -> TODO()
             }
             // Copy all parameters from registers into stack locations,
             // to simplify things. Later, when register allocation is
@@ -171,6 +173,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             IntType, UIntType -> Pseudo(Longword, value.name)
             LongType, ULongType -> Pseudo(Quadword, value.name)
             is FunType, Unknown -> unreachable("Invalid type")
+            DoubleType -> TODO()
         }
     }
 

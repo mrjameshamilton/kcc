@@ -21,6 +21,10 @@ data object ULongType : Type(64) {
     override fun toString(): String = "unsigned long"
 }
 
+data object DoubleType : Type(64) {
+    override fun toString(): String = "double"
+}
+
 data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type(0) {
     override fun toString(): String =
         "(${paramsTypes.joinToString(separator = ", ") { it.toString() }}) -> $returnType"
@@ -45,6 +49,7 @@ fun Expression.cast(type: Type): Expression = when (this) {
             UIntType -> Constant(value.toUInt(), type)
             ULongType -> Constant(value.toULong(), type)
             is FunType, Unknown -> unreachable("Invalid cast")
+            DoubleType -> TODO()
         }
 
         is Long -> when (type) {
@@ -53,6 +58,7 @@ fun Expression.cast(type: Type): Expression = when (this) {
             UIntType -> Constant(value.toUInt(), type)
             ULongType -> Constant(value.toULong(), type)
             is FunType, Unknown -> unreachable("Invalid cast")
+            DoubleType -> TODO()
         }
 
         is UInt -> when (type) {
@@ -61,6 +67,7 @@ fun Expression.cast(type: Type): Expression = when (this) {
             UIntType -> this
             ULongType -> Constant(value.toULong(), type)
             is FunType, Unknown -> unreachable("Invalid cast")
+            DoubleType -> TODO()
         }
 
         is ULong -> when (type) {
@@ -69,6 +76,7 @@ fun Expression.cast(type: Type): Expression = when (this) {
             UIntType -> Constant(value.toUInt(), type)
             ULongType -> this
             is FunType, Unknown -> unreachable("Invalid cast")
+            DoubleType -> TODO()
         }
 
         else -> Cast(type, this, type)
