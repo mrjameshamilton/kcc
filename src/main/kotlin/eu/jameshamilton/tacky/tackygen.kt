@@ -221,9 +221,9 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 val v1 = convert(instructions, expression.left)
                 val v2 = convert(instructions, expression.right)
                 val dst = maketemporary(expression.type)
-                val tackyOp = when {
-                    expression.left.type.isSigned -> TackyBinaryOp.RightShift
-                    else -> TackyBinaryOp.LogicalRightShift
+                val tackyOp = when (expression.left.type.isSigned) {
+                    true -> TackyBinaryOp.RightShift
+                    false -> TackyBinaryOp.LogicalRightShift
                 }
                 binaryOp(tackyOp, v1, v2, dst)
                 dst
