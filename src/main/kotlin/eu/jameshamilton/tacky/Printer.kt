@@ -209,6 +209,7 @@ private fun printTacky(value: Value, printType: Boolean = true) {
             is Long -> print("long ${value.value}")
             is UInt -> print("unsigned int ${value.value}")
             is ULong -> print("unsigned long ${value.value}")
+            is Double -> print("double ${value.value}")
         }
 
         is Var -> if (printType) {
