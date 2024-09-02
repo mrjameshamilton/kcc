@@ -459,6 +459,7 @@ class Parser(private val tokens: List<Token>) {
             is Constant -> when (expression.value) {
                 is Int -> Constant(-expression.value)
                 is Long -> Constant(-expression.value)
+                is Double -> Constant(-expression.value)
                 else -> UnaryExpr(Negate, expression)
             }
 
