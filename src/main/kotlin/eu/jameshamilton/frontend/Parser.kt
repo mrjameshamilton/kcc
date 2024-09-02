@@ -388,11 +388,11 @@ class Parser(private val tokens: List<Token>) {
 
             if (unsigned) {
                 when {
-                    literal >= BigInteger.ZERO && literal <= Int.MAX_VALUE.toBigInteger() -> {
-                        Constant(literal.toInt().toUInt())
+                    literal >= BigInteger.ZERO && literal <= BigInteger.valueOf(4294967295) -> {
+                        Constant(literal.toLong().toUInt())
                     }
 
-                    literal >= BigInteger.ZERO && literal <= (BigInteger.TWO.pow(64) - BigInteger.ONE) -> {
+                    literal >= BigInteger.ZERO && literal <= BigInteger.TWO.pow(64) - BigInteger.ONE -> {
                         Constant(literal.toLong().toULong())
                     }
 

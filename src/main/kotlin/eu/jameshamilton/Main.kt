@@ -118,9 +118,13 @@ fun compile(file: File): File {
     if (printTacky) printTacky(tackye)
     if (tacky) exitProcess(0)
     val x86AST = convert(tackye)
-    if (printX86) println(x86AST)
+    if (printX86) {
+        println(emit(x86AST))
+    }
     val reg = replacePseudoRegisters(x86AST)
-    if (printX86) println(reg)
+    if (printX86) {
+        println(emit(reg))
+    }
     if (codegen) exitProcess(0)
 
     val output = File.createTempFile(file.name.removeSuffix(".i"), ".s")

@@ -35,7 +35,6 @@ import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
 import eu.jameshamilton.frontend.For
 import eu.jameshamilton.frontend.FunDeclaration
-import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.FunctionCall
 import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
@@ -58,7 +57,6 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
-import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
@@ -73,7 +71,6 @@ import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.frontend.isSigned
 import eu.jameshamilton.unreachable
-import kotlin.math.sign
 import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.BinaryOp.Add as TackyBinaryOpAdd
@@ -102,8 +99,8 @@ fun convert(program: Program): TackyProgram {
                     is Initial -> StaticVariable(name, attr.global, type, attr.initialValue.value)
                     Tentative -> StaticVariable(
                         name, attr.global, type, when (type) {
-                            is IntType, UIntType -> 0
-                            is LongType, ULongType -> 0L
+                            is IntType, is UIntType -> 0
+                            is LongType, is ULongType -> 0L
                             else -> unreachable("invalid type $type")
                         }
                     )
@@ -220,6 +217,18 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 dst
             }
 
+            RightShift -> buildTacky(instructions) {
+                val v1 = convert(instructions, expression.left)
+                val v2 = convert(instructions, expression.right)
+                val dst = maketemporary(expression.type)
+                val tackyOp = when {
+                    expression.left.type.isSigned -> TackyBinaryOp.RightShift
+                    else -> TackyBinaryOp.LogicalRightShift
+                }
+                binaryOp(tackyOp, v1, v2, dst)
+                dst
+            }
+
             else -> buildTacky(instructions) {
                 val v1 = convert(instructions, expression.left)
                 val v2 = convert(instructions, expression.right)
@@ -268,14 +277,14 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             } else {
                 val dst = maketemporary(expression.type)
                 symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
-                val t1 = expression.targetType
-                val t2 = expression.expression.type
+                val targetType = expression.targetType
+                val exprType = expression.expression.type
                 when {
                     // if both types are the same size, it doesn't matter
                     // if they are signed or unsigned when converted to assembly.
-                    t1.size == t2.size -> copy(result, dst)
-                    t1.size < t2.size -> truncate(result, dst)
-                    t2.isSigned -> signextend(result, dst)
+                    targetType.size == exprType.size -> copy(result, dst)
+                    targetType.size < exprType.size -> truncate(result, dst)
+                    exprType.isSigned -> signextend(result, dst)
                     else -> zeroextend(result, dst)
                 }
                 dst

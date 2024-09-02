@@ -27,7 +27,7 @@ data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type(0) 
 }
 
 val Type.isSigned: Boolean
-    get() = this is UIntType || this is ULongType
+    get() = this is IntType || this is LongType
 
 operator fun Type.plus(other: Type) = when {
     this == other -> this

@@ -1,5 +1,9 @@
 package eu.jameshamilton.codegen
 
+import eu.jameshamilton.codegen.ConditionCode.A
+import eu.jameshamilton.codegen.ConditionCode.AE
+import eu.jameshamilton.codegen.ConditionCode.B
+import eu.jameshamilton.codegen.ConditionCode.BE
 import eu.jameshamilton.codegen.ConditionCode.E
 import eu.jameshamilton.codegen.ConditionCode.G
 import eu.jameshamilton.codegen.ConditionCode.GE
@@ -31,6 +35,11 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return this
     }
 
+    fun movzx(src: Operand, dst: Operand): Builder {
+        instructions += Movzx(src, dst)
+        return this
+    }
+
     fun cdq(type: TypeX86): Builder {
         instructions += Cdq(type)
         return this
@@ -38,6 +47,11 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
 
     fun idiv(type: TypeX86, operand: Operand): Builder {
         instructions += IDiv(type, operand)
+        return this
+    }
+
+    fun div(type: TypeX86, operand: Operand): Builder {
+        instructions += Div(type, operand)
         return this
     }
 
@@ -89,11 +103,15 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
     }
 
     fun sal(type: TypeX86, src: Operand, dst: Operand): Builder {
-        return binary(type, BinaryOp.LeftShift, src, dst)
+        return binary(type, BinaryOp.ArithmeticLeftShift, src, dst)
     }
 
     fun sar(type: TypeX86, src: Operand, dst: Operand): Builder {
-        return binary(type, BinaryOp.RightShift, src, dst)
+        return binary(type, BinaryOp.ArithmeticRightShift, src, dst)
+    }
+
+    fun shr(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.LogicalRightShift, src, dst)
     }
 
     fun cmp(type: TypeX86, src1: Operand, src2: Operand): Builder {
@@ -132,6 +150,22 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
 
     fun setle(src: Operand): Builder {
         return setcc(LE, src)
+    }
+
+    fun seta(src: Operand): Builder {
+        return setcc(A, src)
+    }
+
+    fun setae(src: Operand): Builder {
+        return setcc(AE, src)
+    }
+
+    fun setb(src: Operand): Builder {
+        return setcc(B, src)
+    }
+
+    fun setbe(src: Operand): Builder {
+        return setcc(BE, src)
     }
 
     fun jcc(code: ConditionCode, target: String): Builder {

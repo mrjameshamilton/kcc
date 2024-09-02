@@ -2,6 +2,7 @@ package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.RegisterAlias.EAX
 import eu.jameshamilton.codegen.RegisterAlias.RAX
+import eu.jameshamilton.codegen.RegisterAlias.RDX
 import eu.jameshamilton.codegen.RegisterName.AX
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.DI
@@ -19,6 +20,7 @@ import eu.jameshamilton.frontend.check.FunAttr
 import eu.jameshamilton.frontend.check.LocalAttr
 import eu.jameshamilton.frontend.check.StaticAttr
 import eu.jameshamilton.frontend.check.symbolTable
+import eu.jameshamilton.frontend.isSigned
 import eu.jameshamilton.tacky.BinaryOp.Add
 import eu.jameshamilton.tacky.BinaryOp.And
 import eu.jameshamilton.tacky.BinaryOp.Divide
@@ -28,6 +30,7 @@ import eu.jameshamilton.tacky.BinaryOp.GreaterThanOrEqual
 import eu.jameshamilton.tacky.BinaryOp.LeftShift
 import eu.jameshamilton.tacky.BinaryOp.LessThan
 import eu.jameshamilton.tacky.BinaryOp.LessThanOrEqual
+import eu.jameshamilton.tacky.BinaryOp.LogicalRightShift
 import eu.jameshamilton.tacky.BinaryOp.Multiply
 import eu.jameshamilton.tacky.BinaryOp.NotEqual
 import eu.jameshamilton.tacky.BinaryOp.Or
@@ -35,6 +38,7 @@ import eu.jameshamilton.tacky.BinaryOp.Remainder
 import eu.jameshamilton.tacky.BinaryOp.RightShift
 import eu.jameshamilton.tacky.BinaryOp.Subtract
 import eu.jameshamilton.tacky.BinaryOp.Xor
+import eu.jameshamilton.tacky.Constant
 import eu.jameshamilton.tacky.Copy
 import eu.jameshamilton.tacky.FunctionCall
 import eu.jameshamilton.tacky.Jump
@@ -47,6 +51,7 @@ import eu.jameshamilton.tacky.Truncate
 import eu.jameshamilton.tacky.UnaryOp.Complement
 import eu.jameshamilton.tacky.UnaryOp.Negate
 import eu.jameshamilton.tacky.UnaryOp.Not
+import eu.jameshamilton.tacky.Var
 import eu.jameshamilton.tacky.ZeroExtend
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
@@ -143,20 +148,32 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
     )
 }
 
+val TackyValue.isSigned: Boolean
+    get() = when (this) {
+        is Constant -> when (value) {
+            is Int, is Long -> true
+            else -> false
+        }
+
+        is Var -> type.isSigned
+    }
+
 private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap { tacky ->
 
     fun convert(value: TackyValue): Operand = when (value) {
         is TackyConstant -> when (value.value) {
-            is Int -> Imm(Longword, value.value)
-            else -> Imm(Quadword, value.value)
+            is Int, is UInt -> Imm(Longword, value.value)
+            is Long, is ULong -> Imm(Quadword, value.value)
+            else -> unreachable("Invalid type ")
         }
 
         is TackyVar -> when (value.type) {
             IntType, UIntType -> Pseudo(Longword, value.name)
             LongType, ULongType -> Pseudo(Quadword, value.name)
-            is FunType, Unknown -> unreachable("invalid type")
+            is FunType, Unknown -> unreachable("Invalid type")
         }
     }
+
 
     buildX86 {
         when (tacky) {
@@ -191,22 +208,41 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         // division / remainder use EAX + EDX together:
                         // the division result is stored in EAX; the remainder in EDX.
                         mov(src1.type, src1, AX.x(src1.type))
-                        cdq(src1.type)
-                        idiv(src1.type, src2)
+                        if (tacky.src1.isSigned) {
+                            cdq(src1.type)
+                            idiv(src1.type, src2)
+                        } else {
+                            // zero extend the result by zeroing out RDX
+                            movq(Imm(Quadword, 0), RDX)
+                            div(src1.type, src2)
+                        }
                         mov(src1.type, if (tacky.op == Divide) AX.x(src1.type) else DX.x(src1.type), dst)
                     }
 
                     LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal, NotEqual -> {
                         cmp(src1.type, src2, src1)
                         mov(dst.type, 0, dst)
-                        when (tacky.op) {
-                            LessThan -> setl(dst)
-                            LessThanOrEqual -> setle(dst)
-                            GreaterThan -> setg(dst)
-                            GreaterThanOrEqual -> setge(dst)
-                            Equal -> sete(dst)
-                            NotEqual -> setne(dst)
-                            else -> throw RuntimeException("Invalid comparison operator ${tacky.op}.")
+
+                        if (tacky.src1.isSigned) {
+                            when (tacky.op) {
+                                LessThan -> setl(dst)
+                                LessThanOrEqual -> setle(dst)
+                                GreaterThan -> setg(dst)
+                                GreaterThanOrEqual -> setge(dst)
+                                Equal -> sete(dst)
+                                NotEqual -> setne(dst)
+                                else -> throw RuntimeException("Invalid comparison operator ${tacky.op}.")
+                            }
+                        } else {
+                            when (tacky.op) {
+                                LessThan -> setb(dst)
+                                LessThanOrEqual -> setbe(dst)
+                                GreaterThan -> seta(dst)
+                                GreaterThanOrEqual -> setae(dst)
+                                Equal -> sete(dst)
+                                NotEqual -> setne(dst)
+                                else -> throw RuntimeException("Invalid comparison operator ${tacky.op}.")
+                            }
                         }
                     }
 
@@ -218,6 +254,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     Xor -> mov(src1.type, src1, dst).xor(src1.type, src2, dst)
                     LeftShift -> mov(src1.type, src1, dst).sal(src1.type, src2, dst)
                     RightShift -> mov(src1.type, src1, dst).sar(src1.type, src2, dst)
+                    LogicalRightShift -> mov(src1.type, src1, dst).shr(src1.type, src2, dst)
                 }
             }
 
@@ -302,12 +339,17 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 // so truncate it ourselves if needed.
                 val truncated = when {
                     src is Imm && src.value is Long -> Imm(Longword, src.value.toInt())
+                    src is Imm && src.value is ULong -> Imm(Longword, src.value.toUInt())
                     else -> src
                 }
                 movl(truncated, dst)
             }
 
-            is ZeroExtend -> TODO()
+            is ZeroExtend -> {
+                val src = convert(tacky.src)
+                val dst = convert(tacky.dst)
+                movzx(src, dst)
+            }
         }
     }
 }

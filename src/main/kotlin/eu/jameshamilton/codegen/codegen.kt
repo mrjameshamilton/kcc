@@ -2,10 +2,11 @@ package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.BinaryOp.Add
 import eu.jameshamilton.codegen.BinaryOp.And
-import eu.jameshamilton.codegen.BinaryOp.LeftShift
+import eu.jameshamilton.codegen.BinaryOp.ArithmeticLeftShift
+import eu.jameshamilton.codegen.BinaryOp.ArithmeticRightShift
+import eu.jameshamilton.codegen.BinaryOp.LogicalRightShift
 import eu.jameshamilton.codegen.BinaryOp.Mul
 import eu.jameshamilton.codegen.BinaryOp.Or
-import eu.jameshamilton.codegen.BinaryOp.RightShift
 import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
 import eu.jameshamilton.codegen.RegisterName.AX
@@ -24,7 +25,6 @@ import eu.jameshamilton.codegen.RegisterSize.QUAD
 import eu.jameshamilton.codegen.RegisterSize.WORD
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
-import eu.jameshamilton.unreachable
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Program as x86Program
 
@@ -44,7 +44,7 @@ fun emit(x86program: x86Program): String = buildString {
             R8, R9, R10, R11 -> "%${operand.name.name.lowercase()}${operand.size.suffix}"
         }
 
-        is Pseudo -> unreachable("pseudo instruction not emitted")
+        is Pseudo -> "%${operand.identifier}" //unreachable("pseudo instruction not emitted")
         is Stack -> "${operand.position}(%rbp)"
         is Data -> "${operand.identifier}(%rip)"
     }
@@ -61,8 +61,9 @@ fun emit(x86program: x86Program): String = buildString {
         And -> "and"
         Or -> "or"
         Xor -> "xor"
-        LeftShift -> "sal"
-        RightShift -> "sar"
+        ArithmeticLeftShift -> "sal"
+        ArithmeticRightShift -> "sar"
+        LogicalRightShift -> "shr"
     }
 
     fun emit(functionName: String, functionId: Int, instructions: List<Instruction>) {
@@ -72,6 +73,8 @@ fun emit(x86program: x86Program): String = buildString {
             when (it) {
                 is Mov -> appendLine("    mov${it.type.suffix} ${format(it.src)}, ${format(it.dst)}")
                 is Movsx -> appendLine("    movslq ${format(it.src)}, ${format(it.dst)}")
+                // TODO: type?
+                is Movzx -> appendLine("    movz ${format(it.src)}, ${format(it.dst)}")
                 Ret -> appendLine(
                     """
                     |    movq %rbp, %rsp
@@ -83,6 +86,7 @@ fun emit(x86program: x86Program): String = buildString {
                 is Unary -> appendLine("    ${format(it.op)}${it.type.suffix} ${format(it.operand)}")
                 is Binary -> appendLine("    ${format(it.op)}${it.type.suffix} ${format(it.src)}, ${format(it.dst)}")
                 is IDiv -> appendLine("    idiv${it.type.suffix} ${format(it.operand)}")
+                is Div -> appendLine("    div${it.type.suffix} ${format(it.operand)}")
                 is Cdq -> appendLine("    c${if (it.type is Longword) "dq" else "qo"}")
                 is Cmp -> appendLine("    cmp${it.type.suffix} ${format(it.src1)}, ${format(it.src2)}")
                 is Jmp -> appendLine("    jmp ${label(it.identifier)}")

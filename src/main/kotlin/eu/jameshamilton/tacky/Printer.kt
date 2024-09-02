@@ -11,6 +11,7 @@ import eu.jameshamilton.tacky.BinaryOp.GreaterThanOrEqual
 import eu.jameshamilton.tacky.BinaryOp.LeftShift
 import eu.jameshamilton.tacky.BinaryOp.LessThan
 import eu.jameshamilton.tacky.BinaryOp.LessThanOrEqual
+import eu.jameshamilton.tacky.BinaryOp.LogicalRightShift
 import eu.jameshamilton.tacky.BinaryOp.Multiply
 import eu.jameshamilton.tacky.BinaryOp.NotEqual
 import eu.jameshamilton.tacky.BinaryOp.Or
@@ -73,6 +74,7 @@ private fun printTacky(instruction: Instruction) {
                 Xor -> "^"
                 LeftShift -> "<<"
                 RightShift -> ">>"
+                LogicalRightShift -> ">>>"
                 Equal -> "=="
                 NotEqual -> "!="
                 LessThan -> "<"
@@ -174,6 +176,8 @@ private fun printTacky(value: Value, printType: Boolean = true) {
         is Constant -> when (value.value) {
             is Int -> print("int ${value.value}")
             is Long -> print("long ${value.value}")
+            is UInt -> print("unsigned int ${value.value}")
+            is ULong -> print("unsigned long ${value.value}")
         }
 
         is Var -> if (printType) {

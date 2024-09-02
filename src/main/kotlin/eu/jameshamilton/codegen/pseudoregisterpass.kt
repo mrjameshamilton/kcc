@@ -2,15 +2,17 @@ package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.BinaryOp.Add
 import eu.jameshamilton.codegen.BinaryOp.And
-import eu.jameshamilton.codegen.BinaryOp.LeftShift
+import eu.jameshamilton.codegen.BinaryOp.ArithmeticLeftShift
+import eu.jameshamilton.codegen.BinaryOp.ArithmeticRightShift
+import eu.jameshamilton.codegen.BinaryOp.LogicalRightShift
 import eu.jameshamilton.codegen.BinaryOp.Mul
 import eu.jameshamilton.codegen.BinaryOp.Or
-import eu.jameshamilton.codegen.BinaryOp.RightShift
 import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
+import eu.jameshamilton.unreachable
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -83,6 +85,22 @@ fun replacePseudoRegisters(program: Program): Program {
                 }
             }
 
+            is Movzx -> {
+                val src = allocate(instruction.src)
+                val dst = allocate(instruction.dst)
+
+                when {
+                    dst is Register -> {
+                        movl(src, dst)
+                    }
+
+                    dst is Memory -> {
+                        movl(src, R11.d)
+                        movq(R11.q, dst)
+                    }
+                }
+            }
+
             is Unary -> unary(instruction.type, instruction.op, allocate(instruction.operand))
             Ret -> ret()
             is Binary -> {
@@ -139,7 +157,7 @@ fun replacePseudoRegisters(program: Program): Program {
                         }
                     }
 
-                    LeftShift, RightShift -> {
+                    ArithmeticLeftShift, ArithmeticRightShift, LogicalRightShift -> {
                         val (count, dst) = Pair(left, right)
                         // count can only be the CX register or immediate.
                         when {
@@ -166,6 +184,19 @@ fun replacePseudoRegisters(program: Program): Program {
 
                     else -> {
                         idiv(instruction.type, operand)
+                    }
+                }
+            }
+
+            is Div -> {
+                when (val operand = allocate(instruction.operand)) {
+                    is Imm -> {
+                        mov(instruction.type, operand, R10.x(instruction.type))
+                        div(instruction.type, R10.x(instruction.type))
+                    }
+
+                    else -> {
+                        div(instruction.type, operand)
                     }
                 }
             }
@@ -228,7 +259,20 @@ fun replacePseudoRegisters(program: Program): Program {
             is Call -> call(instruction.identifier)
             is Push -> {
                 val operand = allocate(instruction.operand)
-                if (operand is Imm && operand.type is Quadword) {
+
+                // Can only use immediate values in pushq, addq, imulq, subq, cmpq
+                // if it can be represented as a signed 32-bit integer because
+                // the instructions sign extend their operands from 32-bit to 64-bit.
+                val immFitsInSignedInteger by lazy {
+                    operand is Imm && when (operand.value) {
+                        is Int -> true
+                        is UInt -> operand.value < 2147483647u
+                        is Long, is ULong -> false
+                        else -> unreachable("unknown type ${operand.value.javaClass}")
+                    }
+                }
+
+                if (operand is Imm && !immFitsInSignedInteger) {
                     movq(operand, R10.q)
                     push(R10.q)
                 } else {

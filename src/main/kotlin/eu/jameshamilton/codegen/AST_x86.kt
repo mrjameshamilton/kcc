@@ -33,16 +33,16 @@ data class StaticVariable(val name: String, val global: Boolean, val alignment: 
 
     val size: Int
         get() = when (this.init) {
-            is Int -> 4
-            is Long -> 8
+            is Int, is UInt -> 4
+            is Long, is ULong -> 8
             else -> unreachable("No size for ${this}.")
         }
 
     val initType: String
         get() = when (this.init) {
-            is Int -> "long"
-            is Long -> "quad"
-            else -> unreachable("No size for ${this}.")
+            is Int, is UInt -> "long"
+            is Long, is ULong -> "quad"
+            else -> unreachable("No size for ${this.init}.")
         }
 }
 
@@ -51,6 +51,7 @@ sealed class Instruction
 
 data class Mov(val type: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data class Movsx(val src: Operand, val dst: Operand) : Instruction()
+data class Movzx(val src: Operand, val dst: Operand) : Instruction()
 data object Ret : Instruction()
 data class Unary(val op: UnaryOp, val type: TypeX86, val operand: Operand) : Instruction()
 enum class UnaryOp {
@@ -59,18 +60,28 @@ enum class UnaryOp {
 
 data class Binary(val op: BinaryOp, val type: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 enum class BinaryOp {
-    Add, Sub, Mul, And, Or, Xor, LeftShift, RightShift
+    Add, Sub, Mul, And, Or, Xor, ArithmeticLeftShift, ArithmeticRightShift, LogicalRightShift
 }
 
 data class Cmp(val type: TypeX86, val src1: Operand, val src2: Operand) : Instruction()
 data class IDiv(val type: TypeX86, val operand: Operand) : Instruction()
+data class Div(val type: TypeX86, val operand: Operand) : Instruction()
 data class Cdq(val type: TypeX86) : Instruction()
 data class Jmp(val identifier: String) : Instruction()
 data class JmpCC(val conditionCode: ConditionCode, val identifier: String) : Instruction()
 data class SetCC(val conditionCode: ConditionCode, val operand: Operand) : Instruction()
 data class Label(val identifier: String) : Instruction()
 enum class ConditionCode {
-    E, NE, G, GE, L, LE
+    E,  // ZF set
+    NE, // ZF not set
+    G,  //
+    GE, //
+    L,  //
+    LE, //
+    A,  // CF not set and ZF not set
+    AE, // CF not set
+    B,  // CF set
+    BE  // CF set or ZF set
 }
 
 data class Push(val operand: Operand) : Instruction()
@@ -136,6 +147,8 @@ fun RegisterName.x(type: TypeX86) = when (type) {
 
 val Register.b: Register
     get() = Register(this.name, BYTE)
+val Register.d: Register
+    get() = Register(this.name, LONG)
 
 typealias Bytes = Int
 
