@@ -35,55 +35,65 @@ val Type.isSigned: Boolean
 
 operator fun Type.plus(other: Type) = when {
     this == other -> this
+    this == DoubleType || other is DoubleType -> DoubleType
     this is Unknown -> this
     this.size == other.size -> if (this.isSigned) other else this
     this.size > other.size -> this
     else -> other
 }
 
-fun Expression.cast(type: Type): Expression = when (this) {
+fun Expression.cast(targetType: Type): Expression = when (this) {
     is Constant -> when (value) {
-        is Int -> when (type) {
-            LongType -> Constant(value.toLong(), type)
+        is Int -> when (targetType) {
+            LongType -> Constant(value.toLong(), targetType)
             IntType -> this
-            UIntType -> Constant(value.toUInt(), type)
-            ULongType -> Constant(value.toULong(), type)
+            UIntType -> Constant(value.toUInt(), targetType)
+            ULongType -> Constant(value.toULong(), targetType)
+            DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
-            DoubleType -> TODO()
         }
 
-        is Long -> when (type) {
-            IntType -> Constant(value.toInt(), type)
+        is Long -> when (targetType) {
+            IntType -> Constant(value.toInt(), targetType)
             LongType -> this
-            UIntType -> Constant(value.toUInt(), type)
-            ULongType -> Constant(value.toULong(), type)
+            UIntType -> Constant(value.toUInt(), targetType)
+            ULongType -> Constant(value.toULong(), targetType)
+            DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
-            DoubleType -> TODO()
         }
 
-        is UInt -> when (type) {
-            IntType -> Constant(value.toInt(), type)
-            LongType -> Constant(value.toLong(), type)
+        is UInt -> when (targetType) {
+            IntType -> Constant(value.toInt(), targetType)
+            LongType -> Constant(value.toLong(), targetType)
             UIntType -> this
-            ULongType -> Constant(value.toULong(), type)
+            ULongType -> Constant(value.toULong(), targetType)
+            DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
-            DoubleType -> TODO()
         }
 
-        is ULong -> when (type) {
-            IntType -> Constant(value.toInt(), type)
-            LongType -> Constant(value.toLong(), type)
-            UIntType -> Constant(value.toUInt(), type)
+        is ULong -> when (targetType) {
+            IntType -> Constant(value.toInt(), targetType)
+            LongType -> Constant(value.toLong(), targetType)
+            UIntType -> Constant(value.toUInt(), targetType)
             ULongType -> this
+            DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
-            DoubleType -> TODO()
         }
 
-        else -> Cast(type, this, type)
+        is Double -> when (targetType) {
+            IntType -> Constant(value.toInt(), targetType)
+            LongType -> Constant(value.toLong(), targetType)
+            UIntType -> Constant(value.toUInt(), targetType)
+            ULongType -> Constant(value.toULong(), targetType)
+            DoubleType -> this
+            is FunType, Unknown -> unreachable("Invalid cast")
+        }
+
+        else -> Cast(targetType, this, targetType)
     }
 
     else -> when {
-        this.type == type -> this
-        else -> Cast(type, this, type)
+        this.type == targetType -> this
+        else -> Cast(targetType, this, targetType)
     }
 }

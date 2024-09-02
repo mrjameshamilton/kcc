@@ -5,7 +5,6 @@ int main(void) {
      * without rounding
      */
 
-    double x = 8Lu;
     /* Several ways to define 1 */
     double a = 1.0;
     double b = 1.;

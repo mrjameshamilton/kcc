@@ -30,6 +30,7 @@ import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
+import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
@@ -81,7 +82,7 @@ sealed class InitialValue
 data object Tentative : InitialValue()
 data class Initial(val value: Any) : InitialValue() {
     init {
-        require(value is Int || value is Long || value is UInt || value is ULong)
+        require(value is Int || value is Long || value is UInt || value is ULong || value is Double)
     }
 }
 
@@ -291,7 +292,12 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     is BinaryExpr -> {
         val left = typecheck(expression.left)
         val right = typecheck(expression.right)
+
         val commonType = left.type + right.type
+
+        if (commonType is DoubleType && expression.operator in setOf(Remainder, LeftShift, RightShift, Xor, And, Or)) {
+            error("'${expression.operator}' operator cannot be applied to 'double' types.")
+        }
 
         when (expression.operator) {
             LogicalAnd, LogicalOr -> {
@@ -328,6 +334,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             is Int -> IntType
             is ULong -> ULongType
             is UInt -> UIntType
+            is Double -> DoubleType
             else -> error("Invalid type for ${expression.value}")
         }
         Constant(expression.value, type)
@@ -361,6 +368,11 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
     is UnaryExpr -> {
         val expr = typecheck(expression.expression)
+
+        if (expr.type is DoubleType && expression.op in setOf(UnaryOp.Complement)) {
+            error("'${expression.op}' operator cannot be applied to 'double' types.")
+        }
+
         val type = when (expression.op) {
             UnaryOp.Not -> IntType
             else -> expr.type
@@ -389,8 +401,14 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     is VarDeclaration -> checklocalscope(blockItem)
     is DefaultCase -> DefaultCase(typecheck(currentFunction, blockItem.statement) as Statement, blockItem.label)
     is ExpressionCase -> {
+        val expression = typecheck(blockItem.expression)
+
+        if (expression.type is DoubleType) {
+            error("Case expression constant must be an integer, found 'double'.")
+        }
+
         ExpressionCase(
-            typecheck(blockItem.expression).cast(switchType.peek()),
+            expression.cast(switchType.peek()),
             typecheck(currentFunction, blockItem.statement) as Statement, blockItem.label
         )
     }
@@ -443,6 +461,11 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     is Switch -> {
         val expression = typecheck(blockItem.expression)
+
+        if (expression.type is DoubleType) {
+            error("Cannot switch on a 'double'.")
+        }
+
         if (expression is Var) {
             val type = symbolTable[expression.identifier.identifier]?.type
             if (type is FunType) {
