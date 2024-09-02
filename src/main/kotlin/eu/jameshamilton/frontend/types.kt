@@ -3,21 +3,27 @@ package eu.jameshamilton.frontend
 import eu.jameshamilton.unreachable
 
 sealed class Type(val size: Int)
+sealed interface IntegerType
+
+val IntegerType.isSigned: Boolean
+    get() = this is IntType || this is LongType
+val IntegerType.isUnsigned: Boolean
+    get() = !this.isSigned
 
 data object Unknown : Type(0)
-data object IntType : Type(32) {
+data object IntType : Type(32), IntegerType {
     override fun toString() = "int"
 }
 
-data object LongType : Type(64) {
+data object LongType : Type(64), IntegerType {
     override fun toString(): String = "long"
 }
 
-data object UIntType : Type(32) {
+data object UIntType : Type(32), IntegerType {
     override fun toString(): String = "unsigned int"
 }
 
-data object ULongType : Type(64) {
+data object ULongType : Type(64), IntegerType {
     override fun toString(): String = "unsigned long"
 }
 
@@ -30,14 +36,11 @@ data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type(0) 
         "(${paramsTypes.joinToString(separator = ", ") { it.toString() }}) -> $returnType"
 }
 
-val Type.isSigned: Boolean
-    get() = this is IntType || this is LongType
-
 operator fun Type.plus(other: Type) = when {
     this == other -> this
     this == DoubleType || other is DoubleType -> DoubleType
     this is Unknown -> this
-    this.size == other.size -> if (this.isSigned) other else this
+    this.size == other.size -> if (this is IntegerType && this.isSigned) other else this
     this.size > other.size -> this
     else -> other
 }

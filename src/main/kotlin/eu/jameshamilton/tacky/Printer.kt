@@ -168,6 +168,37 @@ private fun printTacky(instruction: Instruction) {
             println()
         }
 
+        is DoubleToInt -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = dtoi ")
+            printTacky(instruction.src)
+            println()
+        }
+
+        is DoubleToUInt -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = dtoui ")
+            printTacky(instruction.src)
+            println()
+        }
+
+        is IntToDouble -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = itod ")
+            printTacky(instruction.src)
+            println()
+        }
+
+        is UIntToDouble -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = uitod ")
+            printTacky(instruction.src)
+            println()
+        }
     }
 }
 

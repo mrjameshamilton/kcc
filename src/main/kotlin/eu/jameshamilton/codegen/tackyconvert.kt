@@ -13,6 +13,7 @@ import eu.jameshamilton.codegen.RegisterName.SI
 import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.IntType
+import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LongType
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
@@ -41,7 +42,10 @@ import eu.jameshamilton.tacky.BinaryOp.Subtract
 import eu.jameshamilton.tacky.BinaryOp.Xor
 import eu.jameshamilton.tacky.Constant
 import eu.jameshamilton.tacky.Copy
+import eu.jameshamilton.tacky.DoubleToInt
+import eu.jameshamilton.tacky.DoubleToUInt
 import eu.jameshamilton.tacky.FunctionCall
+import eu.jameshamilton.tacky.IntToDouble
 import eu.jameshamilton.tacky.Jump
 import eu.jameshamilton.tacky.JumpIfNotZero
 import eu.jameshamilton.tacky.JumpIfZero
@@ -49,6 +53,7 @@ import eu.jameshamilton.tacky.Label
 import eu.jameshamilton.tacky.Return
 import eu.jameshamilton.tacky.SignExtend
 import eu.jameshamilton.tacky.Truncate
+import eu.jameshamilton.tacky.UIntToDouble
 import eu.jameshamilton.tacky.UnaryOp.Complement
 import eu.jameshamilton.tacky.UnaryOp.Negate
 import eu.jameshamilton.tacky.UnaryOp.Not
@@ -157,7 +162,7 @@ val TackyValue.isSigned: Boolean
             else -> false
         }
 
-        is Var -> type.isSigned
+        is Var -> type is IntegerType && type.isSigned
     }
 
 private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap { tacky ->
@@ -353,6 +358,11 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val dst = convert(tacky.dst)
                 movzx(src, dst)
             }
+
+            is DoubleToInt -> TODO()
+            is DoubleToUInt -> TODO()
+            is IntToDouble -> TODO()
+            is UIntToDouble -> TODO()
         }
     }
 }

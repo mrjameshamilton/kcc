@@ -30,6 +30,7 @@ import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.DefaultCase
 import eu.jameshamilton.frontend.DoWhile
+import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionCase
 import eu.jameshamilton.frontend.ExpressionStatement
@@ -41,6 +42,7 @@ import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
 import eu.jameshamilton.frontend.IntType
+import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.LongType
 import eu.jameshamilton.frontend.NullStatement
@@ -70,6 +72,7 @@ import eu.jameshamilton.frontend.check.Tentative
 import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.frontend.isSigned
+import eu.jameshamilton.frontend.isUnsigned
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
 import eu.jameshamilton.tacky.Constant as TackyConstant
@@ -96,6 +99,7 @@ fun convert(program: Program): TackyProgram {
                         name, attr.global, type, when (type) {
                             is IntType, is UIntType -> 0
                             is LongType, is ULongType -> 0L
+                            is DoubleType -> 0.0
                             else -> unreachable("invalid type $type")
                         }
                     )
@@ -216,7 +220,8 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 val v1 = convert(instructions, expression.left)
                 val v2 = convert(instructions, expression.right)
                 val dst = maketemporary(expression.type)
-                val tackyOp = when (expression.left.type.isSigned) {
+                val leftType = expression.left.type
+                val tackyOp = when (leftType is IntegerType && leftType.isSigned) {
                     true -> TackyBinaryOp.RightShift
                     false -> TackyBinaryOp.LogicalRightShift
                 }
@@ -275,11 +280,15 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 val targetType = expression.targetType
                 val exprType = expression.expression.type
                 when {
+                    exprType is IntegerType && exprType.isUnsigned && targetType is DoubleType -> uitod(result, dst)
+                    exprType is DoubleType && targetType is IntegerType && targetType.isUnsigned -> dtoui(result, dst)
+                    exprType is IntegerType && targetType is DoubleType -> itod(result, dst)
+                    exprType is DoubleType && targetType is IntegerType -> dtoi(result, dst)
                     // if both types are the same size, it doesn't matter
                     // if they are signed or unsigned when converted to assembly.
                     targetType.size == exprType.size -> copy(result, dst)
                     targetType.size < exprType.size -> truncate(result, dst)
-                    exprType.isSigned -> signextend(result, dst)
+                    exprType is IntegerType && exprType.isSigned -> signextend(result, dst)
                     else -> zeroextend(result, dst)
                 }
                 dst

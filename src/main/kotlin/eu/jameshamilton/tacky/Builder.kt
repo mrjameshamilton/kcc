@@ -76,6 +76,26 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         return dst
     }
 
+    fun dtoi(src: Value, dst: Value): Value {
+        instructions += DoubleToInt(src, dst)
+        return dst
+    }
+
+    fun itod(src: Value, dst: Value): Value {
+        instructions += IntToDouble(src, dst)
+        return dst
+    }
+
+    fun dtoui(src: Value, dst: Value): Value {
+        instructions += DoubleToUInt(src, dst)
+        return dst
+    }
+
+    fun uitod(src: Value, dst: Value): Value {
+        instructions += UIntToDouble(src, dst)
+        return dst
+    }
+
     fun nop(): Value = Constant(0)
 }
 
