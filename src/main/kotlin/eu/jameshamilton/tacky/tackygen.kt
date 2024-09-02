@@ -71,15 +71,10 @@ import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.frontend.isSigned
 import eu.jameshamilton.unreachable
-import eu.jameshamilton.tacky.Binary as TackyBinary
 import eu.jameshamilton.tacky.BinaryOp as TackyBinaryOp
-import eu.jameshamilton.tacky.BinaryOp.Add as TackyBinaryOpAdd
 import eu.jameshamilton.tacky.Constant as TackyConstant
-import eu.jameshamilton.tacky.FunctionCall as TackyFunctionCall
 import eu.jameshamilton.tacky.FunctionDef as TackyFunctionDef
-import eu.jameshamilton.tacky.Label as TackyLabel
 import eu.jameshamilton.tacky.Program as TackyProgram
-import eu.jameshamilton.tacky.Unary as TackyUnary
 import eu.jameshamilton.tacky.UnaryOp as TackyUnaryOp
 import eu.jameshamilton.tacky.Var as TackyVar
 
@@ -456,87 +451,3 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         convert(funDeclaration.body) + listOf(Return(TackyConstant(0)))
     )
 }
-
-class Builder(private val instructions: MutableList<Instruction> = mutableListOf()) {
-    fun jump(target: String): Value {
-        instructions += Jump(target)
-        return nop()
-    }
-
-    fun jumpIfZero(condition: Value, target: String) {
-        instructions += JumpIfZero(condition, target)
-    }
-
-    fun jumpIfNotZero(condition: Value, target: String) {
-        instructions += JumpIfNotZero(condition, target)
-    }
-
-    fun label(label: LabelIdentifier): Value {
-        instructions += TackyLabel(label)
-        return nop()
-    }
-
-    fun copy(src: Value, dst: Value): Value {
-        instructions += Copy(src, dst)
-        return dst
-    }
-
-    fun copy(i: Int, dst: Value): Value {
-        instructions += Copy(TackyConstant(i), dst)
-        return dst
-    }
-
-    fun binaryOp(binaryOp: TackyBinaryOp, src1: Value, src2: Value, dst: Value): Value {
-        instructions += TackyBinary(binaryOp, src1, src2, dst)
-        return dst
-    }
-
-    fun equal(src1: Value, src2: Value, dst: Value): Value {
-        return binaryOp(TackyBinaryOp.Equal, src1, src2, dst)
-    }
-
-    fun increment(src: Value, amount: Int = 1): Value {
-        return increment(src, TackyConstant(amount))
-    }
-
-    fun increment(src: Value, amount: Value): Value {
-        instructions += TackyBinary(TackyBinaryOpAdd, src, amount, src)
-        return src
-    }
-
-    fun unaryOp(unaryOp: TackyUnaryOp, src: Value, dst: Value): Value {
-        instructions += TackyUnary(unaryOp, src, dst)
-        return dst
-    }
-
-    fun ret(value: Value) {
-        instructions += Return(value)
-    }
-
-    fun call(identifier: String, arguments: List<Value>, result: Value): Value {
-        instructions += TackyFunctionCall(identifier, arguments, result)
-        return result
-    }
-
-    fun signextend(src: Value, dst: Value): Value {
-        instructions += SignExtend(src, dst)
-        return dst
-    }
-
-    fun zeroextend(src: Value, dst: Value): Value {
-        instructions += ZeroExtend(src, dst)
-        return dst
-    }
-
-    fun truncate(src: Value, dst: Value): Value {
-        instructions += Truncate(src, dst)
-        return dst
-    }
-
-    fun nop(): Value = TackyConstant(0)
-}
-
-fun buildTacky(instructions: MutableList<Instruction>, block: Builder.() -> Value): Value =
-    with(Builder(instructions)) {
-        return block(this)
-    }
