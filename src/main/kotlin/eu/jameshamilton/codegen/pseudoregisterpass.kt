@@ -4,11 +4,14 @@ import eu.jameshamilton.codegen.BinaryOp.Add
 import eu.jameshamilton.codegen.BinaryOp.And
 import eu.jameshamilton.codegen.BinaryOp.ArithmeticLeftShift
 import eu.jameshamilton.codegen.BinaryOp.ArithmeticRightShift
+import eu.jameshamilton.codegen.BinaryOp.IMul
 import eu.jameshamilton.codegen.BinaryOp.LogicalRightShift
 import eu.jameshamilton.codegen.BinaryOp.Mul
 import eu.jameshamilton.codegen.BinaryOp.Or
 import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
+import eu.jameshamilton.codegen.RegisterAlias.XMM14
+import eu.jameshamilton.codegen.RegisterAlias.XMM15
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
@@ -16,6 +19,7 @@ import eu.jameshamilton.unreachable
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.system.exitProcess
 
 
 fun replacePseudoRegisters(program: Program): Program {
@@ -23,7 +27,7 @@ fun replacePseudoRegisters(program: Program): Program {
 
     fun allocate(op: Operand): Operand = when (op) {
         is Pseudo -> if (op.isStatic) {
-            Data(op.identifier)
+            Data(op.type, op.identifier)
         } else {
             // Always allocate 8 bytes to ensure correct alignment
             // even if the type requires less space than 8.
@@ -50,8 +54,22 @@ fun replacePseudoRegisters(program: Program): Program {
 
                     src is Memory && dst is Memory -> {
                         // mov can't have both operands as memory locations.
-                        mov(instruction.type, src, R10.x(instruction.type))
-                        mov(instruction.type, R10.x(instruction.type), dst)
+                        if (instruction.type == Double_) {
+                            mov(instruction.type, src, XMM14)
+                            mov(instruction.type, XMM14, dst)
+                        } else {
+                            mov(instruction.type, src, R10.x(instruction.type))
+                            mov(instruction.type, R10.x(instruction.type), dst)
+                        }
+                    }
+
+                    src is Imm && src.type is Double_ && dst is Memory -> {
+                        movsd(src, XMM15)
+                        movsd(XMM15, dst)
+                    }
+
+                    src is Imm && src.type is Double_ -> {
+                        movsd(src, dst)
                     }
 
                     else -> {
@@ -107,10 +125,9 @@ fun replacePseudoRegisters(program: Program): Program {
                 val left = allocate(instruction.src)
                 val right = allocate(instruction.dst)
                 when (instruction.op) {
-                    // These can't have both operands as memory locations.
                     Add, Sub, And, Or, Xor -> when {
-                        left is Imm && left.type is Quadword || right is Imm && right.type is Quadword -> {
-                            if (left.type is Quadword && right.type is Quadword) {
+                        left is Imm && left.type is Quadword -> {
+                            if (right.type is Quadword) {
                                 mov(instruction.type, left, R10.q)
                                 mov(instruction.type, right, R11.q)
                                 binary(instruction.type, instruction.op, R10.q, R11.q)
@@ -120,9 +137,17 @@ fun replacePseudoRegisters(program: Program): Program {
                             }
                         }
 
+                        // These can't have both operands as memory locations.
                         left is Memory && right is Memory -> {
-                            mov(instruction.type, left, R10.x(instruction.type))
-                            binary(instruction.type, instruction.op, R10.x(instruction.type), right)
+                            if (instruction.type is Double_) {
+                                movsd(left, XMM14)
+                                movsd(right, XMM15)
+                                binary(instruction.type, instruction.op, XMM14, XMM15)
+                                movsd(XMM15, right)
+                            } else {
+                                mov(instruction.type, left, R10.x(instruction.type))
+                                binary(instruction.type, instruction.op, R10.x(instruction.type), right)
+                            }
                         }
 
                         else -> {
@@ -130,26 +155,33 @@ fun replacePseudoRegisters(program: Program): Program {
                         }
                     }
 
-                    Mul -> when {
+                    IMul, Mul -> when {
                         left is Imm && left.type == Quadword && right is Memory -> {
                             // imul can't use memory address as its destination.
                             // can't have Quadword immediate source
                             mov(instruction.type, left, R10.q)
                             mov(instruction.type, right, R11.x(instruction.type))
-                            imul(instruction.type, R10.q, R11.x(instruction.type))
+                            mul(instruction.type, R10.q, R11.x(instruction.type))
                             mov(instruction.type, R11.x(instruction.type), right)
                         }
 
                         left is Imm && left.type == Quadword -> {
+                            // can't have Quadword immediate source
                             mov(instruction.type, left, R10.q)
                             binary(instruction.type, instruction.op, R10.q, right)
                         }
 
                         right is Memory -> {
                             // imul can't use memory address as its destination.
-                            mov(instruction.type, right, R11.x(instruction.type))
-                            imul(instruction.type, left, R11.x(instruction.type))
-                            mov(instruction.type, R11.x(instruction.type), right)
+                            if (instruction.type is Double_) {
+                                movsd(right, XMM14)
+                                mulsd(left, XMM14)
+                                movsd(XMM14, right)
+                            } else {
+                                mov(instruction.type, right, R11.x(instruction.type))
+                                mul(instruction.type, left, R11.x(instruction.type))
+                                mov(instruction.type, R11.x(instruction.type), right)
+                            }
                         }
 
                         else -> {
@@ -201,28 +233,27 @@ fun replacePseudoRegisters(program: Program): Program {
                 }
             }
 
+            is DivDouble -> {
+                val src = allocate(instruction.src)
+                val dst = allocate(instruction.dst)
+                divdouble(Double_, src, dst)
+            }
+
             is Cmp -> {
                 val src1 = allocate(instruction.src1)
                 val src2 = allocate(instruction.src2)
                 when {
-                    src1 is Imm && src1.type == Quadword -> when {
-                        // cmp cannot have a quadword immediate value
-                        // as either operand.
-                        src1.type == Quadword && src2.type == Quadword -> {
-                            mov(instruction.type, src1, R10.q)
-                            mov(instruction.type, src2, R11.q)
-                            cmp(instruction.type, R10.q, R11.q)
-                        }
+                    src1 is Imm && src1.type is Quadword || src2 is Imm && src2.type is Quadword -> {
+                        // cmp cannot have a quadword immediate value as either operand.
+                        mov(instruction.type, src1, R10.q)
+                        mov(instruction.type, src2, R11.q)
+                        cmp(instruction.type, R10.q, R11.q)
+                    }
 
-                        src1.type == Quadword -> {
-                            mov(instruction.type, src1, R10.q)
-                            cmp(instruction.type, R10.q, src2)
-                        }
-
-                        src2.type == Quadword -> {
-                            mov(instruction.type, src2, R10.q)
-                            cmp(instruction.type, src1, R10.q)
-                        }
+                    (src1 is Imm && src1.type is Double_) || (src2 is Imm && src2.type is Double_) -> {
+                        movsd(src1, XMM14)
+                        movsd(src2, XMM15)
+                        comisd(XMM14, XMM15)
                     }
 
                     src2 is Imm -> {
@@ -231,10 +262,21 @@ fun replacePseudoRegisters(program: Program): Program {
                         cmp(instruction.type, src1, R10.x(src2.type))
                     }
 
+                    src2 is Memory && instruction.type is Double_ -> {
+                        movsd(src2, XMM15)
+                        comisd(src1, XMM15)
+                    }
+
                     src1 is Memory && src2 is Memory -> {
                         // cmp cannot have both operands as memory.
-                        mov(instruction.type, src1, R10.x(instruction.type))
-                        cmp(instruction.type, R10.x(instruction.type), src2)
+                        if (instruction.type == Double_) {
+                            mov(Double_, src1, XMM14)
+                            mov(Double_, src2, XMM15)
+                            cmp(instruction.type, XMM14, XMM15)
+                        } else {
+                            mov(instruction.type, src1, R10.x(instruction.type))
+                            cmp(instruction.type, R10.x(instruction.type), src2)
+                        }
                     }
 
                     else -> {
@@ -279,12 +321,48 @@ fun replacePseudoRegisters(program: Program): Program {
                     push(operand)
                 }
             }
+
+            is Cvtsi2sd -> {
+                val src = allocate(instruction.src)
+                val dst = allocate(instruction.dst)
+
+                when {
+                    src is Imm && dst is Memory -> {
+                        mov(instruction.srcType, src, R10.x(instruction.srcType))
+                        cvtsi2sd(instruction.srcType, R10.x(instruction.srcType), XMM14)
+                        mov(Double_, XMM14, dst)
+                    }
+
+                    dst is Memory -> {
+                        cvtsi2sd(instruction.srcType, src, XMM14)
+                        mov(Double_, XMM14, dst)
+                    }
+
+                    else -> cvttsd2si(instruction.srcType, src, dst)
+                }
+            }
+
+            is Cvttsd2si -> {
+                val src = allocate(instruction.src)
+                val dst = allocate(instruction.dst)
+
+                when {
+                    dst is Memory -> {
+                        cvttsd2si(instruction.dstType, src, R10.x(instruction.dstType))
+                        mov(instruction.dstType, R10.x(instruction.dstType), dst)
+                    }
+
+                    else -> cvttsd2si(instruction.dstType, src, dst)
+                }
+            }
         }
     }
 
-
     fun fixup(staticVariable: StaticVariable): StaticVariable =
         staticVariable
+
+    fun fixup(staticConstant: StaticConstant): StaticConstant =
+        staticConstant
 
     fun fixup(functionDef: FunctionDef): FunctionDef = with(functionDef.instructions.flatMap(::fixup)) {
         val prologue = buildX86 {
@@ -297,6 +375,7 @@ fun replacePseudoRegisters(program: Program): Program {
     fun fixup(topLevel: TopLevel): TopLevel = when (topLevel) {
         is FunctionDef -> fixup(topLevel)
         is StaticVariable -> fixup(topLevel)
+        is StaticConstant -> fixup(topLevel)
     }
 
     return Program(program.items.map { fixup(it) })

@@ -28,7 +28,7 @@ typealias StaticInit = Any
 data class StaticVariable(val name: String, val global: Boolean, val alignment: Int, val init: StaticInit) :
     TopLevel() {
     init {
-        require(init is Int || init is Long || init is UInt || init is ULong)
+        require(init is Int || init is Long || init is UInt || init is ULong || init is Double)
     }
 
     val size: Int
@@ -42,16 +42,24 @@ data class StaticVariable(val name: String, val global: Boolean, val alignment: 
         get() = when (this.init) {
             is Int, is UInt -> "long"
             is Long, is ULong -> "quad"
+            is Double -> "double"
             else -> unreachable("No size for ${this.init}.")
         }
 }
 
+data class StaticConstant(val name: String, val alignment: Int, val init: StaticInit) : TopLevel() {
+    init {
+        require(init is Double || init is ULong)
+    }
+}
 
 sealed class Instruction
 
 data class Mov(val type: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data class Movsx(val src: Operand, val dst: Operand) : Instruction()
 data class Movzx(val src: Operand, val dst: Operand) : Instruction()
+data class Cvttsd2si(val dstType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
+data class Cvtsi2sd(val srcType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data object Ret : Instruction()
 data class Unary(val op: UnaryOp, val type: TypeX86, val operand: Operand) : Instruction()
 enum class UnaryOp {
@@ -60,12 +68,13 @@ enum class UnaryOp {
 
 data class Binary(val op: BinaryOp, val type: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 enum class BinaryOp {
-    Add, Sub, Mul, And, Or, Xor, ArithmeticLeftShift, ArithmeticRightShift, LogicalRightShift
+    Add, Sub, IMul, Mul, And, Or, Xor, ArithmeticLeftShift, ArithmeticRightShift, LogicalRightShift
 }
 
 data class Cmp(val type: TypeX86, val src1: Operand, val src2: Operand) : Instruction()
 data class IDiv(val type: TypeX86, val operand: Operand) : Instruction()
 data class Div(val type: TypeX86, val operand: Operand) : Instruction()
+data class DivDouble(val type: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data class Cdq(val type: TypeX86) : Instruction()
 data class Jmp(val identifier: String) : Instruction()
 data class JmpCC(val conditionCode: ConditionCode, val identifier: String) : Instruction()
@@ -102,7 +111,8 @@ data class Register(val name: RegisterName, val size: RegisterSize) : Operand(Un
 // AH is the bits 8 through 15 (zero-based), the top half of AX
 // RAX is the full 64-bits on x86_64
 enum class RegisterName {
-    AX, CX, DX, DI, SI, R8, R9, R10, R11, SP;
+    AX, CX, DX, DI, SI, R8, R9, R10, R11, SP,
+    XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7, XMM14, XMM15
 }
 
 enum class RegisterSize(val suffix: String) {
@@ -128,6 +138,17 @@ object RegisterAlias {
 
     val RCX = Register(CX, QUAD)
     val ECX = Register(CX, LONG)
+
+    val XMM0 = Register(RegisterName.XMM0, QUAD)
+    val XMM1 = Register(RegisterName.XMM1, QUAD)
+    val XMM2 = Register(RegisterName.XMM2, QUAD)
+    val XMM3 = Register(RegisterName.XMM3, QUAD)
+    val XMM4 = Register(RegisterName.XMM4, QUAD)
+    val XMM5 = Register(RegisterName.XMM5, QUAD)
+    val XMM6 = Register(RegisterName.XMM6, QUAD)
+    val XMM7 = Register(RegisterName.XMM7, QUAD)
+    val XMM14 = Register(RegisterName.XMM14, QUAD)
+    val XMM15 = Register(RegisterName.XMM15, QUAD)
 }
 
 val RegisterName.b: Register
@@ -138,11 +159,14 @@ val RegisterName.d: Register
     get() = Register(this, LONG)
 val RegisterName.q: Register
     get() = Register(this, QUAD)
+val RegisterName.sd: Register
+    get() = Register(this, QUAD)
 
 fun RegisterName.x(type: TypeX86) = when (type) {
     Longword -> Register(this, LONG)
     Quadword -> Register(this, QUAD)
     Unknown -> unreachable("No size for ${this}.")
+    Double_ -> unreachable("Use XMM registers for double types.")
 }
 
 val Register.b: Register
@@ -156,4 +180,4 @@ sealed interface Memory
 data class Pseudo(override val type: TypeX86, val identifier: String) : Operand(type)
 data class Stack(val position: Int) : Operand(Unknown), Memory
 
-data class Data(val identifier: String) : Operand(Unknown), Memory
+data class Data(override val type: TypeX86, val identifier: String) : Operand(type), Memory

@@ -16,6 +16,7 @@ import eu.jameshamilton.tacky.printTacky
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
+import kotlinx.cli.multiple
 import kotlinx.cli.vararg
 import java.io.File
 import kotlin.system.exitProcess
@@ -34,6 +35,10 @@ val codegen by parser.option(
     fullName = "codegen",
     description = "Only run the lexer + parser + tacky + codegen"
 ).default(false)
+val linkLibrary by parser.option(ArgType.String, shortName = "l", description = "link a library").multiple()
+
+// TODO: linkMath for compatibility with the test suite; need to parse options like -l${lib}
+val linkMath by parser.option(ArgType.Boolean, shortName = "lm", fullName = "linkMath").default(false)
 val emitAssembly by parser.option(ArgType.Boolean, shortName = "S", description = "Emit assembly").default(false)
 val emitObject by parser.option(ArgType.Boolean, shortName = "c", description = "Emit object file").default(false)
 val printParsed by parser.option(ArgType.Boolean, description = "print-parsed").default(false)
@@ -140,7 +145,9 @@ fun assemble(output: File, input: List<File>): File {
         .exec(arrayOf("gcc") +
                 (if (emitObject) arrayOf("-c") else emptyArray()) +
                 input.map { it.absolutePath } +
-                arrayOf("-o", output.absolutePath)
+                arrayOf("-o", output.absolutePath) +
+                (if (linkMath) arrayOf("-lm") else emptyArray()) +
+                linkLibrary.map { "-l$it" }
         )
 
     if (r.waitFor() != 0) {

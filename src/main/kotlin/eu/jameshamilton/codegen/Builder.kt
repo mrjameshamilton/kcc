@@ -11,6 +11,8 @@ import eu.jameshamilton.codegen.ConditionCode.L
 import eu.jameshamilton.codegen.ConditionCode.LE
 import eu.jameshamilton.codegen.ConditionCode.NE
 import eu.jameshamilton.codegen.RegisterAlias.SP
+import eu.jameshamilton.codegen.RegisterName.R10
+import eu.jameshamilton.codegen.RegisterName.R11
 
 class Builder(var instructions: List<Instruction> = mutableListOf()) {
     fun mov(type: TypeX86, src: Operand, dst: Operand): Builder {
@@ -24,6 +26,14 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
 
     fun movq(src: Operand, dst: Operand): Builder {
         return mov(Quadword, src, dst)
+    }
+
+    fun movq(i: Int, dst: Operand): Builder {
+        return movq(Imm(Quadword, i), dst)
+    }
+
+    fun movsd(src: Operand, dst: Operand): Builder {
+        return mov(Double_, src, dst)
     }
 
     fun mov(type: TypeX86, i: Int, dst: Operand): Builder {
@@ -55,6 +65,11 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return this
     }
 
+    fun divdouble(type: TypeX86, operand: Operand, dst: Operand): Builder {
+        instructions += DivDouble(type, operand, dst)
+        return this
+    }
+
     fun ret(): Builder {
         instructions += Ret
         return this
@@ -82,20 +97,44 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return binary(type, BinaryOp.Add, src, dst)
     }
 
+    fun addsd(src: Operand, dst: Operand): Builder {
+        return binary(Double_, BinaryOp.Add, src, dst)
+    }
+
+    fun addq(src: Operand, dst: Operand): Builder {
+        return add(Quadword, src, dst)
+    }
+
     fun sub(type: TypeX86, src: Operand, dst: Operand): Builder {
         return binary(type, BinaryOp.Sub, src, dst)
     }
 
-    fun imul(type: TypeX86, src: Operand, dst: Operand): Builder {
-        return binary(type, BinaryOp.Mul, src, dst)
+    fun subsd(src: Operand, dst: Operand): Builder {
+        return sub(Double_, src, dst)
+    }
+
+    fun mul(type: TypeX86, src: Operand, dst: Operand): Builder {
+        return binary(type, BinaryOp.IMul, src, dst)
+    }
+
+    fun mulsd(src: Operand, dst: Operand): Builder {
+        return binary(Double_, BinaryOp.Mul, src, dst)
     }
 
     fun and(type: TypeX86, src: Operand, dst: Operand): Builder {
         return binary(type, BinaryOp.And, src, dst)
     }
 
+    fun andq(src: Operand, dst: Operand): Builder {
+        return and(Quadword, src, dst)
+    }
+
     fun or(type: TypeX86, src: Operand, dst: Operand): Builder {
         return binary(type, BinaryOp.Or, src, dst)
+    }
+
+    fun orq(src: Operand, dst: Operand): Builder {
+        return or(Quadword, src, dst)
     }
 
     fun xor(type: TypeX86, src: Operand, dst: Operand): Builder {
@@ -114,13 +153,25 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return binary(type, BinaryOp.LogicalRightShift, src, dst)
     }
 
+    fun shrq(src: Operand, dst: Operand): Builder {
+        return shr(Quadword, src, dst)
+    }
+
     fun cmp(type: TypeX86, src1: Operand, src2: Operand): Builder {
         instructions += Cmp(type, src1, src2)
         return this
     }
 
+    fun comisd(src1: Operand, src2: Operand): Builder {
+        return cmp(Double_, src1, src2)
+    }
+
     fun cmp(type: TypeX86, i: Int, src2: Operand): Builder {
         return cmp(type, Imm(type, i), src2)
+    }
+
+    fun cmpq(src1: Operand, src2: Operand): Builder {
+        return cmp(Quadword, src1, src2)
     }
 
     fun setcc(code: ConditionCode, src: Operand): Builder {
@@ -177,6 +228,14 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return jcc(E, target)
     }
 
+    fun jae(target: String): Builder {
+        return jcc(AE, target)
+    }
+
+    fun jl(target: String): Builder {
+        return jcc(L, target)
+    }
+
     fun jne(target: String): Builder {
         return jcc(NE, target)
     }
@@ -201,6 +260,24 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return this
     }
 
+    fun cvttsd2si(dstType: TypeX86, src: Operand, dst: Operand): Builder {
+        instructions += Cvttsd2si(dstType, src, dst)
+        return this
+    }
+
+    fun cvttsd2siq(src: Operand, dst: Operand): Builder {
+        return cvttsd2si(Quadword, src, dst)
+    }
+
+    fun cvtsi2sd(dstType: TypeX86, src: Operand, dst: Operand): Builder {
+        instructions += Cvtsi2sd(dstType, src, dst)
+        return this
+    }
+
+    fun cvtsi2sdq(src: Operand, dst: Operand): Builder {
+        return cvtsi2sd(Quadword, src, dst)
+    }
+
     fun allocate(i: Int): Builder {
         return sub(Quadword, Imm(Quadword, i), SP)
     }
@@ -208,7 +285,22 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
     fun deallocate(i: Int): Builder {
         return add(Quadword, Imm(Quadword, i), SP)
     }
+
+    fun roundToOdd(src: Operand, dst: Operand): Builder {
+        instructions += buildX86 {
+            movq(src, R10.q)
+            movq(R10.q, R11.q)
+            shrq(Imm(Quadword, 1), R11.q)
+            andq(Imm(Quadword, 1), R10.q)
+            orq(R10.q, dst)
+        }
+        return this
+    }
+
+    fun makelabel(name: String) = "${name}.${labelIndex++}"
 }
+
+private var labelIndex: Int = 0
 
 fun buildX86(block: Builder.() -> Unit): List<Instruction> = with(Builder()) {
     block(this)
