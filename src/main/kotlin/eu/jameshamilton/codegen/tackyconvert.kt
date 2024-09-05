@@ -68,6 +68,7 @@ import eu.jameshamilton.tacky.UnaryOp.Not
 import eu.jameshamilton.tacky.Var
 import eu.jameshamilton.tacky.ZeroExtend
 import eu.jameshamilton.unreachable
+import eu.jameshamilton.codegen.Double_ as x86DoubleType
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Instruction as x86Instruction
 import eu.jameshamilton.codegen.Program as x86Program
@@ -115,11 +116,11 @@ private data class UnnamedStaticConstant(val alignment: Int, val value: Any)
 private val constants: MutableMap<UnnamedStaticConstant, String> = mutableMapOf()
 
 private fun makeconstant(value: Any, alignment: Int = 8): Data =
-    Data(Double_, constants.computeIfAbsent(UnnamedStaticConstant(alignment, value)) { _ ->
+    Data(x86DoubleType, constants.computeIfAbsent(UnnamedStaticConstant(alignment, value)) { _ ->
         "C" + constants.size
     })
 
-private fun zero(type: TypeX86) = if (type is Double_) makeconstant(0.0) else Imm(type, 0)
+private fun zero(type: TypeX86) = if (type is x86DoubleType) makeconstant(0.0) else Imm(type, 0)
 
 fun convert(tackyProgram: TackyProgram): x86Program {
     val topLevelItems = tackyProgram.items.map {
@@ -153,13 +154,13 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
                 is FunType, Unknown -> unreachable("Invalid type")
                 IntType, UIntType -> Longword
                 LongType, ULongType -> Quadword
-                DoubleType -> Double_
+                DoubleType -> x86DoubleType
             }
             Triple(index, x86Type, param)
         }
 
-        val integerParameters = parameters.filter { it.second !is Double_ }.take(6)
-        val doubleParameters = parameters.filter { it.second is Double_ }.take(8)
+        val integerParameters = parameters.filter { it.second !is x86DoubleType }.take(6)
+        val doubleParameters = parameters.filter { it.second is x86DoubleType }.take(8)
         val stackParameters = parameters - (integerParameters + doubleParameters).toSet()
 
         // Copy all parameters from registers into stack locations,
@@ -180,14 +181,14 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
         doubleParameters.forEachIndexed { index, (_, _, param) ->
             when (index) {
                 // First 8 doubles are passed in registers.
-                0 -> movsd(XMM0, Pseudo(Double_, param))
-                1 -> movsd(XMM1, Pseudo(Double_, param))
-                2 -> movsd(XMM2, Pseudo(Double_, param))
-                3 -> movsd(XMM3, Pseudo(Double_, param))
-                4 -> movsd(XMM4, Pseudo(Double_, param))
-                5 -> movsd(XMM5, Pseudo(Double_, param))
-                6 -> movsd(XMM6, Pseudo(Double_, param))
-                7 -> movsd(XMM7, Pseudo(Double_, param))
+                0 -> movsd(XMM0, Pseudo(x86DoubleType, param))
+                1 -> movsd(XMM1, Pseudo(x86DoubleType, param))
+                2 -> movsd(XMM2, Pseudo(x86DoubleType, param))
+                3 -> movsd(XMM3, Pseudo(x86DoubleType, param))
+                4 -> movsd(XMM4, Pseudo(x86DoubleType, param))
+                5 -> movsd(XMM5, Pseudo(x86DoubleType, param))
+                6 -> movsd(XMM6, Pseudo(x86DoubleType, param))
+                7 -> movsd(XMM7, Pseudo(x86DoubleType, param))
             }
         }
 
@@ -225,7 +226,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         is TackyVar -> when (value.type) {
             IntType, UIntType -> Pseudo(Longword, value.name)
             LongType, ULongType -> Pseudo(Quadword, value.name)
-            DoubleType -> Pseudo(Double_, value.name)
+            DoubleType -> Pseudo(x86DoubleType, value.name)
             is FunType, Unknown -> unreachable("Invalid type")
         }
     }
@@ -235,7 +236,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         when (tacky) {
             is Return -> {
                 val src = convert(tacky.value)
-                if (src.type is Double_) {
+                if (src.type is x86DoubleType) {
                     movsd(src, XMM0)
                 } else {
                     mov(src.type, src, AX.x(src.type))
@@ -252,9 +253,9 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 when (tacky.op) {
                     Complement -> not(src.type, dst)
                     Negate -> {
-                        if (src.type is Double_) {
+                        if (src.type is x86DoubleType) {
                             movsd(src, XMM0)
-                            xor(Double_, makeconstant(-0.0, 16), XMM0)
+                            xor(x86DoubleType, makeconstant(-0.0, 16), XMM0)
                             movsd(XMM0, dst)
                         } else {
                             neg(src.type, dst)
@@ -262,9 +263,9 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     }
 
                     Not -> {
-                        if (src.type is Double_) {
+                        if (src.type is x86DoubleType) {
                             // zero out the full XMM0 register before comparison
-                            xor(Double_, XMM0, XMM0)
+                            xor(x86DoubleType, XMM0, XMM0)
                             comisd(src, XMM0)
                         } else {
                             cmp(src.type, zero(src.type), src)
@@ -282,11 +283,11 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val dst = convert(tacky.dst)
                 when (tacky.op) {
                     Divide, Remainder -> {
-                        if (src1.type is Double_) {
+                        if (src1.type is x86DoubleType) {
                             // Only division since % is not applicable for double.
                             movsd(src1, XMM0)
                             movsd(src2, XMM1)
-                            divdouble(Double_, XMM1, XMM0)
+                            divdouble(x86DoubleType, XMM1, XMM0)
                             movsd(XMM0, dst)
                         } else {
                             // division / remainder use EAX + EDX together:
@@ -306,6 +307,12 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
                     LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal, NotEqual -> {
                         cmp(src1.type, src2, src1)
+                        val isNaN = makelabel("isnan")
+                        val end = makelabel("notnan")
+                        if (src1.type is x86DoubleType) {
+                            jp(isNaN)
+                        }
+                        // zero out the dst before setting the byte with set*.
                         mov(dst.type, zero(dst.type), dst)
 
                         if (tacky.src1.isSigned) {
@@ -328,6 +335,20 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                                 NotEqual -> setne(dst)
                                 else -> throw RuntimeException("Invalid comparison operator ${tacky.op}.")
                             }
+                        }
+                        if (src1.type is x86DoubleType) {
+                            jmp(end)
+                            label(isNaN)
+                            when (tacky.op) {
+                                LessThan,LessThanOrEqual, GreaterThan,GreaterThanOrEqual, Equal -> {
+                                    mov(dst.type, Imm(dst.type, 0), dst)
+                                }
+                                NotEqual -> {
+                                    mov(dst.type, Imm(dst.type, 1), dst)
+                                }
+                                else -> throw RuntimeException("Invalid comparison operator ${tacky.op}.")
+                            }
+                            label(end)
                         }
                     }
 
@@ -355,10 +376,10 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
             is JumpIfNotZero -> {
                 val condition = convert(tacky.condition)
-                if (condition.type is Double_) {
+                if (condition.type is x86DoubleType) {
                     // zero out the full XMM0 register before comparison
-                    xor(Double_, XMM0, XMM0)
-                    cmp(Double_, XMM0, condition)
+                    xor(x86DoubleType, XMM0, XMM0)
+                    comisd(XMM0, condition)
                 } else {
                     cmp(condition.type, zero(condition.type), condition)
                 }
@@ -367,10 +388,10 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
             is JumpIfZero -> {
                 val condition = convert(tacky.condition)
-                if (condition.type is Double_) {
+                if (condition.type is x86DoubleType) {
                     // zero out the full XMM0 register before comparison
-                    xor(Double_, XMM0, XMM0)
-                    cmp(Double_, XMM0, condition)
+                    xor(x86DoubleType, XMM0, XMM0)
+                    comisd(XMM0, condition)
                 } else {
                     cmp(condition.type, zero(condition.type), condition)
                 }
@@ -380,8 +401,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             is Label -> label(tacky.identifier)
             is FunctionCall -> {
                 val arguments = tacky.arguments.mapIndexed { index, arg -> Pair(index, convert(arg)) }
-                val integerArguments = arguments.filter { it.second.type !is Double_ }.take(6)
-                val doubleArguments = arguments.filter { it.second.type is Double_ }.take(8)
+                val integerArguments = arguments.filter { it.second.type !is x86DoubleType }.take(6)
+                val doubleArguments = arguments.filter { it.second.type is x86DoubleType }.take(8)
                 val stackArguments = arguments - (integerArguments + doubleArguments).toSet()
 
                 val stackPadding = if (stackArguments.size % 2 == 0) 0 else 8
@@ -415,7 +436,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 }
 
                 stackArguments.asReversed().forEach { (_, arg) ->
-                    if (arg is Register || arg is Imm || arg.type is Quadword || arg.type is Double_) {
+                    if (arg is Register || arg is Imm || arg.type is Quadword || arg.type is x86DoubleType) {
                         push(arg)
                     } else {
                         movl(arg, EAX)
@@ -432,8 +453,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
                 val result = convert(tacky.dst)
 
-                if (result.type is Double_) {
-                    mov(Double_, XMM0, result)
+                if (result.type is x86DoubleType) {
+                    movsd(XMM0, result)
                 } else {
                     mov(result.type, AX.x(result.type), result)
                 }
@@ -479,8 +500,6 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         val tmp = Pseudo(Quadword, makelabel("tmp"))
                         cvttsd2siq(src, tmp)
                         movl(tmp, dst)
-                        //cvttsd2siq(src, R10.q)
-                        //movl(R10.d, dst)
                     }
 
                     is Quadword -> {
@@ -504,15 +523,10 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         cvttsd2siq(tmp1, dst)
                         movq(Imm(Quadword, MAX_LONG_PLUS_ONE), tmp2)
                         addq(tmp1, dst)
-                        //movsd(src, XMM0)
-                        //subsd(upperBound, XMM0)
-                        //cvttsd2siq(XMM0, dst)
-                        //movq(Imm(Quadword, MAX_LONG_PLUS_ONE), R10.q)
-                        //addq(R10.q, dst)
                         label(end)
                     }
 
-                    Double_, x86UnknownType -> unreachable("invalid types")
+                    x86DoubleType, x86UnknownType -> unreachable("invalid types")
                 }
             }
 
@@ -526,14 +540,14 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val src = convert(tacky.src)
                 val dst = convert(tacky.dst)
 
-                when {
-                    src.type is Longword -> {
+                when (src.type) {
+                    is Longword -> {
                         val tmp = Pseudo(Quadword, makelabel("tmp"))
                         movl(src, tmp)
                         cvtsi2sdq(tmp, dst)
                     }
 
-                    src.type is Quadword -> {
+                    is Quadword -> {
                         // for unsigned long to double conversion, we must
                         // make sure that when halving the value we don't round
                         // to a midpoint between two values that double can represent.
@@ -563,6 +577,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         addsd(dst, dst)
                         label(end)
                     }
+
+                    is x86DoubleType, is x86UnknownType -> unreachable("Invalid type for src")
                 }
             }
         }

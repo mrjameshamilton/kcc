@@ -90,7 +90,10 @@ enum class ConditionCode {
     A,  // CF not set and ZF not set
     AE, // CF not set
     B,  // CF set
-    BE  // CF set or ZF set
+    BE, // CF set or ZF set
+    P,  // PF set
+    PO, // PF not set
+    NP, // Set if not PF
 }
 
 data class Push(val operand: Operand) : Instruction()

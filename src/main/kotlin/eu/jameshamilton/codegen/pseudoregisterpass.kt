@@ -270,9 +270,9 @@ fun replacePseudoRegisters(program: Program): Program {
                     src1 is Memory && src2 is Memory -> {
                         // cmp cannot have both operands as memory.
                         if (instruction.type == Double_) {
-                            mov(Double_, src1, XMM14)
-                            mov(Double_, src2, XMM15)
-                            cmp(instruction.type, XMM14, XMM15)
+                            movsd(src1, XMM14)
+                            movsd(src2, XMM15)
+                            comisd(XMM14, XMM15)
                         } else {
                             mov(instruction.type, src1, R10.x(instruction.type))
                             cmp(instruction.type, R10.x(instruction.type), src2)

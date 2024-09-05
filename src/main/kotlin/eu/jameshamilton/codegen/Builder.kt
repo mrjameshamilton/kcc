@@ -10,9 +10,8 @@ import eu.jameshamilton.codegen.ConditionCode.GE
 import eu.jameshamilton.codegen.ConditionCode.L
 import eu.jameshamilton.codegen.ConditionCode.LE
 import eu.jameshamilton.codegen.ConditionCode.NE
+import eu.jameshamilton.codegen.ConditionCode.P
 import eu.jameshamilton.codegen.RegisterAlias.SP
-import eu.jameshamilton.codegen.RegisterName.R10
-import eu.jameshamilton.codegen.RegisterName.R11
 
 class Builder(var instructions: List<Instruction> = mutableListOf()) {
     fun mov(type: TypeX86, src: Operand, dst: Operand): Builder {
@@ -240,6 +239,10 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return jcc(NE, target)
     }
 
+    fun jp(target: String): Builder {
+        return jcc(P, target)
+    }
+
     fun jmp(target: String): Builder {
         instructions += Jmp(target)
         return this
@@ -284,17 +287,6 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
 
     fun deallocate(i: Int): Builder {
         return add(Quadword, Imm(Quadword, i), SP)
-    }
-
-    fun roundToOdd(src: Operand, dst: Operand): Builder {
-        instructions += buildX86 {
-            movq(src, R10.q)
-            movq(R10.q, R11.q)
-            shrq(Imm(Quadword, 1), R11.q)
-            andq(Imm(Quadword, 1), R10.q)
-            orq(R10.q, dst)
-        }
-        return this
     }
 
     fun makelabel(name: String) = "${name}.${labelIndex++}"
