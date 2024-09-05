@@ -38,10 +38,6 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         return binaryOp(BinaryOp.Equal, src1, src2, dst)
     }
 
-    fun increment(src: Value, amount: Int = 1): Value {
-        return increment(src, Constant(amount))
-    }
-
     fun increment(src: Value, amount: Value): Value {
         instructions += Binary(BinaryOp.Add, src, amount, src)
         return src

@@ -160,19 +160,20 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 PostfixIncrement -> {
                     val dst = maketemporary(expression.type)
                     copy(src, dst)
-                    increment(src)
+                    increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
                     dst
                 }
 
                 PostfixDecrement -> {
                     val dst = maketemporary(expression.type)
                     copy(src, dst)
-                    increment(src, -1)
+                    increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
                     dst
                 }
 
-                PrefixIncrement -> increment(src)
-                PrefixDecrement -> increment(src, -1)
+                PrefixIncrement -> increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
+
+                PrefixDecrement -> increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
                 else -> {
                     val dst = maketemporary(expression.type)
                     val op = convert(expression.op)

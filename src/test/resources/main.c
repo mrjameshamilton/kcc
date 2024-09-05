@@ -1,68 +1,50 @@
-int lt(double d, long l) {
-    // l is implicitly converted to a double
-    return d < l;
-}
-
-double tern_double_flag(double flag) {
-    /* Ternary expression where controlling condition is a double
-     * You do not have to convert second and third operands to double;
-     * instead, we convert them to their common type, which is unsigned long,
-     * THEN convert that to a double.
-     * Converting -30 to unsigned long gives us 2^64 - 30, or 18446744073709551586.
-     * The nearest double to this result is 18446744073709551616.0
-     */
-    return (double) (flag ? -30 : 10ul);
-}
-
-double tern_double_result(int flag) {
-    /* The common type of the two operands is double,
-     * so if flag is 0, this will return the nearest representable
-     * double to 9223372036854777850ul, which is 9223372036854777856.0
-     */
-    return flag ? 5.0 : 9223372036854777850ul;
-}
-int ten = 10;
-int multiply(void) {
-    /* This should promote 10 to a double,
-     * calculate 10.75 * 10.0, which is 107.5,
-     * and then truncate back to an int, 107.
-     * It should not truncate 10.75 to 10 before
-     * performing the calculation.
-     */
-    int i = 10.75 * ten;
-
-    return i == 107;
-}
-
+// test ++/-- with doubles
 int main(void) {
-
-    /* Comparison:
-     * we'll implicitly convert the long argument the nearest double,
-     * which is -9007199254751228.0, so these values compare equal
-     */
-    if (lt(-9007199254751228.0, -9007199254751227l)) {
+    static double d = 0.75;
+    // basic tests
+    if (d++ != 0.75) {
         return 1;
     }
-
-    /* Ternary expressions */
-    if (tern_double_flag(20.0) != 18446744073709551586.0) {
+    if (d != 1.75) {
         return 2;
     }
 
-    if (tern_double_flag(0.0) != 10.0) {
+    d = -100.2;
+    if (++d != -99.2) {
         return 3;
     }
-
-    if (tern_double_result(1) != 5.0) {
+    if (d != -99.2) {
         return 4;
     }
-    if (tern_double_result(0) != 9223372036854777856.0) {
+
+    if (d-- != -99.2) {
         return 5;
     }
-
-    /* Multiplication */
-    if (!multiply()) {
+    if (d != -100.2) {
         return 6;
+    }
+
+    if (--d != -101.2) {
+        return 7;
+    }
+    if (d != -101.2) {
+        return 8;
+    }
+
+    // if initial value is very small, it may disappear due to rounding error
+    // after incr/decr
+    d = 0.000000000000000000001;
+    d++;
+    if (d != 1.0) {
+        return 9;
+    }
+
+    // ++ and -- have no effect if gap between representable values is greater
+    // than 1
+    d = 10e20;
+    d--;
+    if (d != 10e20) {
+        return 10;
     }
     return 0;
 }
