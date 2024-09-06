@@ -325,7 +325,7 @@ class Parser(private val tokens: List<Token>) {
         is FunctionDeclarator -> when (declarator.declarator) {
             is Ident -> {
                 val parameters = declarator.params.associate {
-                    val (name, type, _) = processDeclarator(declarator.declarator, baseType)
+                    val (name, type, _) = processDeclarator(it.declarator, it.type)
                     if (type is FunType) {
                         throw error(previous(), "Function pointers in parameters aren't supported.")
                     }

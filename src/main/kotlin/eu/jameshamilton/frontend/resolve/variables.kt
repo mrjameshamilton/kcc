@@ -1,6 +1,7 @@
 package eu.jameshamilton.frontend.resolve
 
 import eu.jameshamilton.frontend.AddrOf
+import eu.jameshamilton.frontend.Assignable
 import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BlockItem
@@ -149,9 +150,6 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     is Assignment -> {
         val left = expression.lvalue
         val right = expression.value
-        if (left !is Var) {
-            error(0, "Expression is not an lvalue.")
-        }
         Assignment(resolve(left), resolve(right))
     }
 
@@ -169,7 +167,7 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     is UnaryExpr -> {
         when (expression.op) {
             PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement ->
-                if (expression.expression !is Var) {
+                if (expression.expression !is Assignable) {
                     error(0, "Expression is not assignable.")
                 }
 
@@ -194,8 +192,8 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     }
 
     is Cast -> Cast(expression.targetType, resolve(expression.expression))
-    is AddrOf -> TODO()
-    is Dereference -> TODO()
+    is AddrOf -> AddrOf(resolve(expression.expression))
+    is Dereference -> Dereference(resolve(expression.expression))
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
