@@ -19,7 +19,6 @@ import eu.jameshamilton.unreachable
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
-import kotlin.system.exitProcess
 
 
 fun replacePseudoRegisters(program: Program): Program {

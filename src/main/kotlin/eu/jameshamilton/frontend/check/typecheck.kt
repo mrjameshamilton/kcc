@@ -1,5 +1,6 @@
 package eu.jameshamilton.frontend.check
 
+import eu.jameshamilton.frontend.AddrOf
 import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp.Add
@@ -29,6 +30,7 @@ import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
+import eu.jameshamilton.frontend.Dereference
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.Expression
@@ -394,6 +396,9 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         val expr = typecheck(expression.expression)
         Cast(expression.targetType, expr, expression.targetType)
     }
+
+    is AddrOf -> TODO()
+    is Dereference -> TODO()
 }
 
 private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): BlockItem = when (blockItem) {

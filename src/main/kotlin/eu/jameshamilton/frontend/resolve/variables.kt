@@ -1,5 +1,6 @@
 package eu.jameshamilton.frontend.resolve
 
+import eu.jameshamilton.frontend.AddrOf
 import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BlockItem
@@ -11,6 +12,7 @@ import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.Declaration
 import eu.jameshamilton.frontend.DefaultCase
+import eu.jameshamilton.frontend.Dereference
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.Expression
 import eu.jameshamilton.frontend.ExpressionCase
@@ -192,6 +194,8 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     }
 
     is Cast -> Cast(expression.targetType, resolve(expression.expression))
+    is AddrOf -> TODO()
+    is Dereference -> TODO()
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {

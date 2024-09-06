@@ -84,7 +84,11 @@ fun print(declaration: Declaration) = os.scoped {
 
 fun printBlockItem(blockItem: BlockItem) {
     when (blockItem) {
-        is FunDeclaration -> TODO()
+        is FunDeclaration -> {
+            os.printIndent()
+            print(blockItem)
+        }
+
         is VarDeclaration -> {
             os.printIndent()
             printDefinition(blockItem)
@@ -236,6 +240,16 @@ fun printExpression(expression: Expression) {
 
         is Cast -> {
             os.print("(${expression.targetType})")
+            printExpression(expression.expression)
+        }
+
+        is AddrOf -> {
+            os.print("&")
+            printExpression(expression.expression)
+        }
+
+        is Dereference -> {
+            os.print("*")
             printExpression(expression.expression)
         }
     }

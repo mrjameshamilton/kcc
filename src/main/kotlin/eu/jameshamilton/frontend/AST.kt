@@ -170,6 +170,9 @@ data class FunctionCall(
     override val type: Type = Unknown
 ) : Expression(type)
 
+data class Dereference(val expression: Expression, override val type: Type = Unknown) : Expression(type)
+data class AddrOf(val expression: Expression, override val type: Type = Unknown) : Expression(type)
+
 class Identifier(val identifier: String, val line: Int) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

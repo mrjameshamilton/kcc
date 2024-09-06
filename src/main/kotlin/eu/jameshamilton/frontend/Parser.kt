@@ -108,36 +108,6 @@ class Parser(private val tokens: List<Token>) {
         return Program(functions)
     }
 
-    private fun function(returnType: Type, name: Identifier, storageClass: StorageClass): FunDeclaration {
-        expect(LEFT_PAREN, "( expected.")
-        val parameters = when {
-            match(VOID) -> null
-            else -> mutableListOf<VarDeclaration>().also {
-                do {
-                    val type = typeSpecifier()
-                    val identifier = expect(IDENTIFIER, "Parameter name expected.")
-                    it.add(VarDeclaration(Identifier(identifier.lexeme, identifier.line), type, StorageClass.NONE))
-                } while (match(COMMA))
-            }
-        }
-        expect(RIGHT_PAREN, ") expected.")
-
-        val body = if (check(LEFT_BRACE)) {
-            block()
-        } else {
-            expect(SEMICOLON, "Expected semicolon after function declaration.")
-            null
-        }
-
-        return FunDeclaration(
-            name,
-            parameters,
-            body,
-            FunType(parameters?.map { it.type }.orEmpty(), returnType),
-            storageClass
-        )
-    }
-
     private fun blockItem(): BlockItem = when {
         checkSpecifier() -> declaration()
         c23 && check(IDENTIFIER, COLON) -> {
@@ -283,12 +253,115 @@ class Parser(private val tokens: List<Token>) {
 
     private fun declaration(): Declaration {
         val (type, storageClass) = specifier()
-        val identifierToken = expect(IDENTIFIER, "Identifier name expected.")
-        val identifier = Identifier(identifierToken.lexeme, identifierToken.line)
-        return if (check(LEFT_PAREN)) {
-            function(type, identifier, storageClass)
+        val declarator = declarator()
+        val (identifier, declType, parameters) = processDeclarator(declarator, type)
+        return if (declType is FunType) {
+            val body = if (check(LEFT_BRACE)) {
+                block()
+            } else {
+                expect(SEMICOLON, "Expected semicolon after function declaration.")
+                null
+            }
+
+            return FunDeclaration(
+                identifier,
+                parameters,
+                body,
+                declType,
+                storageClass
+            )
         } else {
-            varDeclaration(type, identifier, storageClass)
+            varDeclaration(declType, identifier, storageClass)
+        }
+    }
+
+    private sealed class Declarator
+    private class Ident(val identifier: Identifier) : Declarator()
+    private class PointerDeclarator(val declarator: Declarator) : Declarator()
+    private class FunctionDeclarator(val params: List<ParamInfo>, val declarator: Declarator) : Declarator()
+    private class ParamInfo(val type: Type, val declarator: Declarator)
+
+
+    private fun declarator(): Declarator = when {
+        match(ASTERISK) -> PointerDeclarator(declarator())
+        else -> directDeclarator()
+    }
+
+    private fun simpleDeclarator(): Declarator = when {
+        match(IDENTIFIER) -> Ident(Identifier(previous().lexeme, previous().line))
+        match(LEFT_PAREN) -> declarator().also {
+            expect(RIGHT_PAREN, "Expected ')'.")
+        }
+
+        else -> throw error(peek(), "Error parsing simple declarator")
+    }
+
+    private fun directDeclarator(): Declarator {
+        val simple = simpleDeclarator()
+        if (check(LEFT_PAREN)) {
+            return FunctionDeclarator(params(), simple)
+        }
+        return simple
+    }
+
+    private fun params(): List<ParamInfo> {
+        val params = mutableListOf<ParamInfo>()
+        expect(LEFT_PAREN, "Expected '('.")
+        if (match(VOID)) {
+            // no params
+        } else {
+            do {
+                params.add(ParamInfo(typeSpecifier(), declarator()))
+            } while (match(COMMA))
+        }
+        expect(RIGHT_PAREN, "Expected ')'.")
+        return params
+    }
+
+    private fun processDeclarator(
+        declarator: Declarator,
+        baseType: Type
+    ): Triple<Identifier, Type, List<VarDeclaration>> = when (declarator) {
+        is FunctionDeclarator -> when (declarator.declarator) {
+            is Ident -> {
+                val parameters = declarator.params.associate {
+                    val (name, type, _) = processDeclarator(declarator.declarator, baseType)
+                    if (type is FunType) {
+                        throw error(previous(), "Function pointers in parameters aren't supported.")
+                    }
+                    name to type
+                }
+                val derivedType = FunType(parameters.values.toList(), baseType)
+                Triple(
+                    declarator.declarator.identifier,
+                    derivedType,
+                    parameters.map { VarDeclaration(it.key, null, it.value) })
+            }
+
+            is FunctionDeclarator, is PointerDeclarator -> throw error(
+                previous(),
+                "Can't apply additional type derivations to a function type"
+            )
+        }
+
+        is Ident -> Triple(declarator.identifier, baseType, emptyList())
+        is PointerDeclarator -> processDeclarator(declarator.declarator, PointerType(baseType))
+    }
+
+    private sealed class AbstractDeclarator
+    private data class AbstractPointer(val abstractDeclarator: AbstractDeclarator) : AbstractDeclarator()
+    private data object AbstractBase : AbstractDeclarator()
+
+    private fun abstractDeclarator(): AbstractDeclarator = when {
+        match(ASTERISK) -> AbstractPointer(abstractDeclarator())
+        check(LEFT_PAREN) -> AbstractPointer(directAbstractDeclarator())
+        else -> AbstractBase
+    }
+
+    private fun directAbstractDeclarator(): AbstractDeclarator {
+        expect(LEFT_PAREN, "Expected '('.")
+        return abstractDeclarator().also {
+            expect(RIGHT_PAREN, "Expected ')'.")
         }
     }
 
@@ -312,7 +385,7 @@ class Parser(private val tokens: List<Token>) {
 
                 else -> throw error(peek(), "Unexpected specifier '${peek().lexeme}'.")
             }
-        } while (!check(IDENTIFIER) && !check(RIGHT_PAREN))
+        } while (checkType() || checkStorageClass())
 
         val type = type(typeTokens)
 
@@ -365,6 +438,7 @@ class Parser(private val tokens: List<Token>) {
         match(LEFT_PAREN) -> when {
             checkType() -> {
                 val type = typeSpecifier()
+                val declarator = abstractDeclarator()
                 expect(RIGHT_PAREN, "Expected ')' after expression.")
                 Cast(type, unary())
             }
@@ -373,6 +447,8 @@ class Parser(private val tokens: List<Token>) {
                 expect(RIGHT_PAREN, "Expected closing ')' after expression.")
             }
         }
+
+        check(ASTERISK) -> Dereference(expression())
 
         match(IDENTIFIER) -> {
             val identifier = Identifier(previous().lexeme, previous().line)
@@ -468,6 +544,8 @@ class Parser(private val tokens: List<Token>) {
 
         match(TILDE) -> UnaryExpr(Complement, prefix())
         match(EXCLAMATION) -> UnaryExpr(Not, prefix())
+        match(ASTERISK) -> Dereference(prefix())
+        match(AMPERSAND) -> AddrOf(prefix())
         else -> postfix()
     }
 

@@ -36,6 +36,10 @@ data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type(0) 
         "(${paramsTypes.joinToString(separator = ", ") { it.toString() }}) -> $returnType"
 }
 
+data class PointerType(val referenced: Type) : Type(0) {
+    override fun toString(): String = "$referenced*"
+}
+
 operator fun Type.plus(other: Type) = when {
     this == other -> this
     this == DoubleType || other is DoubleType -> DoubleType
@@ -54,6 +58,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
+            is PointerType -> TODO()
         }
 
         is Long -> when (targetType) {
@@ -63,6 +68,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
+            is PointerType -> TODO()
         }
 
         is UInt -> when (targetType) {
@@ -72,6 +78,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
+            is PointerType -> TODO()
         }
 
         is ULong -> when (targetType) {
@@ -81,6 +88,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             ULongType -> this
             DoubleType -> Constant(value.toDouble(), targetType)
             is FunType, Unknown -> unreachable("Invalid cast")
+            is PointerType -> TODO()
         }
 
         is Double -> when (targetType) {
@@ -90,6 +98,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> this
             is FunType, Unknown -> unreachable("Invalid cast")
+            is PointerType -> TODO()
         }
 
         else -> Cast(targetType, this, targetType)

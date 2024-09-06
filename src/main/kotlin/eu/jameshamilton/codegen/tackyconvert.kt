@@ -23,6 +23,7 @@ import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LongType
+import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.Unknown
@@ -155,6 +156,7 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
                 IntType, UIntType -> Longword
                 LongType, ULongType -> Quadword
                 DoubleType -> x86DoubleType
+                is PointerType -> TODO()
             }
             Triple(index, x86Type, param)
         }
@@ -228,6 +230,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             LongType, ULongType -> Pseudo(Quadword, value.name)
             DoubleType -> Pseudo(x86DoubleType, value.name)
             is FunType, Unknown -> unreachable("Invalid type")
+            is PointerType -> TODO()
         }
     }
 
@@ -340,12 +343,14 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                             jmp(end)
                             label(isNaN)
                             when (tacky.op) {
-                                LessThan,LessThanOrEqual, GreaterThan,GreaterThanOrEqual, Equal -> {
+                                LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Equal -> {
                                     mov(dst.type, Imm(dst.type, 0), dst)
                                 }
+
                                 NotEqual -> {
                                     mov(dst.type, Imm(dst.type, 1), dst)
                                 }
+
                                 else -> throw RuntimeException("Invalid comparison operator ${tacky.op}.")
                             }
                             label(end)

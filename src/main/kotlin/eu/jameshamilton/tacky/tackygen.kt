@@ -1,5 +1,6 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.AddrOf
 import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp
@@ -29,6 +30,7 @@ import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
 import eu.jameshamilton.frontend.DefaultCase
+import eu.jameshamilton.frontend.Dereference
 import eu.jameshamilton.frontend.DoWhile
 import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.Expression
@@ -295,6 +297,9 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 dst
             }
         }
+
+        is AddrOf -> TODO()
+        is Dereference -> TODO()
     }
 
     fun convert(instructions: MutableList<Instruction>, statement: BlockItem) {
