@@ -348,6 +348,11 @@ class Parser(private val tokens: List<Token>) {
         is PointerDeclarator -> processDeclarator(declarator.declarator, PointerType(baseType))
     }
 
+    private fun processAbstractDeclarator(declarator: AbstractDeclarator, baseType: Type): Type = when (declarator) {
+        is AbstractBase -> baseType
+        is AbstractPointer -> processAbstractDeclarator(declarator.abstractDeclarator, PointerType(baseType))
+    }
+
     private sealed class AbstractDeclarator
     private data class AbstractPointer(val abstractDeclarator: AbstractDeclarator) : AbstractDeclarator()
     private data object AbstractBase : AbstractDeclarator()
@@ -440,7 +445,7 @@ class Parser(private val tokens: List<Token>) {
                 val type = typeSpecifier()
                 val declarator = abstractDeclarator()
                 expect(RIGHT_PAREN, "Expected ')' after expression.")
-                Cast(type, unary())
+                Cast(processAbstractDeclarator(declarator, type), unary())
             }
 
             else -> expression().also {
