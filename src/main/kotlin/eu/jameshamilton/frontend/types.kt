@@ -103,7 +103,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             DoubleType -> Constant(value.toDouble(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
-                    Constant(value.toLong(), targetType)
+                    Constant(0UL, targetType)
                 else
                     unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             }
@@ -119,7 +119,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             DoubleType -> Constant(value.toDouble(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
-                    Constant(value.toLong(), targetType)
+                    Constant(0UL, targetType)
                 else
                     unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             }
@@ -135,7 +135,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             DoubleType -> Constant(value.toDouble(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
-                    Constant(value.toLong(), targetType)
+                    Constant(0UL, targetType)
                 else
                     unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             }
@@ -151,7 +151,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             DoubleType -> Constant(value.toDouble(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
-                    Constant(value.toLong(), targetType)
+                    Constant(0UL, targetType)
                 else
                     unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             }
