@@ -58,6 +58,7 @@ sealed class Instruction
 data class Mov(val type: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data class Movsx(val src: Operand, val dst: Operand) : Instruction()
 data class Movzx(val src: Operand, val dst: Operand) : Instruction()
+data class Lea(val src: Operand, val dst: Operand) : Instruction()
 data class Cvttsd2si(val dstType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data class Cvtsi2sd(val srcType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data object Ret : Instruction()
@@ -114,7 +115,7 @@ data class Register(val name: RegisterName, val size: RegisterSize) : Operand(Un
 // AH is the bits 8 through 15 (zero-based), the top half of AX
 // RAX is the full 64-bits on x86_64
 enum class RegisterName {
-    AX, CX, DX, DI, SI, R8, R9, R10, R11, SP,
+    AX, CX, DX, DI, SI, R8, R9, R10, R11, SP, BP,
     XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7, XMM14, XMM15
 }
 
@@ -124,6 +125,7 @@ enum class RegisterSize(val suffix: String) {
 
 object RegisterAlias {
     val SP = Register(RegisterName.SP, QUAD)
+    val BP = Register(RegisterName.BP, QUAD)
 
     val RAX = Register(AX, QUAD)
     val EAX = Register(AX, LONG)
@@ -181,6 +183,6 @@ typealias Bytes = Int
 
 sealed interface Memory
 data class Pseudo(override val type: TypeX86, val identifier: String) : Operand(type)
-data class Stack(val position: Int) : Operand(Unknown), Memory
+data class Mem(val base: Register, val position: Int) : Operand(Unknown), Memory
 
 data class Data(override val type: TypeX86, val identifier: String) : Operand(type), Memory

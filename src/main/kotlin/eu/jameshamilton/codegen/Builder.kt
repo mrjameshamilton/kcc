@@ -108,6 +108,10 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return binary(type, BinaryOp.Sub, src, dst)
     }
 
+    fun subq(src: Operand, dst: Operand): Builder {
+        return sub(Quadword, src, dst)
+    }
+
     fun subsd(src: Operand, dst: Operand): Builder {
         return sub(Double_, src, dst)
     }
@@ -279,6 +283,15 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
 
     fun cvtsi2sdq(src: Operand, dst: Operand): Builder {
         return cvtsi2sd(Quadword, src, dst)
+    }
+
+    fun cvtsi2sdl(src: Operand, dst: Operand): Builder {
+        return cvtsi2sd(Longword, src, dst)
+    }
+
+    fun lea(src: Operand, dst: Operand): Builder {
+        instructions += Lea(src, dst)
+        return this
     }
 
     fun allocate(i: Int): Builder {
