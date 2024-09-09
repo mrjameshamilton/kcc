@@ -453,7 +453,7 @@ class Parser(private val tokens: List<Token>) {
             }
         }
 
-        check(ASTERISK) -> Dereference(expression())
+        match(ASTERISK) -> Dereference(primary())
 
         match(IDENTIFIER) -> {
             val identifier = Identifier(previous().lexeme, previous().line)
