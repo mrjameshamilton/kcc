@@ -48,6 +48,7 @@ import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.LongType
 import eu.jameshamilton.frontend.NullStatement
+import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Switch
@@ -102,6 +103,7 @@ fun convert(program: Program): TackyProgram {
                             is IntType, is UIntType -> 0
                             is LongType, is ULongType -> 0L
                             is DoubleType -> 0.0
+                            is PointerType -> 0UL
                             else -> unreachable("invalid type $type")
                         }
                     )
@@ -123,194 +125,241 @@ private fun maketemporary(type: Type): TackyVar {
 private var labels = 0
 private fun makelabel(name: String): LabelIdentifier = "${name}_${labels++}"
 
-private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
+sealed interface ExprResult
+private data class PlainOperand(val value: Value) : ExprResult
+private data class DereferencedPointer(val value: Value) : ExprResult
 
-    fun convert(op: UnaryOp): TackyUnaryOp = when (op) {
-        UnaryOp.Complement -> TackyUnaryOp.Complement
-        UnaryOp.Negate -> TackyUnaryOp.Negate
-        UnaryOp.Not -> TackyUnaryOp.Not
-        PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement -> unreachable("special case")
+private fun convert(op: UnaryOp): TackyUnaryOp = when (op) {
+    UnaryOp.Complement -> TackyUnaryOp.Complement
+    UnaryOp.Negate -> TackyUnaryOp.Negate
+    UnaryOp.Not -> TackyUnaryOp.Not
+    PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement -> unreachable("special case")
+}
+
+private fun convert(operator: BinaryOp): TackyBinaryOp = when (operator) {
+    Add -> TackyBinaryOp.Add
+    Subtract -> TackyBinaryOp.Subtract
+    Multiply -> TackyBinaryOp.Multiply
+    Divide -> TackyBinaryOp.Divide
+    Remainder -> TackyBinaryOp.Remainder
+    And -> TackyBinaryOp.And
+    Or -> TackyBinaryOp.Or
+    Xor -> TackyBinaryOp.Xor
+    LeftShift -> TackyBinaryOp.LeftShift
+    RightShift -> TackyBinaryOp.RightShift
+    LogicalAnd, LogicalOr -> unreachable("special case")
+    Equal -> TackyBinaryOp.Equal
+    NotEqual -> TackyBinaryOp.NotEqual
+    LessThan -> TackyBinaryOp.LessThan
+    GreaterThan -> TackyBinaryOp.GreaterThan
+    LessThanOrEqual -> TackyBinaryOp.LessThanOrEqual
+    GreaterThanOrEqual -> TackyBinaryOp.GreaterThanOrEqual
+}
+
+private fun emitAndConvert(instruction: MutableList<Instruction>, expression: Expression): Value =
+    when (val result = emit(instruction, expression)) {
+        is DereferencedPointer -> {
+            val dst = maketemporary(expression.type)
+            instruction += Load(result.value, dst)
+            dst
+        }
+
+        is PlainOperand -> result.value
     }
+
+private fun emit(instructions: MutableList<Instruction>, expression: Expression): ExprResult = when (expression) {
+    is Constant -> PlainOperand(TackyConstant(expression.value))
+    is UnaryExpr -> buildTacky(instructions) {
+        val src = emitAndConvert(instructions, expression.expression)
+        when (expression.op) {
+            PostfixIncrement -> {
+                val dst = maketemporary(expression.type)
+                copy(src, dst)
+                increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
+                PlainOperand(dst)
+            }
+
+            PostfixDecrement -> {
+                val dst = maketemporary(expression.type)
+                copy(src, dst)
+                increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
+                PlainOperand(dst)
+            }
+
+            PrefixIncrement -> {
+                increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
+                PlainOperand(src)
+            }
+
+            PrefixDecrement -> {
+                increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
+                PlainOperand(src)
+            }
+
+            else -> {
+                val dst = maketemporary(expression.type)
+                val op = convert(expression.op)
+                unaryOp(op, src, dst)
+                PlainOperand(dst)
+            }
+        }
+    }
+
+    is BinaryExpr -> when (expression.operator) {
+        LogicalAnd -> buildTacky(instructions) {
+            val dst = maketemporary(expression.type)
+            val falseLabel = makelabel("and_false_label")
+            val endLabel = makelabel("and_end_label")
+
+            val v1 = emitAndConvert(instructions, expression.left)
+            jumpIfZero(v1, falseLabel)
+            val v2 = emitAndConvert(instructions, expression.right)
+            jumpIfZero(v2, falseLabel)
+            copy(1, dst)
+            jump(endLabel)
+            label(falseLabel)
+            copy(0, dst)
+            label(endLabel)
+            PlainOperand(dst)
+        }
+
+        LogicalOr -> buildTacky(instructions) {
+            val dst = maketemporary(expression.type)
+            val falseLabel = makelabel("or_false_label")
+            val endLabel = makelabel("or_end_label")
+
+            val v1 = emitAndConvert(instructions, expression.left)
+            jumpIfNotZero(v1, falseLabel)
+            val v2 = emitAndConvert(instructions, expression.right)
+            jumpIfNotZero(v2, falseLabel)
+            copy(0, dst)
+            jump(endLabel)
+            label(falseLabel)
+            copy(1, dst)
+            label(endLabel)
+            PlainOperand(dst)
+        }
+
+        RightShift -> buildTacky(instructions) {
+            val v1 = emitAndConvert(instructions, expression.left)
+            val v2 = emitAndConvert(instructions, expression.right)
+            val dst = maketemporary(expression.type)
+            val leftType = expression.left.type
+            val tackyOp = when (leftType is IntegerType && leftType.isSigned) {
+                true -> TackyBinaryOp.RightShift
+                false -> TackyBinaryOp.LogicalRightShift
+            }
+            binaryOp(tackyOp, v1, v2, dst)
+            PlainOperand(dst)
+        }
+
+        else -> buildTacky(instructions) {
+            val v1 = emitAndConvert(instructions, expression.left)
+            val v2 = emitAndConvert(instructions, expression.right)
+            val dst = maketemporary(expression.type)
+            val tackyOp = convert(expression.operator)
+            binaryOp(tackyOp, v1, v2, dst)
+            PlainOperand(dst)
+        }
+    }
+
+    is Assignment -> buildTacky(instructions) {
+        val lvalue = emit(instructions, expression.lvalue)
+        val rvalue = emitAndConvert(instructions, expression.rvalue)
+        when (lvalue) {
+            is DereferencedPointer -> {
+                store(rvalue, lvalue.value)
+                PlainOperand(rvalue)
+            }
+
+            is PlainOperand -> {
+                copy(rvalue, lvalue.value)
+                lvalue
+            }
+        }
+    }
+
+    is Var -> {
+        val result = TackyVar(expression.type, expression.identifier.identifier)
+        PlainOperand(result)
+    }
+
+    is Conditional -> buildTacky(instructions) {
+        val result = maketemporary(expression.type)
+        val condition = emitAndConvert(instructions, expression.condition)
+        val elseLabel = makelabel("else_label")
+        val endLabel = makelabel("end_label")
+        jumpIfZero(condition, elseLabel)
+        val e1 = emitAndConvert(instructions, expression.thenBranch)
+        copy(e1, result)
+        jump(endLabel)
+        label(elseLabel)
+        val e2 = emitAndConvert(instructions, expression.elseBranch)
+        copy(e2, result)
+        label(endLabel)
+        PlainOperand(result)
+    }
+
+    is FunctionCall -> buildTacky(instructions) {
+        val arguments = expression.arguments.map { emitAndConvert(instructions, it) }
+        val result = maketemporary(expression.type)
+        call(expression.identifier.identifier, arguments, result)
+        PlainOperand(result)
+    }
+
+    is Cast -> buildTacky(instructions) {
+        val result = emitAndConvert(instructions, expression.expression)
+        if (expression.targetType == expression.expression.type) {
+            PlainOperand(result)
+        } else {
+            val dst = maketemporary(expression.type)
+            symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
+            val targetType = expression.targetType
+            val exprType = expression.expression.type
+            when {
+                exprType is IntegerType && exprType.isUnsigned && targetType is DoubleType -> uitod(result, dst)
+                exprType is DoubleType && targetType is IntegerType && targetType.isUnsigned -> dtoui(result, dst)
+                exprType is IntegerType && targetType is DoubleType -> itod(result, dst)
+                exprType is DoubleType && targetType is IntegerType -> dtoi(result, dst)
+                // if both types are the same size, it doesn't matter
+                // if they are signed or unsigned when converted to assembly.
+                targetType.size == exprType.size -> copy(result, dst)
+                targetType.size < exprType.size -> truncate(result, dst)
+                exprType is IntegerType && exprType.isSigned -> signextend(result, dst)
+                else -> zeroextend(result, dst)
+            }
+            PlainOperand(dst)
+        }
+    }
+
+    is AddrOf -> when (val value = emit(instructions, expression.expression)) {
+        is DereferencedPointer -> PlainOperand(value.value)
+        is PlainOperand -> buildTacky(instructions) {
+            val dst = maketemporary(expression.type)
+            getaddress(value.value, dst)
+            PlainOperand(dst)
+        }
+    }
+
+    is Dereference -> {
+        val result = emitAndConvert(instructions, expression.expression)
+        DereferencedPointer(result)
+    }
+}
+
+private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
     val switches = resolveSwitchCases(funDeclaration)
 
-    fun convert(operator: BinaryOp): TackyBinaryOp = when (operator) {
-        Add -> TackyBinaryOp.Add
-        Subtract -> TackyBinaryOp.Subtract
-        Multiply -> TackyBinaryOp.Multiply
-        Divide -> TackyBinaryOp.Divide
-        Remainder -> TackyBinaryOp.Remainder
-        And -> TackyBinaryOp.And
-        Or -> TackyBinaryOp.Or
-        Xor -> TackyBinaryOp.Xor
-        LeftShift -> TackyBinaryOp.LeftShift
-        RightShift -> TackyBinaryOp.RightShift
-        LogicalAnd, LogicalOr -> unreachable("special case")
-        Equal -> TackyBinaryOp.Equal
-        NotEqual -> TackyBinaryOp.NotEqual
-        LessThan -> TackyBinaryOp.LessThan
-        GreaterThan -> TackyBinaryOp.GreaterThan
-        LessThanOrEqual -> TackyBinaryOp.LessThanOrEqual
-        GreaterThanOrEqual -> TackyBinaryOp.GreaterThanOrEqual
-    }
-
-    fun convert(instructions: MutableList<Instruction>, expression: Expression): Value = when (expression) {
-        is Constant -> TackyConstant(expression.value)
-        is UnaryExpr -> buildTacky(instructions) {
-            val src = convert(instructions, expression.expression)
-            when (expression.op) {
-                PostfixIncrement -> {
-                    val dst = maketemporary(expression.type)
-                    copy(src, dst)
-                    increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
-                    dst
-                }
-
-                PostfixDecrement -> {
-                    val dst = maketemporary(expression.type)
-                    copy(src, dst)
-                    increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
-                    dst
-                }
-
-                PrefixIncrement -> increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
-
-                PrefixDecrement -> increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
-                else -> {
-                    val dst = maketemporary(expression.type)
-                    val op = convert(expression.op)
-                    unaryOp(op, src, dst)
-                }
-            }
-        }
-
-        is BinaryExpr -> when (expression.operator) {
-            LogicalAnd -> buildTacky(instructions) {
-                val dst = maketemporary(expression.type)
-                val falseLabel = makelabel("and_false_label")
-                val endLabel = makelabel("and_end_label")
-
-                val v1 = convert(instructions, expression.left)
-                jumpIfZero(v1, falseLabel)
-                val v2 = convert(instructions, expression.right)
-                jumpIfZero(v2, falseLabel)
-                copy(1, dst)
-                jump(endLabel)
-                label(falseLabel)
-                copy(0, dst)
-                label(endLabel)
-                dst
-            }
-
-            LogicalOr -> buildTacky(instructions) {
-                val dst = maketemporary(expression.type)
-                val falseLabel = makelabel("or_false_label")
-                val endLabel = makelabel("or_end_label")
-
-                val v1 = convert(instructions, expression.left)
-                jumpIfNotZero(v1, falseLabel)
-                val v2 = convert(instructions, expression.right)
-                jumpIfNotZero(v2, falseLabel)
-                copy(0, dst)
-                jump(endLabel)
-                label(falseLabel)
-                copy(1, dst)
-                label(endLabel)
-                dst
-            }
-
-            RightShift -> buildTacky(instructions) {
-                val v1 = convert(instructions, expression.left)
-                val v2 = convert(instructions, expression.right)
-                val dst = maketemporary(expression.type)
-                val leftType = expression.left.type
-                val tackyOp = when (leftType is IntegerType && leftType.isSigned) {
-                    true -> TackyBinaryOp.RightShift
-                    false -> TackyBinaryOp.LogicalRightShift
-                }
-                binaryOp(tackyOp, v1, v2, dst)
-                dst
-            }
-
-            else -> buildTacky(instructions) {
-                val v1 = convert(instructions, expression.left)
-                val v2 = convert(instructions, expression.right)
-                val dst = maketemporary(expression.type)
-                val tackyOp = convert(expression.operator)
-                binaryOp(tackyOp, v1, v2, dst)
-                dst
-            }
-        }
-
-        is Assignment -> buildTacky(instructions) {
-            val value = convert(instructions, expression.value)
-            val lvalue = convert(instructions, expression.lvalue)
-            copy(value, lvalue)
-            value
-        }
-
-        is Var -> TackyVar(expression.type, expression.identifier.identifier)
-        is Conditional -> buildTacky(instructions) {
-            val result = maketemporary(expression.type)
-            val condition = convert(instructions, expression.condition)
-            val elseLabel = makelabel("else_label")
-            val endLabel = makelabel("end_label")
-            jumpIfZero(condition, elseLabel)
-            val e1 = convert(instructions, expression.thenBranch)
-            copy(e1, result)
-            jump(endLabel)
-            label(elseLabel)
-            val e2 = convert(instructions, expression.elseBranch)
-            copy(e2, result)
-            label(endLabel)
-            result
-        }
-
-        is FunctionCall -> buildTacky(instructions) {
-            val arguments = expression.arguments.map { convert(instructions, it) }
-            val result = maketemporary(expression.type)
-            call(expression.identifier.identifier, arguments, result)
-            result
-        }
-
-        is Cast -> buildTacky(instructions) {
-            val result = convert(instructions, expression.expression)
-            if (expression.targetType == expression.expression.type) {
-                result
-            } else {
-                val dst = maketemporary(expression.type)
-                symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
-                val targetType = expression.targetType
-                val exprType = expression.expression.type
-                when {
-                    exprType is IntegerType && exprType.isUnsigned && targetType is DoubleType -> uitod(result, dst)
-                    exprType is DoubleType && targetType is IntegerType && targetType.isUnsigned -> dtoui(result, dst)
-                    exprType is IntegerType && targetType is DoubleType -> itod(result, dst)
-                    exprType is DoubleType && targetType is IntegerType -> dtoi(result, dst)
-                    // if both types are the same size, it doesn't matter
-                    // if they are signed or unsigned when converted to assembly.
-                    targetType.size == exprType.size -> copy(result, dst)
-                    targetType.size < exprType.size -> truncate(result, dst)
-                    exprType is IntegerType && exprType.isSigned -> signextend(result, dst)
-                    else -> zeroextend(result, dst)
-                }
-                dst
-            }
-        }
-
-        is AddrOf -> TODO()
-        is Dereference -> TODO()
-    }
-
-    fun convert(instructions: MutableList<Instruction>, statement: BlockItem) {
+    fun emit(instructions: MutableList<Instruction>, statement: BlockItem) {
         buildTacky(instructions) {
             when (statement) {
-                is ReturnStatement -> ret(convert(instructions, statement.value))
-                is ExpressionStatement -> convert(instructions, statement.expression)
+                is ReturnStatement -> ret(emitAndConvert(instructions, statement.value))
+                is ExpressionStatement -> emit(instructions, statement.expression)
                 is NullStatement -> emptyList<Instruction>()
                 is VarDeclaration -> {
                     if (symbolTable[statement.name.identifier]?.attr is LocalAttr && statement.initializer != null) {
-                        val src = convert(instructions, statement.initializer)
+                        val src = emitAndConvert(instructions, statement.initializer)
                         val dst = TackyVar(statement.type, statement.name.identifier)
                         copy(src, dst)
                     }
@@ -325,13 +374,13 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 is If -> {
                     val endLabel = makelabel("if_end")
                     val elseLabel = if (statement.elseBranch == null) endLabel else makelabel("else_label")
-                    val condition = convert(instructions, statement.condition)
+                    val condition = emitAndConvert(instructions, statement.condition)
                     jumpIfZero(condition, elseLabel)
-                    convert(instructions, statement.thenBranch)
+                    emit(instructions, statement.thenBranch)
                     if (statement.elseBranch != null) {
                         jump(endLabel)
                         label(elseLabel)
-                        convert(instructions, statement.elseBranch)
+                        emit(instructions, statement.elseBranch)
                     }
                     label(endLabel)
                 }
@@ -339,10 +388,10 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 is Goto -> jump(statement.identifier.identifier)
                 is LabeledStatement -> {
                     label(statement.identifier.identifier)
-                    convert(instructions, statement.statement)
+                    emit(instructions, statement.statement)
                 }
 
-                is Compound -> statement.block.forEach { convert(instructions, it) }
+                is Compound -> statement.block.forEach { emit(instructions, it) }
                 is Break -> jump(statement.identifier!!.identifier)
                 is Continue -> jump(statement.identifier!!.identifier)
                 is DoWhile -> {
@@ -353,9 +402,9 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     val breakLabel = statement.breakLabel!!.identifier
 
                     label(startLabel)
-                    convert(instructions, statement.body)
+                    emit(instructions, statement.body)
                     label(continueLabel)
-                    val result = convert(instructions, statement.condition)
+                    val result = emitAndConvert(instructions, statement.condition)
                     jumpIfNotZero(result, startLabel)
                     label(breakLabel)
                 }
@@ -367,17 +416,17 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     val breakLabel = statement.breakLabel!!.identifier
 
                     label(continueLabel)
-                    val result = convert(instructions, statement.condition)
+                    val result = emitAndConvert(instructions, statement.condition)
                     jumpIfZero(result, breakLabel)
-                    convert(instructions, statement.body)
+                    emit(instructions, statement.body)
                     jump(continueLabel)
                     label(breakLabel)
                 }
 
                 is For -> {
                     when (statement.init) {
-                        is InitDecl -> convert(instructions, statement.init.declaration)
-                        is InitExpr -> statement.init.expression?.let { convert(instructions, it) }
+                        is InitDecl -> emit(instructions, statement.init.declaration)
+                        is InitExpr -> statement.init.expression?.let { emit(instructions, it) }
                     }
                     val startLabel = makelabel("start")
                     val continueLabel = statement.continueLabel!!.identifier
@@ -385,12 +434,12 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
                     label(startLabel)
                     if (statement.condition != null) {
-                        val result = convert(instructions, statement.condition)
+                        val result = emitAndConvert(instructions, statement.condition)
                         jumpIfZero(result, breakLabel)
                     }
-                    convert(instructions, statement.body)
+                    emit(instructions, statement.body)
                     label(continueLabel)
-                    statement.post?.let { convert(instructions, it) }
+                    statement.post?.let { emit(instructions, it) }
                     jump(startLabel)
                     label(breakLabel)
                 }
@@ -399,7 +448,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     require(statement.id != null)
                     require(switches.containsKey(statement))
 
-                    val switchValue = convert(instructions, statement.expression)
+                    val switchValue = emitAndConvert(instructions, statement.expression)
                     val cases = switches[statement]
 
                     require(cases != null)
@@ -416,7 +465,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
                             when (case) {
                                 is ExpressionCase -> {
-                                    val caseValue = convert(instructions, case.expression)
+                                    val caseValue = emitAndConvert(instructions, case.expression)
                                     equal(switchValue, caseValue, temp)
                                     jumpIfNotZero(temp, target)
                                 }
@@ -431,7 +480,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                             jump(breakLabel)
                         }
 
-                        convert(instructions, statement.statement)
+                        emit(instructions, statement.statement)
 
                         label(breakLabel)
                     }
@@ -440,17 +489,17 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
                 is SwitchCase -> {
                     label(statement.label!!.identifier)
-                    convert(instructions, statement.statement)
+                    emit(instructions, statement.statement)
                     nop()
                 }
             }
-            nop()
+            PlainOperand(nop())
         }
     }
 
     fun convert(statements: List<BlockItem>?): List<Instruction> = statements?.flatMap { blockItem ->
         val instructions = mutableListOf<Instruction>()
-        convert(instructions, blockItem)
+        emit(instructions, blockItem)
         instructions
     } ?: emptyList()
 

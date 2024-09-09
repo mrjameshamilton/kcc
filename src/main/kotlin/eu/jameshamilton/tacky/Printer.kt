@@ -199,6 +199,30 @@ private fun printTacky(instruction: Instruction) {
             printTacky(instruction.src)
             println()
         }
+
+        is GetAddress -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = getaddress ")
+            printTacky(instruction.src)
+            println()
+        }
+
+        is Load -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = load ")
+            printTacky(instruction.src)
+            println()
+        }
+
+        is Store -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = store ")
+            printTacky(instruction.src)
+            println()
+        }
     }
 }
 

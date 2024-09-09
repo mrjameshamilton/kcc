@@ -149,7 +149,7 @@ private fun <T : Declaration> resolve(declaration: T, hasLinkage: Boolean): Vari
 private fun resolve(expression: Expression): Expression = when (expression) {
     is Assignment -> {
         val left = expression.lvalue
-        val right = expression.value
+        val right = expression.rvalue
         Assignment(resolve(left), resolve(right))
     }
 

@@ -60,6 +60,9 @@ data class Var(val type: Type, val name: String) : Value()
 typealias LabelIdentifier = String
 
 data class Copy(val src: Value, val dst: Value) : Instruction()
+data class GetAddress(val src: Value, val dst: Value) : Instruction()
+data class Load(val src: Value, val dst: Value) : Instruction()
+data class Store(val src: Value, val dst: Value) : Instruction()
 data class Jump(val target: LabelIdentifier) : Instruction()
 data class JumpIfZero(val condition: Value, val target: LabelIdentifier) : Instruction()
 data class JumpIfNotZero(val condition: Value, val target: LabelIdentifier) : Instruction()

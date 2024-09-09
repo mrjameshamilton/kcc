@@ -54,13 +54,16 @@ import eu.jameshamilton.tacky.Copy
 import eu.jameshamilton.tacky.DoubleToInt
 import eu.jameshamilton.tacky.DoubleToUInt
 import eu.jameshamilton.tacky.FunctionCall
+import eu.jameshamilton.tacky.GetAddress
 import eu.jameshamilton.tacky.IntToDouble
 import eu.jameshamilton.tacky.Jump
 import eu.jameshamilton.tacky.JumpIfNotZero
 import eu.jameshamilton.tacky.JumpIfZero
 import eu.jameshamilton.tacky.Label
+import eu.jameshamilton.tacky.Load
 import eu.jameshamilton.tacky.Return
 import eu.jameshamilton.tacky.SignExtend
+import eu.jameshamilton.tacky.Store
 import eu.jameshamilton.tacky.Truncate
 import eu.jameshamilton.tacky.UIntToDouble
 import eu.jameshamilton.tacky.UnaryOp.Complement
@@ -586,6 +589,10 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     is x86DoubleType, is x86UnknownType -> unreachable("Invalid type for src")
                 }
             }
+
+            is GetAddress -> TODO()
+            is Load -> TODO()
+            is Store -> TODO()
         }
     }
 }

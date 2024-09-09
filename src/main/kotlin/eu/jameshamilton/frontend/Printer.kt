@@ -198,7 +198,7 @@ fun printExpression(expression: Expression) {
         is Assignment -> {
             printExpression(expression.lvalue)
             os.print(" = ")
-            printExpression(expression.value)
+            printExpression(expression.rvalue)
         }
 
         is BinaryExpr -> {

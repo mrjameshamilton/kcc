@@ -29,6 +29,21 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         return dst
     }
 
+    fun store(src: Value, dst: Value): Value {
+        instructions += Store(src, dst)
+        return dst
+    }
+
+    fun load(src: Value, dst: Value): Value {
+        instructions += Load(src, dst)
+        return dst
+    }
+
+    fun getaddress(src: Value, dst: Value): Value {
+        instructions += GetAddress(src, dst)
+        return dst
+    }
+
     fun binaryOp(binaryOp: BinaryOp, src1: Value, src2: Value, dst: Value): Value {
         instructions += Binary(binaryOp, src1, src2, dst)
         return dst
@@ -95,7 +110,7 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     fun nop(): Value = Constant(0)
 }
 
-fun buildTacky(instructions: MutableList<Instruction>, block: Builder.() -> Value): Value =
+fun buildTacky(instructions: MutableList<Instruction>, block: Builder.() -> ExprResult): ExprResult =
     with(Builder(instructions)) {
         return block(this)
     }

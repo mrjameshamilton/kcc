@@ -299,7 +299,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             error(0, "Expression is not an lvalue.")
         }
         val left = typecheck(expression.lvalue)
-        val right = typecheck(expression.value)
+        val right = typecheck(expression.rvalue)
         Assignment(left, right.castForAssignment(left.type), left.type)
     }
 
