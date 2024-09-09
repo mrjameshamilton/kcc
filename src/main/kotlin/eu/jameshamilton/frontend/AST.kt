@@ -154,7 +154,8 @@ enum class BinaryOp(private val c: String) {
     override fun toString(): String = c
 }
 
-data class Var(val identifier: Identifier, override val type: Type = Unknown) : Expression(type)
+sealed interface Assignable
+data class Var(val identifier: Identifier, override val type: Type = Unknown) : Expression(type), Assignable
 data class Assignment(val lvalue: Expression, val value: Expression, override val type: Type = Unknown) :
     Expression(type)
 
@@ -170,7 +171,7 @@ data class FunctionCall(
     override val type: Type = Unknown
 ) : Expression(type)
 
-data class Dereference(val expression: Expression, override val type: Type = Unknown) : Expression(type)
+data class Dereference(val expression: Expression, override val type: Type = Unknown) : Expression(type), Assignable
 data class AddrOf(val expression: Expression, override val type: Type = Unknown) : Expression(type)
 
 class Identifier(val identifier: String, val line: Int) {

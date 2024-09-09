@@ -1,6 +1,8 @@
 package eu.jameshamilton.frontend.check
 
 import eu.jameshamilton.frontend.AddrOf
+import eu.jameshamilton.frontend.Arithmetic
+import eu.jameshamilton.frontend.Assignable
 import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp.Add
@@ -46,9 +48,11 @@ import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
 import eu.jameshamilton.frontend.IntType
+import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.LongType
 import eu.jameshamilton.frontend.NullStatement
+import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.Statement
@@ -60,12 +64,17 @@ import eu.jameshamilton.frontend.Type
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.UnaryExpr
-import eu.jameshamilton.frontend.UnaryOp
+import eu.jameshamilton.frontend.UnaryOp.Complement
+import eu.jameshamilton.frontend.UnaryOp.Negate
+import eu.jameshamilton.frontend.UnaryOp.Not
 import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
 import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.cast
+import eu.jameshamilton.frontend.castForAssignment
+import eu.jameshamilton.frontend.commonPointerType
+import eu.jameshamilton.frontend.commonType
 import eu.jameshamilton.frontend.error
 import eu.jameshamilton.frontend.plus
 import java.util.*
@@ -214,7 +223,7 @@ private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
 
     return VarDeclaration(
         varDeclaration.name,
-        initializer?.cast(varDeclaration.type),
+        initializer?.castForAssignment(varDeclaration.type),
         varDeclaration.type,
         varDeclaration.storageClass
     )
@@ -286,19 +295,43 @@ private fun checkfilescope(varDeclaration: VarDeclaration): VarDeclaration {
 
 private fun typecheck(expression: Expression): Expression = when (expression) {
     is Assignment -> {
+        if (expression.lvalue !is Assignable) {
+            error(0, "Expression is not an lvalue.")
+        }
         val left = typecheck(expression.lvalue)
         val right = typecheck(expression.value)
-        Assignment(left, right.cast(left.type), left.type)
+        Assignment(left, right.castForAssignment(left.type), left.type)
     }
 
     is BinaryExpr -> {
         val left = typecheck(expression.left)
         val right = typecheck(expression.right)
 
-        val commonType = left.type + right.type
+        val commonType = when {
+            expression.operator in setOf(
+                Equal,
+                NotEqual
+            ) && (left.type is PointerType || right.type is PointerType) -> left commonPointerType right
+
+            else -> left.type + right.type
+        }
 
         if (commonType is DoubleType && expression.operator in setOf(Remainder, LeftShift, RightShift, Xor, And, Or)) {
-            error("'${expression.operator}' operator cannot be applied to 'double' types.")
+            error("'${expression.operator}' operator cannot be applied to '${commonType}' types.")
+        }
+
+        if ((left.type is PointerType || right.type is PointerType) && expression.operator in setOf(
+                Multiply,
+                Divide,
+                Remainder,
+                Xor,
+                Or,
+                And,
+                LeftShift,
+                RightShift
+            )
+        ) {
+            error("'${expression.operator}' operator cannot be applied to 'pointer' types.")
         }
 
         when (expression.operator) {
@@ -310,11 +343,35 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                 BinaryExpr(left, expression.operator, right, left.type)
             }
 
-            Add, Multiply, Subtract, Divide, Remainder, And, Or, Xor -> {
+            And, Or, Xor -> {
                 BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
             }
 
-            Equal, NotEqual, LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> {
+            Add, Subtract, Multiply, Divide, Remainder -> {
+                when {
+                    left.type is Arithmetic && right.type is Arithmetic -> {
+                        BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
+                    }
+
+                    left.type is Arithmetic && right.type is PointerType -> {
+                        BinaryExpr(left.cast(LongType), expression.operator, right, right.type)
+                    }
+
+                    left.type is PointerType && right.type is Arithmetic -> {
+                        BinaryExpr(left, expression.operator, right.cast(LongType), left.type)
+                    }
+
+                    else -> {
+                        BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                    }
+                }
+            }
+
+            Equal, NotEqual -> {
+                BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+            }
+
+            LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> {
                 BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
             }
         }
@@ -325,9 +382,9 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         val thenBranch = typecheck(expression.thenBranch)
         val elseBranch = typecheck(expression.elseBranch)
 
-        val common = thenBranch.type + elseBranch.type
+        val commonType = thenBranch commonType elseBranch
 
-        Conditional(condition, thenBranch.cast(common), elseBranch.cast(common), common)
+        Conditional(condition, thenBranch.cast(commonType), elseBranch.cast(commonType), commonType)
     }
 
     is Constant -> {
@@ -363,7 +420,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
         val typedArgs = expression.arguments
             .zip(type.paramsTypes)
-            .map { (argExpr, paramType) -> typecheck(argExpr).cast(paramType) }
+            .map { (argExpr, paramType) -> typecheck(argExpr).castForAssignment(paramType) }
 
         FunctionCall(expression.identifier, typedArgs, type.returnType)
     }
@@ -371,12 +428,16 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     is UnaryExpr -> {
         val expr = typecheck(expression.expression)
 
-        if (expr.type is DoubleType && expression.op in setOf(UnaryOp.Complement)) {
+        if (expr.type is DoubleType && expression.op in setOf(Complement)) {
             error("'${expression.op}' operator cannot be applied to 'double' types.")
         }
 
+        if (expr.type is PointerType && expression.op in setOf(Complement, Negate)) {
+            error("'${expression.op}' operator cannot be applied to 'pointer' types.")
+        }
+
         val type = when (expression.op) {
-            UnaryOp.Not -> IntType
+            Not -> IntType
             else -> expr.type
         }
         UnaryExpr(expression.op, expr, type)
@@ -394,11 +455,26 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
     is Cast -> {
         val expr = typecheck(expression.expression)
-        Cast(expression.targetType, expr, expression.targetType)
+        expr.cast(expression.targetType)
     }
 
-    is AddrOf -> TODO()
-    is Dereference -> TODO()
+    is AddrOf -> {
+        if (expression.expression !is Assignable) {
+            error(0, "Can only get the address of an assignable/lvalue; found '${expression.expression}'.")
+        }
+        val expr = typecheck(expression.expression)
+        AddrOf(expr, PointerType(expr.type))
+    }
+
+    is Dereference -> {
+        val expr = typecheck(expression.expression)
+
+        if (expr.type is PointerType) {
+            Dereference(expr, (expr.type as PointerType).referenced)
+        } else {
+            error(0, "Can only dereference a pointer type; found '${expr.type}'.")
+        }
+    }
 }
 
 private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): BlockItem = when (blockItem) {
@@ -461,14 +537,14 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     NullStatement -> NullStatement
     is ReturnStatement -> {
-        ReturnStatement(typecheck(blockItem.value).cast(currentFunction.type.returnType))
+        ReturnStatement(typecheck(blockItem.value).castForAssignment(currentFunction.type.returnType))
     }
 
     is Switch -> {
         val expression = typecheck(blockItem.expression)
 
-        if (expression.type is DoubleType) {
-            error("Cannot switch on a 'double'.")
+        if (expression.type !is IntegerType) {
+            error("Cannot switch on a '${expression.type}'.")
         }
 
         if (expression is Var) {
