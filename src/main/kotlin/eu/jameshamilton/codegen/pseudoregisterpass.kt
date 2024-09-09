@@ -10,11 +10,13 @@ import eu.jameshamilton.codegen.BinaryOp.Mul
 import eu.jameshamilton.codegen.BinaryOp.Or
 import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
+import eu.jameshamilton.codegen.RegisterAlias.BP
 import eu.jameshamilton.codegen.RegisterAlias.XMM14
 import eu.jameshamilton.codegen.RegisterAlias.XMM15
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
+import eu.jameshamilton.codegen.RegisterAlias.SP
 import eu.jameshamilton.unreachable
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -22,7 +24,7 @@ import kotlin.math.floor
 
 
 fun replacePseudoRegisters(program: Program): Program {
-    val registers = LinkedHashMap<Pseudo, Stack>()
+    val registers = LinkedHashMap<Pseudo, Mem>()
 
     fun allocate(op: Operand): Operand = when (op) {
         is Pseudo -> if (op.isStatic) {
@@ -31,7 +33,7 @@ fun replacePseudoRegisters(program: Program): Program {
             // Always allocate 8 bytes to ensure correct alignment
             // even if the type requires less space than 8.
             registers.computeIfAbsent(op) {
-                Stack(-((registers.size + 1) * Quadword.size))
+                Mem(BP, -((registers.size + 1) * Quadword.size))
             }
         }
 
@@ -115,6 +117,19 @@ fun replacePseudoRegisters(program: Program): Program {
                         movl(src, R11.d)
                         movq(R11.q, dst)
                     }
+                }
+            }
+
+            is Lea -> {
+                val src = allocate(instruction.src)
+                val dst = allocate(instruction.dst)
+
+                when (dst) {
+                    !is Register -> {
+                        lea(src, R10.q)
+                        movq(R10.q, dst)
+                    }
+                    else -> lea(src, dst)
                 }
             }
 
@@ -313,11 +328,18 @@ fun replacePseudoRegisters(program: Program): Program {
                     }
                 }
 
-                if (operand is Imm && !immFitsInSignedInteger) {
-                    movq(operand, R10.q)
-                    push(R10.q)
-                } else {
-                    push(operand)
+                when {
+                    operand is Register && operand.type is Double_ -> {
+                        subq(Imm(Quadword, 8), SP)
+                        movsd(operand, Mem(SP, 0))
+                    }
+                    operand is Imm && !immFitsInSignedInteger -> {
+                        movq(operand, R10.q)
+                        push(R10.q)
+                    }
+                    else -> {
+                        push(operand)
+                    }
                 }
             }
 

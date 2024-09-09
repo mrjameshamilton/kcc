@@ -10,26 +10,7 @@ import eu.jameshamilton.codegen.BinaryOp.Mul
 import eu.jameshamilton.codegen.BinaryOp.Or
 import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
-import eu.jameshamilton.codegen.RegisterName.AX
-import eu.jameshamilton.codegen.RegisterName.CX
-import eu.jameshamilton.codegen.RegisterName.DI
-import eu.jameshamilton.codegen.RegisterName.DX
-import eu.jameshamilton.codegen.RegisterName.R10
-import eu.jameshamilton.codegen.RegisterName.R11
-import eu.jameshamilton.codegen.RegisterName.R8
-import eu.jameshamilton.codegen.RegisterName.R9
-import eu.jameshamilton.codegen.RegisterName.SI
-import eu.jameshamilton.codegen.RegisterName.SP
-import eu.jameshamilton.codegen.RegisterName.XMM0
-import eu.jameshamilton.codegen.RegisterName.XMM1
-import eu.jameshamilton.codegen.RegisterName.XMM14
-import eu.jameshamilton.codegen.RegisterName.XMM15
-import eu.jameshamilton.codegen.RegisterName.XMM2
-import eu.jameshamilton.codegen.RegisterName.XMM3
-import eu.jameshamilton.codegen.RegisterName.XMM4
-import eu.jameshamilton.codegen.RegisterName.XMM5
-import eu.jameshamilton.codegen.RegisterName.XMM6
-import eu.jameshamilton.codegen.RegisterName.XMM7
+import eu.jameshamilton.codegen.RegisterName.*
 import eu.jameshamilton.codegen.RegisterSize.BYTE
 import eu.jameshamilton.codegen.RegisterSize.LONG
 import eu.jameshamilton.codegen.RegisterSize.QUAD
@@ -46,6 +27,7 @@ fun emit(x86program: x86Program): String = buildString {
 
         is Register -> when (operand.name) {
             SP -> "%rsp"
+            BP -> "%rbp"
             AX, CX, DX, DI, SI -> when (operand.size) {
                 BYTE -> "%${operand.name.name.lowercase().first()}l"
                 WORD -> "%${operand.name.name.lowercase()}"
@@ -59,7 +41,7 @@ fun emit(x86program: x86Program): String = buildString {
         }
 
         is Pseudo -> "%${operand.identifier}" //unreachable("pseudo instruction not emitted")
-        is Stack -> "${operand.position}(%rbp)"
+        is Mem -> if (operand.position == 0) "(${format(operand.base)})" else "${operand.position}(${format(operand.base)})"
         is Data -> if (operand.isConstant) ".L${operand.identifier}(%rip)" else "${operand.identifier}(%rip)"
     }
 
@@ -89,6 +71,7 @@ fun emit(x86program: x86Program): String = buildString {
                 is Mov -> appendLine("    mov${it.type.suffix} ${format(it.src)}, ${format(it.dst)}")
                 is Movsx -> appendLine("    movslq ${format(it.src)}, ${format(it.dst)}")
                 is Movzx -> appendLine("    movz ${format(it.src)}, ${format(it.dst)}")
+                is Lea -> appendLine("    leaq ${format(it.src)}, ${format(it.dst)}")
                 Ret -> appendLine(
                     """
                     |    movq %rbp, %rsp

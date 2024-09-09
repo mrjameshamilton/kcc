@@ -1,5 +1,6 @@
 package eu.jameshamilton.codegen
 
+import eu.jameshamilton.codegen.RegisterAlias.BP
 import eu.jameshamilton.codegen.RegisterAlias.EAX
 import eu.jameshamilton.codegen.RegisterAlias.RAX
 import eu.jameshamilton.codegen.RegisterAlias.RDX
@@ -157,9 +158,8 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
             val x86Type = when (tackyType) {
                 is FunType, Unknown -> unreachable("Invalid type")
                 IntType, UIntType -> Longword
-                LongType, ULongType -> Quadword
+                LongType, ULongType, is PointerType -> Quadword
                 DoubleType -> x86DoubleType
-                is PointerType -> TODO()
             }
             Triple(index, x86Type, param)
         }
@@ -206,7 +206,7 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
             .mapIndexed { index, (_, type, param) -> Triple(index + stackParameterOffset, type, param) }
             .asReversed()
             .forEach { (index, type, param) ->
-                mov(type, Stack(position = index * size), Pseudo(type, param))
+                mov(type, Mem(BP, position = index * size), Pseudo(type, param))
             }
     }
 
@@ -231,9 +231,9 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         is TackyVar -> when (value.type) {
             IntType, UIntType -> Pseudo(Longword, value.name)
             LongType, ULongType -> Pseudo(Quadword, value.name)
+            is PointerType -> Pseudo(Quadword, value.name)
             DoubleType -> Pseudo(x86DoubleType, value.name)
             is FunType, Unknown -> unreachable("Invalid type")
-            is PointerType -> TODO()
         }
     }
 
@@ -505,9 +505,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
                 when (dst.type) {
                     is Longword -> {
-                        val tmp = Pseudo(Quadword, makelabel("tmp"))
-                        cvttsd2siq(src, tmp)
-                        movl(tmp, dst)
+                        cvttsd2siq(src, AX.q)
+                        movl(AX.d, dst)
                     }
 
                     is Quadword -> {
@@ -550,9 +549,10 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
                 when (src.type) {
                     is Longword -> {
-                        val tmp = Pseudo(Quadword, makelabel("tmp"))
-                        movl(src, tmp)
-                        cvtsi2sdq(tmp, dst)
+                        // zero extend, since moving it into a registers lower 32-bits
+                        // will zero out the top 32 bits.
+                        movl(src, AX.d)
+                        cvtsi2sdq(AX.q, dst)
                     }
 
                     is Quadword -> {
@@ -590,9 +590,25 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 }
             }
 
-            is GetAddress -> TODO()
-            is Load -> TODO()
-            is Store -> TODO()
+            is GetAddress -> {
+                val src = convert(tacky.src)
+                val dst = convert(tacky.dst)
+                lea(src, dst)
+            }
+            is Load -> {
+                val ptr = convert(tacky.ptr)
+                val dst = convert(tacky.dst)
+
+                movq(ptr, AX.q)
+                mov(dst.type, Mem(AX.q, 0), dst)
+            }
+            is Store -> {
+                val src = convert(tacky.src)
+                val ptr = convert(tacky.ptr)
+
+                movq(ptr, AX.q)
+                mov(src.type, src, Mem(AX.q, 0))
+            }
         }
     }
 }
