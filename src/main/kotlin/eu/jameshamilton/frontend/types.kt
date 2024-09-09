@@ -10,17 +10,6 @@ val IntegerType.isSigned: Boolean
     get() = this is IntType || this is LongType
 val IntegerType.isUnsigned: Boolean
     get() = !this.isSigned
-val Type.isArithmetic: Boolean
-    get() = when (this) {
-        DoubleType -> true
-        is FunType -> false
-        IntType -> true
-        LongType -> true
-        is PointerType -> false
-        UIntType -> true
-        ULongType -> true
-        Unknown -> false
-    }
 
 data object Unknown : Type(0)
 data object IntType : Type(32), IntegerType {
@@ -48,7 +37,7 @@ data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type(0) 
         "(${paramsTypes.joinToString(separator = ", ") { it.toString() }}) -> $returnType"
 }
 
-data class PointerType(val referenced: Type) : Type(0) {
+data class PointerType(val referenced: Type) : Type(64) {
     override fun toString(): String = "$referenced*"
 }
 
