@@ -170,33 +170,61 @@ private fun emitAndConvert(instruction: MutableList<Instruction>, expression: Ex
 private fun emit(instructions: MutableList<Instruction>, expression: Expression): ExprResult = when (expression) {
     is Constant -> PlainOperand(TackyConstant(expression.value))
     is UnaryExpr -> buildTacky(instructions) {
-        val src = emitAndConvert(instructions, expression.expression)
         when (expression.op) {
-            PostfixIncrement -> {
+            PostfixIncrement, PostfixDecrement -> {
                 val dst = maketemporary(expression.type)
-                copy(src, dst)
-                increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
-                PlainOperand(dst)
+
+                val amount = when {
+                    expression.op == PostfixIncrement && expression.type is DoubleType -> 1.0
+                    expression.op == PostfixIncrement && expression.type is IntegerType -> 1
+                    expression.op == PostfixDecrement && expression.type is DoubleType -> -1.0
+                    expression.op == PostfixDecrement && expression.type is IntegerType -> -1
+                    else -> unreachable("Invalid expression")
+                }
+
+                when (val lvalue = emit(instructions, expression.expression)) {
+                    is DereferencedPointer -> {
+                        val rvalue = emitAndConvert(instructions, expression.expression)
+                        copy(rvalue, dst)
+                        increment(rvalue, TackyConstant(amount))
+                        store(rvalue, lvalue.value)
+                        PlainOperand(dst)
+                    }
+
+                    is PlainOperand -> {
+                        copy(lvalue.value, dst)
+                        increment(lvalue.value, TackyConstant(amount))
+                        PlainOperand(dst)
+                    }
+                }
             }
 
-            PostfixDecrement -> {
-                val dst = maketemporary(expression.type)
-                copy(src, dst)
-                increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
-                PlainOperand(dst)
-            }
+            PrefixIncrement, PrefixDecrement -> {
+                val amount = when {
+                    expression.op == PrefixIncrement && expression.type is DoubleType -> 1.0
+                    expression.op == PrefixIncrement && expression.type is IntegerType -> 1
+                    expression.op == PrefixDecrement && expression.type is DoubleType -> -1.0
+                    expression.op == PrefixDecrement && expression.type is IntegerType -> -1
+                    else -> unreachable("Invalid expression")
+                }
 
-            PrefixIncrement -> {
-                increment(src, TackyConstant(if (expression.type is DoubleType) 1.0 else 1))
-                PlainOperand(src)
-            }
+                when (val lvalue = emit(instructions, expression.expression)) {
+                    is DereferencedPointer -> {
+                        val rvalue = emitAndConvert(instructions, expression.expression)
+                        increment(rvalue, TackyConstant(amount))
+                        store(rvalue, lvalue.value)
+                        PlainOperand(rvalue)
+                    }
 
-            PrefixDecrement -> {
-                increment(src, TackyConstant(if (expression.type is DoubleType) -1.0 else -1))
-                PlainOperand(src)
+                    is PlainOperand -> {
+                        increment(lvalue.value, TackyConstant(amount))
+                        lvalue
+                    }
+                }
             }
 
             else -> {
+                val src = emitAndConvert(instructions, expression.expression)
                 val dst = maketemporary(expression.type)
                 val op = convert(expression.op)
                 unaryOp(op, src, dst)
