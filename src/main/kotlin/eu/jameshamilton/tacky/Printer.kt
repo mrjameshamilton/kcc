@@ -212,13 +212,13 @@ private fun printTacky(instruction: Instruction) {
             print("    ")
             printTacky(instruction.dst, printType = false)
             print(" = load ")
-            printTacky(instruction.src)
+            printTacky(instruction.ptr)
             println()
         }
 
         is Store -> {
             print("    ")
-            printTacky(instruction.dst, printType = false)
+            printTacky(instruction.ptr, printType = false)
             print(" = store ")
             printTacky(instruction.src)
             println()
