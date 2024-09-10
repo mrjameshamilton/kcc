@@ -202,7 +202,7 @@ fun printExpression(expression: Expression) {
         }
 
         is BinaryExpr -> {
-            os.print("/* type = ${expression.type} */ ")
+            //os.print("/* type = ${expression.type} */ ")
             printExpression(expression.left)
             os.print(" ${expression.operator} ")
             printExpression(expression.right)
@@ -216,9 +216,13 @@ fun printExpression(expression: Expression) {
             printExpression(expression.elseBranch)
         }
 
-        is Constant -> os.print("/* type = ${expression.type} */ ${expression.value}")
+        is Constant -> {
+           // os.print("/* type = ${expression.type} */ ")
+            os.print("${expression.value}")
+        }
         is FunctionCall -> {
-            os.print("/* type = ${expression.type} = */ ${expression.identifier.identifier}(")
+          //  os.print("/* type = ${expression.type} = */ ")
+            os.print("${expression.identifier.identifier}(")
             expression.arguments.forEachIndexed { index, expr ->
                 printExpression(expr)
                 if (index != expression.arguments.lastIndex) {
@@ -234,7 +238,7 @@ fun printExpression(expression: Expression) {
         }
 
         is Var -> {
-            os.print("/* type = ${expression.type} */ ")
+           // os.print("/* type = ${expression.type} */ ")
             os.print(expression.identifier.identifier)
         }
 
