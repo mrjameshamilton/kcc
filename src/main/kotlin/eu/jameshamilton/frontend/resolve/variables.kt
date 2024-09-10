@@ -150,7 +150,7 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     is Assignment -> {
         val left = expression.lvalue
         val right = expression.rvalue
-        Assignment(resolve(left), resolve(right))
+        Assignment(resolve(left), resolve(right), expression.compound)
     }
 
     is Var -> if (expression.identifier.identifier in variables) {

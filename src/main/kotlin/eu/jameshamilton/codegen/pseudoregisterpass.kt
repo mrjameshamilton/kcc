@@ -11,12 +11,12 @@ import eu.jameshamilton.codegen.BinaryOp.Or
 import eu.jameshamilton.codegen.BinaryOp.Sub
 import eu.jameshamilton.codegen.BinaryOp.Xor
 import eu.jameshamilton.codegen.RegisterAlias.BP
+import eu.jameshamilton.codegen.RegisterAlias.SP
 import eu.jameshamilton.codegen.RegisterAlias.XMM14
 import eu.jameshamilton.codegen.RegisterAlias.XMM15
 import eu.jameshamilton.codegen.RegisterName.CX
 import eu.jameshamilton.codegen.RegisterName.R10
 import eu.jameshamilton.codegen.RegisterName.R11
-import eu.jameshamilton.codegen.RegisterAlias.SP
 import eu.jameshamilton.unreachable
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -129,6 +129,7 @@ fun replacePseudoRegisters(program: Program): Program {
                         lea(src, R10.q)
                         movq(R10.q, dst)
                     }
+
                     else -> lea(src, dst)
                 }
             }
@@ -333,10 +334,12 @@ fun replacePseudoRegisters(program: Program): Program {
                         subq(Imm(Quadword, 8), SP)
                         movsd(operand, Mem(SP, 0))
                     }
+
                     operand is Imm && !immFitsInSignedInteger -> {
                         movq(operand, R10.q)
                         push(R10.q)
                     }
+
                     else -> {
                         push(operand)
                     }

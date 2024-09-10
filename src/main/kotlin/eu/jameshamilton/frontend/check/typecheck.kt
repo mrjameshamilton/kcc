@@ -300,7 +300,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         }
         val left = typecheck(expression.lvalue)
         val right = typecheck(expression.rvalue)
-        Assignment(left, right.castForAssignment(left.type), left.type)
+        Assignment(left, right.castForAssignment(left.type), expression.compound, left.type)
     }
 
     is BinaryExpr -> {

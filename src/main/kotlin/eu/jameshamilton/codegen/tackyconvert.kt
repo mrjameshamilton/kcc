@@ -595,6 +595,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val dst = convert(tacky.dst)
                 lea(src, dst)
             }
+
             is Load -> {
                 val ptr = convert(tacky.ptr)
                 val dst = convert(tacky.dst)
@@ -602,6 +603,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 movq(ptr, AX.q)
                 mov(dst.type, Mem(AX.q, 0), dst)
             }
+
             is Store -> {
                 val src = convert(tacky.src)
                 val ptr = convert(tacky.ptr)

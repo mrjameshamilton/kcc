@@ -125,9 +125,12 @@ private fun maketemporary(type: Type): TackyVar {
 private var labels = 0
 private fun makelabel(name: String): LabelIdentifier = "${name}_${labels++}"
 
-sealed interface ExprResult
-private data class PlainOperand(val value: Value) : ExprResult
-private data class DereferencedPointer(val value: Value) : ExprResult
+sealed interface ExprResult {
+    val value: Value
+}
+
+private data class PlainOperand(override val value: Value) : ExprResult
+private data class DereferencedPointer(override val value: Value) : ExprResult
 
 private fun convert(op: UnaryOp): TackyUnaryOp = when (op) {
     UnaryOp.Complement -> TackyUnaryOp.Complement
@@ -156,11 +159,11 @@ private fun convert(operator: BinaryOp): TackyBinaryOp = when (operator) {
     GreaterThanOrEqual -> TackyBinaryOp.GreaterThanOrEqual
 }
 
-private fun emitAndConvert(instruction: MutableList<Instruction>, expression: Expression): Value =
-    when (val result = emit(instruction, expression)) {
+private fun emitAndConvert(instructions: MutableList<Instruction>, expression: Expression): Value =
+    when (val result = emit(instructions, expression)) {
         is DereferencedPointer -> {
             val dst = maketemporary(expression.type)
-            instruction += Load(result.value, dst)
+            instructions += Load(result.value, dst)
             dst
         }
 
@@ -291,18 +294,44 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
         }
     }
 
-    is Assignment -> buildTacky(instructions) {
-        val lvalue = emit(instructions, expression.lvalue)
-        val rvalue = emitAndConvert(instructions, expression.rvalue)
-        when (lvalue) {
-            is DereferencedPointer -> {
-                store(rvalue, lvalue.value)
-                PlainOperand(rvalue)
+    is Assignment -> {
+        buildTacky(instructions) {
+            val lvalue = when {
+                // TODO: better way to do handle?
+                expression.compound && expression.lvalue is Dereference -> {
+                    // Don't accumulate any lvalue instructions for compound assignments,
+                    // as the lhs should only be evaluated once.
+                    // They will already be emitted and converted in the rvalue below.
+                    // e.g. *call() += 5; the function call should happen only once.
+                    emit(mutableListOf(), expression.lvalue)
+                }
+
+                else -> emit(instructions, expression.lvalue)
             }
 
-            is PlainOperand -> {
-                copy(rvalue, lvalue.value)
-                lvalue
+            val rvalueInstructions = mutableListOf<Instruction>()
+            val rvalue = emitAndConvert(rvalueInstructions, expression.rvalue)
+
+            val dst = if (expression.compound && lvalue is DereferencedPointer) {
+                // Fix-up the destination, since the lvalue destination
+                // is not emitted in this case, so use the Load destination.
+                rvalueInstructions.filterIsInstance<Load>().first().ptr
+            } else {
+                lvalue.value
+            }
+
+            instructions += rvalueInstructions
+
+            when (lvalue) {
+                is DereferencedPointer -> {
+                    store(rvalue, dst)
+                    PlainOperand(rvalue)
+                }
+
+                is PlainOperand -> {
+                    copy(rvalue, dst)
+                    lvalue
+                }
             }
         }
     }

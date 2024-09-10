@@ -217,11 +217,12 @@ fun printExpression(expression: Expression) {
         }
 
         is Constant -> {
-           // os.print("/* type = ${expression.type} */ ")
+            // os.print("/* type = ${expression.type} */ ")
             os.print("${expression.value}")
         }
+
         is FunctionCall -> {
-          //  os.print("/* type = ${expression.type} = */ ")
+            //  os.print("/* type = ${expression.type} = */ ")
             os.print("${expression.identifier.identifier}(")
             expression.arguments.forEachIndexed { index, expr ->
                 printExpression(expr)
@@ -238,7 +239,7 @@ fun printExpression(expression: Expression) {
         }
 
         is Var -> {
-           // os.print("/* type = ${expression.type} */ ")
+            // os.print("/* type = ${expression.type} */ ")
             os.print(expression.identifier.identifier)
         }
 

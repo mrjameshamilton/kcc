@@ -611,7 +611,7 @@ class Parser(private val tokens: List<Token>) {
                         DOUBLE_GREATER_EQUAL -> RightShift
                         else -> unreachable("not a compound assignment operator")
                     }
-                    left = Assignment(left, BinaryExpr(left, op, right))
+                    left = Assignment(left, BinaryExpr(left, op, right), compound = true)
                 }
 
                 QUESTION -> {

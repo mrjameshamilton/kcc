@@ -156,7 +156,12 @@ enum class BinaryOp(private val c: String) {
 
 sealed interface Assignable
 data class Var(val identifier: Identifier, override val type: Type = Unknown) : Expression(type), Assignable
-data class Assignment(val lvalue: Expression, val rvalue: Expression, override val type: Type = Unknown) :
+data class Assignment(
+    val lvalue: Expression,
+    val rvalue: Expression,
+    val compound: Boolean = false,
+    override val type: Type = Unknown
+) :
     Expression(type)
 
 data class Conditional(
