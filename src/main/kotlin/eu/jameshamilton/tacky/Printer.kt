@@ -218,9 +218,10 @@ private fun printTacky(instruction: Instruction) {
 
         is Store -> {
             print("    ")
-            printTacky(instruction.ptr, printType = false)
-            print(" = store ")
+            print("_ = store ")
             printTacky(instruction.src)
+            print(" in ")
+            printTacky(instruction.ptr)
             println()
         }
     }
