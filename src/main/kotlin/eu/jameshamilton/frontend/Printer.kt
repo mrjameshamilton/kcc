@@ -49,7 +49,7 @@ fun print(declaration: Declaration) = os.scoped {
         is FunDeclaration -> {
             os.print("(")
             when (declaration.params) {
-                null -> os.print("void")
+                null, emptyList<VarDeclaration>() -> os.print("void")
                 else -> declaration.params.forEachIndexed { index, it ->
                     printDefinition(it)
                     if (index != declaration.params.lastIndex) {
@@ -234,8 +234,10 @@ fun printExpression(expression: Expression) {
         }
 
         is UnaryExpr -> {
-            os.print("${expression.op}")
+            val isPostfix = expression.op in setOf(UnaryOp.PostfixIncrement, UnaryOp.PostfixDecrement)
+            if (!isPostfix) os.print("${expression.op}")
             printExpression(expression.expression)
+            if (isPostfix) os.print("${expression.op}")
         }
 
         is Var -> {
@@ -256,6 +258,22 @@ fun printExpression(expression: Expression) {
         is Dereference -> {
             os.print("*")
             printExpression(expression.expression)
+        }
+
+        is CompoundInit -> {
+            os.print("{ ")
+            expression.expressions.forEach { printExpression(it); os.print(", ") }
+            os.print("}")
+        }
+        is SingleInit -> {
+            printExpression(expression.expression)
+        }
+
+        is Subscript -> {
+            printExpression(expression.expr1)
+            os.print("[")
+            printExpression(expression.expr2)
+            os.print("]")
         }
     }
 }

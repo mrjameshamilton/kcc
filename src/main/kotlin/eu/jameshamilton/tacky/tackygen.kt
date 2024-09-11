@@ -26,6 +26,7 @@ import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.Compound
+import eu.jameshamilton.frontend.CompoundInit
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
@@ -51,6 +52,8 @@ import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
+import eu.jameshamilton.frontend.SingleInit
+import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.SwitchCase
 import eu.jameshamilton.frontend.Type
@@ -402,6 +405,10 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
         val result = emitAndConvert(instructions, expression.expression)
         DereferencedPointer(result)
     }
+
+    is CompoundInit -> TODO()
+    is SingleInit -> TODO()
+    is Subscript -> TODO()
 }
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {

@@ -27,6 +27,7 @@ import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.Compound
+import eu.jameshamilton.frontend.CompoundInit
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
@@ -55,10 +56,12 @@ import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
+import eu.jameshamilton.frontend.SingleInit
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.StorageClass
 import eu.jameshamilton.frontend.StorageClass.EXTERN
 import eu.jameshamilton.frontend.StorageClass.STATIC
+import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.Type
 import eu.jameshamilton.frontend.UIntType
@@ -223,14 +226,15 @@ private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
 
     return VarDeclaration(
         varDeclaration.name,
-        initializer?.castForAssignment(varDeclaration.type),
+        initializer?.castForAssignment(varDeclaration.type)?.let { SingleInit(it) },
         varDeclaration.type,
         varDeclaration.storageClass
     )
 }
 
 private fun checkfilescope(varDeclaration: VarDeclaration): VarDeclaration {
-    var initialValue = when (varDeclaration.initializer) {
+    // TODO:
+    var initialValue = when ((varDeclaration.initializer as? SingleInit)?.expression) {
         is Constant -> {
             val initial = varDeclaration.initializer.cast(varDeclaration.type)
             require(initial is Constant)
@@ -475,6 +479,10 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             error(0, "Can only dereference a pointer type; found '${expr.type}'.")
         }
     }
+
+    is CompoundInit -> TODO()
+    is SingleInit -> TODO()
+    is Subscript -> TODO()
 }
 
 private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): BlockItem = when (blockItem) {

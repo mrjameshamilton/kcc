@@ -2,7 +2,7 @@ package eu.jameshamilton.frontend
 
 import eu.jameshamilton.unreachable
 
-sealed class Type(val size: Int)
+sealed class Type(open val size: Int)
 sealed interface Arithmetic
 sealed interface IntegerType : Arithmetic
 
@@ -30,6 +30,29 @@ data object ULongType : Type(64), IntegerType {
 
 data object DoubleType : Type(64), Arithmetic {
     override fun toString(): String = "double"
+}
+
+data class ArrayType(val element: Type, val length: Constant) : Type(0) {
+    override val size: Int
+        get() = when (length.value) {
+            // TODO
+            is Int -> length.value
+            is Long -> length.value.toInt()
+            is UInt -> length.value.toInt()
+            is ULong -> length.value.toInt()
+            else -> 0
+        }
+
+    override fun toString(): String {
+        val size = when (length.value) {
+            is Int -> length.value
+            is UInt -> "${length.value}u"
+            is Long -> "${length.value}l"
+            is ULong -> "${length.value}ul"
+            else -> unreachable("Unsupported type")
+        }
+        return "$element[$size]"
+    }
 }
 
 data class FunType(val paramsTypes: List<Type>, val returnType: Type) : Type(0) {
@@ -98,6 +121,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             }
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
+            is ArrayType -> TODO()
         }
 
         is Long -> when (targetType) {
@@ -114,6 +138,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             }
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
+            is ArrayType -> TODO()
         }
 
         is UInt -> when (targetType) {
@@ -130,6 +155,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             }
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
+            is ArrayType -> TODO()
         }
 
         is ULong -> when (targetType) {
@@ -146,6 +172,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             }
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
+            is ArrayType -> TODO()
         }
 
         is Double -> when (targetType) {
@@ -155,6 +182,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> this
             is FunType, Unknown, is PointerType -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
+            is ArrayType -> TODO()
         }
 
         else -> Cast(targetType, this, targetType)

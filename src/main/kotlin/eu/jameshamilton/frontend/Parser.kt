@@ -61,6 +61,7 @@ import eu.jameshamilton.frontend.TokenType.IF
 import eu.jameshamilton.frontend.TokenType.INCREMENT
 import eu.jameshamilton.frontend.TokenType.INT
 import eu.jameshamilton.frontend.TokenType.LEFT_BRACE
+import eu.jameshamilton.frontend.TokenType.LEFT_BRACKET
 import eu.jameshamilton.frontend.TokenType.LEFT_PAREN
 import eu.jameshamilton.frontend.TokenType.LESS
 import eu.jameshamilton.frontend.TokenType.LESS_EQUAL
@@ -76,6 +77,7 @@ import eu.jameshamilton.frontend.TokenType.PLUS_EQUAL
 import eu.jameshamilton.frontend.TokenType.QUESTION
 import eu.jameshamilton.frontend.TokenType.RETURN
 import eu.jameshamilton.frontend.TokenType.RIGHT_BRACE
+import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
 import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SIGNED
@@ -245,10 +247,26 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun varDeclaration(type: Type, identifier: Identifier, storageClass: StorageClass): VarDeclaration = when {
-        match(EQUAL) -> VarDeclaration(identifier, expression(), type, storageClass)
+        match(EQUAL) -> VarDeclaration(identifier, initializer(), type, storageClass)
         else -> VarDeclaration(identifier, type, storageClass)
     }.also {
         expect(SEMICOLON, "Expected semicolon.")
+    }
+
+    private fun initializer(): Initializer = when {
+        match(LEFT_BRACE) -> {
+            val initializers = mutableListOf<Initializer>()
+            do {
+                initializers.add(initializer())
+                if (check(RIGHT_BRACE)) {
+                    optional(COMMA)
+                } else {
+                    expect(COMMA, "Expected ','.")
+                }
+            } while (!match(RIGHT_BRACE))
+            CompoundInit(initializers)
+        }
+        else -> SingleInit(expression())
     }
 
     private fun declaration(): Declaration {
@@ -278,6 +296,7 @@ class Parser(private val tokens: List<Token>) {
     private sealed class Declarator
     private class Ident(val identifier: Identifier) : Declarator()
     private class PointerDeclarator(val declarator: Declarator) : Declarator()
+    private class ArrayDeclarator(val declarator: Declarator, val size: Constant): Declarator()
     private class FunctionDeclarator(val params: List<ParamInfo>, val declarator: Declarator) : Declarator()
     private class ParamInfo(val type: Type, val declarator: Declarator)
 
@@ -297,9 +316,15 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun directDeclarator(): Declarator {
-        val simple = simpleDeclarator()
+        var simple = simpleDeclarator()
         if (check(LEFT_PAREN)) {
             return FunctionDeclarator(params(), simple)
+        } else {
+            while (match(LEFT_BRACKET)) {
+                val size = arraySize()
+                simple = ArrayDeclarator(simple, size)
+                expect(RIGHT_BRACKET, "Expected ']'.")
+            }
         }
         return simple
     }
@@ -342,32 +367,55 @@ class Parser(private val tokens: List<Token>) {
                 previous(),
                 "Can't apply additional type derivations to a function type"
             )
+
+            is ArrayDeclarator -> TODO()
         }
 
         is Ident -> Triple(declarator.identifier, baseType, emptyList())
         is PointerDeclarator -> processDeclarator(declarator.declarator, PointerType(baseType))
+        is ArrayDeclarator -> processDeclarator(declarator.declarator, ArrayType(baseType, declarator.size))
     }
 
     private fun processAbstractDeclarator(declarator: AbstractDeclarator, baseType: Type): Type = when (declarator) {
         is AbstractBase -> baseType
         is AbstractPointer -> processAbstractDeclarator(declarator.abstractDeclarator, PointerType(baseType))
+        is AbstractArray -> processAbstractDeclarator(declarator.abstractDeclarator, ArrayType(baseType, declarator.size))
     }
 
     private sealed class AbstractDeclarator
     private data class AbstractPointer(val abstractDeclarator: AbstractDeclarator) : AbstractDeclarator()
+    private data class AbstractArray(val abstractDeclarator: AbstractDeclarator, val size: Constant) : AbstractDeclarator()
     private data object AbstractBase : AbstractDeclarator()
 
     private fun abstractDeclarator(): AbstractDeclarator = when {
         match(ASTERISK) -> AbstractPointer(abstractDeclarator())
-        check(LEFT_PAREN) -> AbstractPointer(directAbstractDeclarator())
+        checkAny(LEFT_PAREN, LEFT_BRACKET) -> directAbstractDeclarator()
         else -> AbstractBase
     }
 
     private fun directAbstractDeclarator(): AbstractDeclarator {
-        expect(LEFT_PAREN, "Expected '('.")
-        return abstractDeclarator().also {
-            expect(RIGHT_PAREN, "Expected ')'.")
+        var abstractDeclarator = when {
+            match(LEFT_PAREN) -> {
+                abstractDeclarator().also {
+                    expect(RIGHT_PAREN, "Expected ')'.")
+                }
+            }
+            else -> AbstractBase
         }
+
+        while (match(LEFT_BRACKET)) {
+            val size = arraySize()
+            abstractDeclarator = AbstractArray(abstractDeclarator, size)
+            expect(RIGHT_BRACKET, "Expected ']'.")
+        }
+        return abstractDeclarator
+    }
+
+    private fun arraySize(): Constant = when {
+        checkAny(CONSTANT_INT, CONSTANT_LONG, CONSTANT_UINT, CONSTANT_ULONG) -> {
+            primary() as Constant
+        }
+        else -> throw error(peek(), "Error parsing array declarator size")
     }
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
@@ -556,6 +604,11 @@ class Parser(private val tokens: List<Token>) {
 
     private fun postfix(): Expression {
         var expr = primary()
+
+        while (match(LEFT_BRACKET)) {
+            expr = Subscript(expr, expression())
+            expect(RIGHT_BRACKET, "Expected closing ']' after expression.")
+        }
 
         while (match(INCREMENT, DECREMENT)) {
             val op = previous().type

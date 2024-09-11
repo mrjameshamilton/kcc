@@ -8,6 +8,7 @@ import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.Compound
+import eu.jameshamilton.frontend.CompoundInit
 import eu.jameshamilton.frontend.Conditional
 import eu.jameshamilton.frontend.Constant
 import eu.jameshamilton.frontend.Continue
@@ -30,8 +31,10 @@ import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
+import eu.jameshamilton.frontend.SingleInit
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.StorageClass
+import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
@@ -194,6 +197,9 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     is Cast -> Cast(expression.targetType, resolve(expression.expression))
     is AddrOf -> AddrOf(resolve(expression.expression))
     is Dereference -> Dereference(resolve(expression.expression))
+    is CompoundInit -> CompoundInit(expression.expressions.map { resolve(it) })
+    is SingleInit -> SingleInit(resolve(expression.expression))
+    is Subscript -> TODO()
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
@@ -207,7 +213,7 @@ private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
                 } else {
                     VarDeclaration(
                         name.identifier,
-                        resolve(blockItem.initializer),
+                        SingleInit(resolve(blockItem.initializer)),
                         blockItem.type,
                         blockItem.storageClass
                     )
