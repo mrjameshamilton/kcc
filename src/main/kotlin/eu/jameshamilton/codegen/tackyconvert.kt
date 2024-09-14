@@ -235,11 +235,10 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             LongType, ULongType -> Pseudo(Quadword, value.name)
             is PointerType -> Pseudo(Quadword, value.name)
             DoubleType -> Pseudo(x86DoubleType, value.name)
-            is FunType, Unknown -> unreachable("Invalid type")
+            is FunType, Unknown -> unreachable("Invalid type: ${value.type}")
             is ArrayType -> TODO()
         }
     }
-
 
     buildX86 {
         when (tacky) {

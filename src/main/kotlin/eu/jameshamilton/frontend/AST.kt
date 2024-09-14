@@ -30,7 +30,7 @@ data class VarDeclaration(
 
 sealed class Initializer(override val type: Type = Unknown) : Expression(type)
 data class SingleInit(val expression: Expression, override val type: Type = Unknown) : Initializer(type)
-data class CompoundInit(val expressions: List<Expression>, override val type: Type = Unknown) : Initializer(type)
+data class CompoundInit(val expressions: List<Initializer>, override val type: Type = Unknown) : Initializer(type)
 
 data class FunDeclaration(
     override val name: Identifier,
@@ -182,7 +182,8 @@ data class FunctionCall(
 
 data class Dereference(val expression: Expression, override val type: Type = Unknown) : Expression(type), Assignable
 data class AddrOf(val expression: Expression, override val type: Type = Unknown) : Expression(type)
-data class Subscript(val expr1: Expression, val expr2: Expression, override val type: Type = Unknown) : Expression(type)
+data class Subscript(val expr1: Expression, val expr2: Expression, override val type: Type = Unknown) :
+    Expression(type), Assignable
 
 class Identifier(val identifier: String, val line: Int) {
     override fun equals(other: Any?): Boolean {

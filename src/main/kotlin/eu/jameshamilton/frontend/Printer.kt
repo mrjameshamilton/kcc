@@ -1,6 +1,20 @@
 package eu.jameshamilton.frontend
 
+import eu.jameshamilton.frontend.check.DoubleInit
+import eu.jameshamilton.frontend.check.Initial
+import eu.jameshamilton.frontend.check.InitialValue
+import eu.jameshamilton.frontend.check.IntInit
+import eu.jameshamilton.frontend.check.LongInit
+import eu.jameshamilton.frontend.check.NoInitializer
+import eu.jameshamilton.frontend.check.StaticAttr
+import eu.jameshamilton.frontend.check.Tentative
+import eu.jameshamilton.frontend.check.UIntInit
+import eu.jameshamilton.frontend.check.ULongInit
+import eu.jameshamilton.frontend.check.ZeroInit
+import eu.jameshamilton.frontend.check.symbolTable
+import eu.jameshamilton.unreachable
 import java.io.PrintStream
+import java.util.*
 
 lateinit var os: PrintStream
 
@@ -28,6 +42,35 @@ fun printProgram(program: Program, os: PrintStream) {
     //os.close()
 }
 
+fun printVarDeclaration(type: Type, identifier: String = ""): Any = when (type) {
+    is ArrayType -> {
+        val stack = Stack<ArrayType>().apply { push(type) }
+        var baseType = type.element
+        while (baseType is ArrayType) {
+            stack.push(baseType)
+            baseType = baseType.element
+        }
+        printVarDeclaration(stack.peek().element, identifier)
+        os.print(stack.joinToString(separator = "") {
+            "[${it.length}]"
+        })
+    }
+
+    DoubleType -> os.print("double $identifier")
+    IntType -> os.print("int $identifier")
+    LongType -> os.print("long $identifier")
+    is PointerType -> {
+        printVarDeclaration(type.referenced)
+        os.print("*")
+        os.print(identifier)
+    }
+
+    UIntType -> os.print("unsigned int $identifier")
+    ULongType -> os.print("unsigned long $identifier")
+    Unknown -> os.print("???")
+    is FunType -> unreachable("cannot use funtype for var declaration")
+}
+
 fun printDefinition(declaration: Declaration) {
     when (declaration.storageClass) {
         StorageClass.NONE -> {}
@@ -38,8 +81,9 @@ fun printDefinition(declaration: Declaration) {
         is FunDeclaration ->
             os.print("${(declaration.type as FunType?)?.returnType} ${declaration.name.identifier}")
 
-        is VarDeclaration ->
-            os.print("${declaration.type} ${declaration.name.identifier}")
+        is VarDeclaration -> {
+            printVarDeclaration(declaration.type, declaration.name.identifier)
+        }
     }
 }
 
@@ -71,15 +115,46 @@ fun print(declaration: Declaration) = os.scoped {
         }
 
         is VarDeclaration -> {
-            if (declaration.initializer != null) {
-                os.print(" = ")
-                printExpression(declaration.initializer)
+            when (val attr = symbolTable[declaration.name.identifier]?.attr) {
+                is StaticAttr -> {
+                    os.print(" = ")
+                    printInitialValue(declaration.type, attr.initialValue)
+                }
+
+                else -> if (declaration.initializer != null) {
+                    os.print(" = ")
+                    printExpression(declaration.initializer)
+                }
             }
 
             os.print(";")
         }
     }
     os.println()
+}
+
+fun printInitialValue(type: Type, initialValue: InitialValue) {
+    when (initialValue) {
+        is Initial -> {
+            if (type is ArrayType) os.print("{ ")
+            initialValue.value.forEachIndexed { index, it ->
+                when (it) {
+                    is DoubleInit -> os.print(it.value)
+                    is IntInit -> os.print(it.value)
+                    is LongInit -> os.print(it.value)
+                    is UIntInit -> os.print(it.value)
+                    is ULongInit -> os.print(it.value)
+                    is ZeroInit -> repeat(it.bytes / type.baseType.sizeInBytes) { os.print(0) }
+                }
+                if (index != initialValue.value.lastIndex) os.print(",")
+                os.print(" ")
+            }
+            if (type is ArrayType) os.print("}")
+        }
+
+        NoInitializer -> {}
+        Tentative -> {}
+    }
 }
 
 fun printBlockItem(blockItem: BlockItem) {
@@ -91,12 +166,7 @@ fun printBlockItem(blockItem: BlockItem) {
 
         is VarDeclaration -> {
             os.printIndent()
-            printDefinition(blockItem)
-            if (blockItem.initializer != null) {
-                os.print(" = ")
-                printExpression(blockItem.initializer)
-            }
-            os.println(";")
+            print(blockItem)
         }
 
         is DefaultCase -> {
@@ -234,10 +304,12 @@ fun printExpression(expression: Expression) {
         }
 
         is UnaryExpr -> {
+            os.print("(")
             val isPostfix = expression.op in setOf(UnaryOp.PostfixIncrement, UnaryOp.PostfixDecrement)
             if (!isPostfix) os.print("${expression.op}")
             printExpression(expression.expression)
             if (isPostfix) os.print("${expression.op}")
+            os.print(")")
         }
 
         is Var -> {
@@ -262,18 +334,25 @@ fun printExpression(expression: Expression) {
 
         is CompoundInit -> {
             os.print("{ ")
-            expression.expressions.forEach { printExpression(it); os.print(", ") }
+            expression.expressions.forEachIndexed { index, it ->
+                printExpression(it)
+                if (index != expression.expressions.lastIndex) os.print(",")
+                os.print(" ")
+            }
             os.print("}")
         }
+
         is SingleInit -> {
             printExpression(expression.expression)
         }
 
         is Subscript -> {
+            os.print("(")
             printExpression(expression.expr1)
             os.print("[")
             printExpression(expression.expr2)
             os.print("]")
+            os.print(")")
         }
     }
 }

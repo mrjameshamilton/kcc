@@ -27,6 +27,7 @@ import eu.jameshamilton.frontend.Identifier
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
+import eu.jameshamilton.frontend.Initializer
 import eu.jameshamilton.frontend.LabeledStatement
 import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
@@ -197,9 +198,9 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     is Cast -> Cast(expression.targetType, resolve(expression.expression))
     is AddrOf -> AddrOf(resolve(expression.expression))
     is Dereference -> Dereference(resolve(expression.expression))
-    is CompoundInit -> CompoundInit(expression.expressions.map { resolve(it) })
+    is CompoundInit -> CompoundInit(expression.expressions.map { resolve(it) as Initializer })
     is SingleInit -> SingleInit(resolve(expression.expression))
-    is Subscript -> TODO()
+    is Subscript -> Subscript(resolve(expression.expr1), resolve(expression.expr2))
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
@@ -213,7 +214,7 @@ private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
                 } else {
                     VarDeclaration(
                         name.identifier,
-                        SingleInit(resolve(blockItem.initializer)),
+                        resolve(blockItem.initializer) as Initializer?,
                         blockItem.type,
                         blockItem.storageClass
                     )

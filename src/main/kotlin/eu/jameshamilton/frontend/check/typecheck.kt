@@ -2,6 +2,7 @@ package eu.jameshamilton.frontend.check
 
 import eu.jameshamilton.frontend.AddrOf
 import eu.jameshamilton.frontend.Arithmetic
+import eu.jameshamilton.frontend.ArrayType
 import eu.jameshamilton.frontend.Assignable
 import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
@@ -48,6 +49,7 @@ import eu.jameshamilton.frontend.Goto
 import eu.jameshamilton.frontend.If
 import eu.jameshamilton.frontend.InitDecl
 import eu.jameshamilton.frontend.InitExpr
+import eu.jameshamilton.frontend.Initializer
 import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LabeledStatement
@@ -60,6 +62,7 @@ import eu.jameshamilton.frontend.SingleInit
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.StorageClass
 import eu.jameshamilton.frontend.StorageClass.EXTERN
+import eu.jameshamilton.frontend.StorageClass.NONE
 import eu.jameshamilton.frontend.StorageClass.STATIC
 import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
@@ -70,6 +73,10 @@ import eu.jameshamilton.frontend.UnaryExpr
 import eu.jameshamilton.frontend.UnaryOp.Complement
 import eu.jameshamilton.frontend.UnaryOp.Negate
 import eu.jameshamilton.frontend.UnaryOp.Not
+import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
+import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
@@ -94,14 +101,19 @@ data class StaticAttr(val initialValue: InitialValue, val global: Boolean) : Ide
 data object LocalAttr : IdentifierAttr()
 sealed class InitialValue
 data object Tentative : InitialValue()
-data class Initial(val value: Any) : InitialValue() {
-    init {
-        require(value is Int || value is Long || value is UInt || value is ULong || value is Double)
-    }
+data class Initial(val value: List<StaticInit>) : InitialValue() {
+    constructor(vararg value: StaticInit) : this(value.toList())
 }
 
 data object NoInitializer : InitialValue()
 
+sealed class StaticInit
+data class IntInit(val value: Int) : StaticInit()
+data class LongInit(val value: Long) : StaticInit()
+data class UIntInit(val value: UInt) : StaticInit()
+data class ULongInit(val value: ULong) : StaticInit()
+data class DoubleInit(val value: Double) : StaticInit()
+data class ZeroInit(val bytes: Int) : StaticInit()
 
 fun typecheck(program: Program): Program {
     return Program(program.declarations.map {
@@ -117,6 +129,18 @@ private fun checkfilescope(declaration: Declaration): Declaration = when (declar
 }
 
 private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
+    if (funDeclaration.type.returnType is ArrayType) {
+        error(funDeclaration.name.line, "Function '${funDeclaration.name}' cannot return an array type.")
+    }
+
+    val paramsTypes = funDeclaration.params?.map {
+        when (val type = it.type) {
+            is ArrayType -> PointerType(type.element)
+            else -> type
+        }
+    }.orEmpty()
+    val type = FunType(paramsTypes, funDeclaration.type.returnType)
+
     var alreadyDefined = false
     // static functions will not be globally visible.
     var global = funDeclaration.storageClass != STATIC
@@ -131,7 +155,7 @@ private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
             )
         }
 
-        if (oldDeclaration.type != funDeclaration.type) {
+        if (oldDeclaration.type != type) {
             error(
                 funDeclaration.name.line,
                 "Function '${funDeclaration.name}${funDeclaration.type}' previously defined with different type '${oldDeclaration.type}'."
@@ -159,19 +183,21 @@ private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
         global = oldAttr.global
     }
 
-    val type = FunType(funDeclaration.params?.map { it.type }.orEmpty(), funDeclaration.type.returnType)
     val attr = FunAttr(alreadyDefined || funDeclaration.body != null, global)
     symbolTable[funDeclaration.name.identifier] = SymbolTableEntry(type, attr)
 
+    val params = funDeclaration.params?.zip(paramsTypes)?.map { (varDeclaration, type) ->
+        VarDeclaration(varDeclaration.name, varDeclaration.initializer, type, varDeclaration.storageClass)
+    }
     if (funDeclaration.body != null) {
-        funDeclaration.params?.forEach {
+        params?.forEach {
             symbolTable[it.name.identifier] = SymbolTableEntry(it.type, LocalAttr)
         }
     }
 
     return FunDeclaration(
         funDeclaration.name,
-        funDeclaration.params,
+        params,
         funDeclaration.body?.map { typecheck(funDeclaration, it) },
         type,
         funDeclaration.storageClass
@@ -179,7 +205,7 @@ private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
 }
 
 private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
-    var initializer: Expression? = null
+    var initializer: Initializer? = null
     when (varDeclaration.storageClass) {
         EXTERN -> {
             if (varDeclaration.initializer != null) {
@@ -205,51 +231,40 @@ private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
 
         STATIC -> {
             val initialValue = when (varDeclaration.initializer) {
-                is Constant -> Initial(varDeclaration.initializer.value)
-                null -> Initial(0)
-                else -> error(
-                    varDeclaration.name.line,
-                    "Variable '${varDeclaration.name}' is local and cannot have a non-constant initializer."
-                )
+                null -> Initial(ZeroInit(0))
+                else -> Initial(convertStaticInitializer(varDeclaration.type, varDeclaration.initializer))
             }
 
             val attrs = StaticAttr(initialValue, false)
             symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(varDeclaration.type, attrs)
-            initializer = varDeclaration.initializer?.let { typecheck(varDeclaration.initializer) }
         }
 
-        else -> {
+        NONE -> {
             symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(varDeclaration.type, LocalAttr)
-            initializer = varDeclaration.initializer?.let { typecheck(varDeclaration.initializer) }
+            initializer =
+                varDeclaration.initializer?.let { typecheckInit(varDeclaration.type, varDeclaration.initializer) }
         }
     }
 
     return VarDeclaration(
         varDeclaration.name,
-        initializer?.castForAssignment(varDeclaration.type)?.let { SingleInit(it) },
+        initializer,//.castForAssignment(varDeclaration.type)?.let { SingleInit(it, varDeclaration.type) },
         varDeclaration.type,
         varDeclaration.storageClass
     )
 }
 
 private fun checkfilescope(varDeclaration: VarDeclaration): VarDeclaration {
-    // TODO:
-    var initialValue = when ((varDeclaration.initializer as? SingleInit)?.expression) {
-        is Constant -> {
-            val initial = varDeclaration.initializer.cast(varDeclaration.type)
-            require(initial is Constant)
-            Initial(initial.value)
+    // all variables declared at file static have static storage duration.
+    var initialValue = when (varDeclaration.initializer) {
+        is Initializer -> {
+            Initial(convertStaticInitializer(varDeclaration.type, varDeclaration.initializer))
         }
 
         null -> when (varDeclaration.storageClass) {
             EXTERN -> NoInitializer
             else -> Tentative
         }
-
-        else -> error(
-            varDeclaration.name.line,
-            "Static variable '${varDeclaration.name}' must have constant initializer."
-        )
     }
 
     var global = varDeclaration.storageClass != STATIC
@@ -299,17 +314,19 @@ private fun checkfilescope(varDeclaration: VarDeclaration): VarDeclaration {
 
 private fun typecheck(expression: Expression): Expression = when (expression) {
     is Assignment -> {
-        if (expression.lvalue !is Assignable) {
+        val left = typecheckAndConvert(expression.lvalue)
+
+        if (left !is Assignable) {
             error(0, "Expression is not an lvalue.")
         }
-        val left = typecheck(expression.lvalue)
-        val right = typecheck(expression.rvalue)
+
+        val right = typecheckAndConvert(expression.rvalue)
         Assignment(left, right.castForAssignment(left.type), expression.compound, left.type)
     }
 
     is BinaryExpr -> {
-        val left = typecheck(expression.left)
-        val right = typecheck(expression.right)
+        val left = typecheckAndConvert(expression.left)
+        val right = typecheckAndConvert(expression.right)
 
         val commonType = when {
             expression.operator in setOf(
@@ -351,18 +368,50 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                 BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
             }
 
-            Add, Subtract, Multiply, Divide, Remainder -> {
+            Add -> {
                 when {
                     left.type is Arithmetic && right.type is Arithmetic -> {
                         BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
-                    left.type is Arithmetic && right.type is PointerType -> {
+                    left.type is PointerType && right.type is IntegerType -> {
+                        BinaryExpr(left, expression.operator, right.cast(LongType), left.type)
+                    }
+
+                    left.type is IntegerType && right.type is PointerType -> {
                         BinaryExpr(left.cast(LongType), expression.operator, right, right.type)
                     }
 
-                    left.type is PointerType && right.type is Arithmetic -> {
+                    else -> {
+                        error("Invalid operands for '${expression.operator}': ${left.type} ${expression.operator} ${right.type}")
+                    }
+                }
+            }
+
+            Subtract -> {
+                when {
+                    left.type is Arithmetic && right.type is Arithmetic -> {
+                        BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
+                    }
+
+                    left.type is PointerType && right.type is IntegerType -> {
                         BinaryExpr(left, expression.operator, right.cast(LongType), left.type)
+                    }
+
+                    left.type is PointerType && left.type == right.type -> {
+                        BinaryExpr(left, expression.operator, right, LongType)
+                    }
+
+                    else -> {
+                        error("Invalid operands for '${expression.operator}': ${left.type} ${expression.operator} ${right.type}")
+                    }
+                }
+            }
+
+            Multiply, Divide, Remainder -> {
+                when {
+                    left.type is Arithmetic && right.type is Arithmetic -> {
+                        BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
                     else -> {
@@ -375,16 +424,26 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                 BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
             }
 
-            LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> {
-                BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+            LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> when {
+                left.type is Arithmetic && right.type is Arithmetic -> {
+                    BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                }
+
+                left.type is PointerType && left.type == right.type -> {
+                    BinaryExpr(left, expression.operator, right, IntType)
+                }
+
+                else -> {
+                    error("Invalid operands for '${expression.operator}': ${left.type} ${expression.operator} ${right.type}")
+                }
             }
         }
     }
 
     is Conditional -> {
-        val condition = typecheck(expression.condition)
-        val thenBranch = typecheck(expression.thenBranch)
-        val elseBranch = typecheck(expression.elseBranch)
+        val condition = typecheckAndConvert(expression.condition)
+        val thenBranch = typecheckAndConvert(expression.thenBranch)
+        val elseBranch = typecheckAndConvert(expression.elseBranch)
 
         val commonType = thenBranch commonType elseBranch
 
@@ -424,22 +483,26 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
         val typedArgs = expression.arguments
             .zip(type.paramsTypes)
-            .map { (argExpr, paramType) -> typecheck(argExpr).castForAssignment(paramType) }
+            .map { (argExpr, paramType) -> typecheckAndConvert(argExpr).castForAssignment(paramType) }
 
         FunctionCall(expression.identifier, typedArgs, type.returnType)
     }
 
     is UnaryExpr -> {
-        val expr = typecheck(expression.expression)
+        val expr = typecheckAndConvert(expression.expression)
 
-        if (expr.type is DoubleType && expression.op in setOf(Complement)) {
-            error("'${expression.op}' operator cannot be applied to 'double' types.")
+        when (expression.op) {
+            Complement -> if (expr.type is DoubleType || expr.type is PointerType) {
+                error("'${expression.op}' operator cannot be applied to '${expr.type}' types.")
+            }
+            Negate -> if (expr.type is PointerType) {
+                error("'${expression.op}' operator cannot be applied to '${expr.type}' types.")
+            }
+            PrefixIncrement, PrefixDecrement, PostfixIncrement, PostfixDecrement -> if (expr is AddrOf) {
+                error("lvalue required as '${expression.op}' operand.")
+            }
+            else -> { }
         }
-
-        if (expr.type is PointerType && expression.op in setOf(Complement, Negate)) {
-            error("'${expression.op}' operator cannot be applied to 'pointer' types.")
-        }
-
         val type = when (expression.op) {
             Not -> IntType
             else -> expr.type
@@ -458,7 +521,12 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     }
 
     is Cast -> {
-        val expr = typecheck(expression.expression)
+        val expr = typecheckAndConvert(expression.expression)
+
+        if (expression.targetType is ArrayType) {
+            error("Cannot cast to an array type.")
+        }
+
         expr.cast(expression.targetType)
     }
 
@@ -471,7 +539,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     }
 
     is Dereference -> {
-        val expr = typecheck(expression.expression)
+        val expr = typecheckAndConvert(expression.expression)
 
         if (expr.type is PointerType) {
             Dereference(expr, (expr.type as PointerType).referenced)
@@ -480,9 +548,112 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         }
     }
 
-    is CompoundInit -> TODO()
-    is SingleInit -> TODO()
-    is Subscript -> TODO()
+    is Initializer -> {
+        typecheckInit(expression.type, expression)
+    }
+
+    is Subscript -> {
+        val expr1 = typecheckAndConvert(expression.expr1)
+        val expr2 = typecheckAndConvert(expression.expr2)
+
+        when {
+            expr1.type is PointerType && expr2.type is IntegerType -> {
+                Subscript(expr1, expr2.cast(LongType), (expr1.type as PointerType).referenced)
+            }
+
+            expr2.type is PointerType && expr1.type is IntegerType -> {
+                Subscript(expr1.cast(LongType), expr2, (expr2.type as PointerType).referenced)
+            }
+
+            else -> error("Invalid types for subscript: ${expr1.type} and ${expr2.type}.")
+        }
+    }
+}
+
+private fun typecheckInit(targetType: Type, init: Initializer): Initializer = when {
+    init is SingleInit -> {
+        SingleInit(typecheckAndConvert(init.expression).castForAssignment(targetType), targetType)
+    }
+
+    init is CompoundInit && targetType is ArrayType -> {
+        if (init.expressions.size > targetType.length) {
+            error("The number of values in the initializer does not match array dimensions.")
+        }
+
+        val initializers = init.expressions.map {
+            typecheckInit(targetType.element, it)
+        }
+        val zeroinitializers = (0 until init.expressions.size - initializers.size).map {
+            zeroinit(targetType.element)
+        }
+
+        CompoundInit(initializers + zeroinitializers, targetType)
+    }
+
+    else -> error("Can't initialize a scalar object with a compound initializer.")
+}
+
+val Double.isNegativeZero
+    get() = this.toBits().toULong() > 0u
+
+private fun convertStaticInitializer(targetType: Type, init: Initializer): List<StaticInit> = when {
+    init is SingleInit -> {
+        val expr = typecheckAndConvert(init.expression).castForAssignment(targetType)
+
+        if (expr !is Constant) {
+            error("Static variable must have constant initializer.")
+        }
+
+        val result = when (expr.value) {
+            is Int -> if (expr.value == 0) ZeroInit(expr.type.sizeInBytes) else IntInit(expr.value)
+            is UInt -> if (expr.value == 0u) ZeroInit(expr.type.sizeInBytes) else UIntInit(expr.value)
+            is Long -> if (expr.value == 0L) ZeroInit(expr.type.sizeInBytes) else LongInit(expr.value)
+            is ULong -> if (expr.value == 0uL) ZeroInit(expr.type.sizeInBytes) else ULongInit(expr.value)
+            is Double -> {
+                if (expr.value == 0.0 && !expr.value.isNegativeZero)
+                    ZeroInit(expr.type.sizeInBytes)
+                else
+                    DoubleInit(expr.value)
+            }
+
+            else -> error("Invalid initializer value '${expr.value}'")
+        }
+        listOf(result)
+    }
+
+    init is CompoundInit && targetType is ArrayType -> {
+        if (init.expressions.size > targetType.length) {
+            error("The number of values in the initializer does not match array dimensions.")
+        }
+
+        val initializers = init.expressions.flatMap {
+            convertStaticInitializer(targetType.element, it)
+        }
+
+        val paddingBytes = (targetType.length - init.expressions.size) * (targetType.element.sizeInBytes)
+        if (paddingBytes > 0) initializers + ZeroInit(paddingBytes) else initializers
+    }
+
+    else -> error("Can't initialize static '${targetType}' with a compound initializer.")
+}
+
+private fun zeroinit(targetType: Type): Initializer = when (targetType) {
+    is ArrayType -> CompoundInit((0..targetType.length).map { zeroinit(targetType.element) }, targetType)
+    DoubleType -> SingleInit(Constant(0.0), targetType)
+    IntType -> SingleInit(Constant(0), targetType)
+    LongType -> SingleInit(Constant(0L), targetType)
+    UIntType -> SingleInit(Constant(0U), targetType)
+    ULongType -> SingleInit(Constant(0UL), targetType)
+    Unknown, is FunType, is PointerType -> error("Invalid type for zeroinit: '${targetType}'.")
+}
+
+private fun typecheckAndConvert(expression: Expression): Expression {
+    val checked = typecheck(expression)
+    return when (val type = checked.type) {
+        // Convert arrays to pointers
+        is ArrayType -> AddrOf(checked, PointerType(type.element))
+        else -> checked
+    }
 }
 
 private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): BlockItem = when (blockItem) {
@@ -490,7 +661,7 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     is VarDeclaration -> checklocalscope(blockItem)
     is DefaultCase -> DefaultCase(typecheck(currentFunction, blockItem.statement) as Statement, blockItem.label)
     is ExpressionCase -> {
-        val expression = typecheck(blockItem.expression)
+        val expression = typecheckAndConvert(blockItem.expression)
 
         if (expression.type is DoubleType) {
             error("Case expression constant must be an integer, found 'double'.")
@@ -511,7 +682,7 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     is Compound -> Compound(blockItem.block.map { typecheck(currentFunction, it) })
     is Continue -> Continue(blockItem.identifier)
     is DoWhile -> {
-        val condition = typecheck(blockItem.condition)
+        val condition = typecheckAndConvert(blockItem.condition)
         val body = typecheck(currentFunction, blockItem.body) as Statement
         DoWhile(condition, body, blockItem.id)
     }
@@ -527,9 +698,9 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
                 InitDecl(checklocalscope(blockItem.init.declaration))
             }
 
-            is InitExpr -> InitExpr(blockItem.init.expression?.let { typecheck(it) })
+            is InitExpr -> InitExpr(blockItem.init.expression?.let { typecheckAndConvert(it) })
         }
-        val condition = blockItem.condition?.let { typecheck(it) }
+        val condition = blockItem.condition?.let { typecheckAndConvert(it) }
         val body = typecheck(currentFunction, blockItem.body) as Statement
         val post = blockItem.post?.let { typecheck(it) }
         For(init, condition, post, body, blockItem.id)
@@ -537,7 +708,7 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     is Goto -> Goto(blockItem.identifier)
     is If -> {
-        val condition = typecheck(blockItem.condition)
+        val condition = typecheckAndConvert(blockItem.condition)
         val thenBranch = typecheck(currentFunction, blockItem.thenBranch) as Statement
         val elseBranch = blockItem.elseBranch?.let { typecheck(currentFunction, it) } as Statement?
         If(condition, thenBranch, elseBranch)
@@ -545,11 +716,11 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     NullStatement -> NullStatement
     is ReturnStatement -> {
-        ReturnStatement(typecheck(blockItem.value).castForAssignment(currentFunction.type.returnType))
+        ReturnStatement(typecheckAndConvert(blockItem.value).castForAssignment(currentFunction.type.returnType))
     }
 
     is Switch -> {
-        val expression = typecheck(blockItem.expression)
+        val expression = typecheckAndConvert(blockItem.expression)
 
         if (expression.type !is IntegerType) {
             error("Cannot switch on a '${expression.type}'.")
@@ -572,7 +743,7 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     }
 
     is While -> {
-        val condition = typecheck(blockItem.condition)
+        val condition = typecheckAndConvert(blockItem.condition)
         val body = typecheck(currentFunction, blockItem.body) as Statement
         While(condition, body, blockItem.id)
     }

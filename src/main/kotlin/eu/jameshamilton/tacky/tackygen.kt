@@ -75,6 +75,7 @@ import eu.jameshamilton.frontend.check.NoInitializer
 import eu.jameshamilton.frontend.check.StaticAttr
 import eu.jameshamilton.frontend.check.SymbolTableEntry
 import eu.jameshamilton.frontend.check.Tentative
+import eu.jameshamilton.frontend.check.ZeroInit
 import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.frontend.isSigned
@@ -103,10 +104,8 @@ fun convert(program: Program): TackyProgram {
                     is Initial -> StaticVariable(name, attr.global, type, attr.initialValue.value)
                     Tentative -> StaticVariable(
                         name, attr.global, type, when (type) {
-                            is IntType, is UIntType -> 0
-                            is LongType, is ULongType -> 0L
-                            is DoubleType -> 0.0
-                            is PointerType -> 0UL
+                            is IntType, is UIntType, is LongType, is ULongType, is DoubleType -> ZeroInit(type.sizeInBytes)
+                            is PointerType -> ZeroInit(LongType.sizeInBytes)
                             else -> unreachable("invalid type $type")
                         }
                     )
@@ -185,7 +184,7 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
                     expression.op == PostfixIncrement && expression.type is IntegerType -> 1
                     expression.op == PostfixDecrement && expression.type is DoubleType -> -1.0
                     expression.op == PostfixDecrement && expression.type is IntegerType -> -1
-                    else -> unreachable("Invalid expression")
+                    else -> unreachable("Invalid expression: {$expression}")
                 }
 
                 when (val lvalue = emit(instructions, expression.expression)) {
@@ -383,8 +382,8 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
                 exprType is DoubleType && targetType is IntegerType -> dtoi(result, dst)
                 // if both types are the same size, it doesn't matter
                 // if they are signed or unsigned when converted to assembly.
-                targetType.size == exprType.size -> copy(result, dst)
-                targetType.size < exprType.size -> truncate(result, dst)
+                targetType.sizeInBits == exprType.sizeInBits -> copy(result, dst)
+                targetType.sizeInBits < exprType.sizeInBits -> truncate(result, dst)
                 exprType is IntegerType && exprType.isSigned -> signextend(result, dst)
                 else -> zeroextend(result, dst)
             }
@@ -406,9 +405,18 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
         DereferencedPointer(result)
     }
 
-    is CompoundInit -> TODO()
-    is SingleInit -> TODO()
-    is Subscript -> TODO()
+    is CompoundInit -> buildTacky(instructions) {
+        PlainOperand(nop())
+    }
+
+    is SingleInit -> buildTacky(instructions) {
+        val result = emitAndConvert(instructions, expression.expression)
+        PlainOperand(result)
+    }
+
+    is Subscript -> buildTacky(instructions) {
+        PlainOperand(nop())
+    }
 }
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {

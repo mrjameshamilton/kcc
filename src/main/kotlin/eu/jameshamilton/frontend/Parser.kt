@@ -380,12 +380,15 @@ class Parser(private val tokens: List<Token>) {
     private fun processAbstractDeclarator(declarator: AbstractDeclarator, baseType: Type): Type = when (declarator) {
         is AbstractBase -> baseType
         is AbstractPointer -> processAbstractDeclarator(declarator.abstractDeclarator, PointerType(baseType))
-        is AbstractArray -> processAbstractDeclarator(declarator.abstractDeclarator, ArrayType(baseType, declarator.size))
+        is AbstractArray -> processAbstractDeclarator(
+            declarator.abstractDeclarator,
+            ArrayType(baseType, declarator.size)
+        )
     }
 
     private sealed class AbstractDeclarator
     private data class AbstractPointer(val abstractDeclarator: AbstractDeclarator) : AbstractDeclarator()
-    private data class AbstractArray(val abstractDeclarator: AbstractDeclarator, val size: Constant) : AbstractDeclarator()
+    private data class AbstractArray(val abstractDeclarator: AbstractDeclarator, val size: Int) : AbstractDeclarator()
     private data object AbstractBase : AbstractDeclarator()
 
     private fun abstractDeclarator(): AbstractDeclarator = when {
@@ -413,11 +416,13 @@ class Parser(private val tokens: List<Token>) {
         return abstractDeclarator
     }
 
-    private fun arraySize(): Constant = when {
-        checkAny(CONSTANT_INT, CONSTANT_LONG, CONSTANT_UINT, CONSTANT_ULONG) -> {
-            primary() as Constant
+    private fun arraySize(): Int = when {
+        match(CONSTANT_INT) -> (previous().literal as BigInteger).toInt()
+        match(CONSTANT_LONG, CONSTANT_UINT, CONSTANT_ULONG) -> (previous().literal as BigInteger).toInt().also {
+            System.err.println("Warning: array size truncated to integer.")
         }
-        else -> throw error(peek(), "Error parsing array declarator size")
+
+        else -> throw error(peek(), "Invalid array size '${previous().lexeme}'.")
     }
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
@@ -620,6 +625,7 @@ class Parser(private val tokens: List<Token>) {
         fun precedence(op: Token): Int = when (op.type) {
             EQUAL, PLUS_EQUAL, MINUS_EQUAL, ASTERISK_EQUAL, SLASH_EQUAL, PERCENT_EQUAL,
             AMPERSAND_EQUAL, PIPE_EQUAL, HAT_EQUAL, DOUBLE_LESS_EQUAL, DOUBLE_GREATER_EQUAL -> 1
+
             QUESTION -> 2
             DOUBLE_PIPE -> 5
             DOUBLE_AMPERSAND -> 10

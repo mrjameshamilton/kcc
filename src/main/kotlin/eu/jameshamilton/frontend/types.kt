@@ -2,7 +2,21 @@ package eu.jameshamilton.frontend
 
 import eu.jameshamilton.unreachable
 
-sealed class Type(open val size: Int)
+sealed class Type(open val sizeInBits: Int) {
+    val sizeInBytes: Int
+        get() = sizeInBits / 8
+
+    val baseType: Type by lazy {
+        fun baseType(type: Type): Type = when (type) {
+            is ArrayType -> baseType(type.element)
+            is PointerType -> baseType(type.referenced)
+            else -> type
+        }
+
+        baseType(this)
+    }
+}
+
 sealed interface Arithmetic
 sealed interface IntegerType : Arithmetic
 
@@ -32,26 +46,13 @@ data object DoubleType : Type(64), Arithmetic {
     override fun toString(): String = "double"
 }
 
-data class ArrayType(val element: Type, val length: Constant) : Type(0) {
-    override val size: Int
-        get() = when (length.value) {
-            // TODO
-            is Int -> length.value
-            is Long -> length.value.toInt()
-            is UInt -> length.value.toInt()
-            is ULong -> length.value.toInt()
-            else -> 0
-        }
+data class ArrayType(val element: Type, val length: Int) : Type(0) {
+
+    override val sizeInBits: Int
+        get() = length * element.sizeInBits
 
     override fun toString(): String {
-        val size = when (length.value) {
-            is Int -> length.value
-            is UInt -> "${length.value}u"
-            is Long -> "${length.value}l"
-            is ULong -> "${length.value}ul"
-            else -> unreachable("Unsupported type")
-        }
-        return "$element[$size]"
+        return "$element[$length]"
     }
 }
 
@@ -93,8 +94,8 @@ operator fun Type.plus(other: Type) = when {
     this == other -> this
     this == DoubleType || other is DoubleType -> DoubleType
     this is Unknown -> this
-    this.size == other.size -> if (this is IntegerType && this.isSigned) other else this
-    this.size > other.size -> this
+    this.sizeInBits == other.sizeInBits -> if (this is IntegerType && this.isSigned) other else this
+    this.sizeInBits > other.sizeInBits -> this
     else -> other
 }
 

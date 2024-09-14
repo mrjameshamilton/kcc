@@ -1,6 +1,15 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.ArrayType
 import eu.jameshamilton.frontend.FunType
+import eu.jameshamilton.frontend.Type
+import eu.jameshamilton.frontend.check.DoubleInit
+import eu.jameshamilton.frontend.check.IntInit
+import eu.jameshamilton.frontend.check.LongInit
+import eu.jameshamilton.frontend.check.StaticInit
+import eu.jameshamilton.frontend.check.UIntInit
+import eu.jameshamilton.frontend.check.ULongInit
+import eu.jameshamilton.frontend.check.ZeroInit
 import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.tacky.BinaryOp.Add
 import eu.jameshamilton.tacky.BinaryOp.And
@@ -40,8 +49,24 @@ private fun printTacky(staticVariable: StaticVariable) {
     print("${staticVariable.type} ")
     print(staticVariable.name)
     print(" = ")
-    print(staticVariable.init)
+    printStaticInit(staticVariable.type, staticVariable.init)
     println()
+}
+
+private fun printStaticInit(type: Type, initializers: List<StaticInit>) {
+    if (type is ArrayType) print("{ ")
+    initializers.forEachIndexed { i, initializer ->
+        when (initializer) {
+            is DoubleInit -> print(initializer.value)
+            is IntInit -> print(initializer.value)
+            is LongInit -> print(initializer.value)
+            is UIntInit -> print(initializer.value)
+            is ULongInit -> print(initializer.value)
+            is ZeroInit -> print("zero ${initializer.bytes}")
+        }
+        if (i != initializers.lastIndex) print(", ")
+    }
+    if (type is ArrayType) print(" }")
 }
 
 private fun printTacky(functionDef: FunctionDef) {

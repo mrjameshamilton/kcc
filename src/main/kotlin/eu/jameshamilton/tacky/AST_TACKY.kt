@@ -2,6 +2,7 @@ package eu.jameshamilton.tacky
 
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.Type
+import eu.jameshamilton.frontend.check.StaticInit
 
 
 data class Program(val items: List<TopLevel>)
@@ -19,10 +20,9 @@ data class FunctionDef(
     val parameters by lazy { type.paramsTypes.zip(parameterNames) }
 }
 
-data class StaticVariable(val name: String, val global: Boolean, val type: Type, val init: Any) : TopLevel() {
-    init {
-        require(init is Int || init is Long || init is UInt || init is ULong || init is Double)
-    }
+data class StaticVariable(val name: String, val global: Boolean, val type: Type, val init: List<StaticInit>) :
+    TopLevel() {
+    constructor(name: String, global: Boolean, type: Type, init: StaticInit) : this(name, global, type, listOf(init))
 }
 
 sealed class Instruction
