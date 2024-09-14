@@ -122,9 +122,7 @@ fun replacePseudoRegisters(program: Program): Program {
 
             is Lea -> {
                 val src = allocate(instruction.src)
-                val dst = allocate(instruction.dst)
-
-                when (dst) {
+                when (val dst = allocate(instruction.dst)) {
                     !is Register -> {
                         lea(src, R10.q)
                         movq(R10.q, dst)

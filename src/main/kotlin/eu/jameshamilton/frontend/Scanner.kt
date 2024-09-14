@@ -210,6 +210,15 @@ class Scanner(private val source: String) {
 
             ' ', '\t', '\r' -> {}
             '\n' -> line++
+            '#' -> {
+                // https://gcc.gnu.org/onlinedocs/cpp/Preprocessor-Output.html
+                if (match(' ')) {
+                    start = current
+                    line = integer()
+                }
+                skipToEndOfLine()
+            }
+
             else -> when {
                 isDigit(c) -> number()
                 isAlpha(c) -> identifier()
@@ -227,6 +236,11 @@ class Scanner(private val source: String) {
     private fun isAlpha(c: Char): Boolean = c in 'a'..'z' || c in 'A'..'Z' || c == '_'
     private fun isDigit(c: Char): Boolean = c in '0'..'9'
     private fun isAlphaNumeric(c: Char) = isAlpha(c) || isDigit(c)
+
+    private fun integer(): Int {
+        while (isDigit(peek())) advance()
+        return source.substring(start, current).toInt()
+    }
 
     private fun number() {
         while (isDigit(peek())) advance()
@@ -305,7 +319,6 @@ class Scanner(private val source: String) {
 
         if (isAtEnd()) {
             error(line, "Unterminated string.")
-            return
         }
 
         advance()
@@ -355,6 +368,10 @@ class Scanner(private val source: String) {
     private fun advance(): Char = source[current++]
 
     private fun isAtEnd() = current >= source.length
+
+    private fun skipToEndOfLine() {
+        while (!match('\n')) advance()
+    }
 
     companion object {
         val KEYWORDS: Map<String, TokenType> = mapOf(

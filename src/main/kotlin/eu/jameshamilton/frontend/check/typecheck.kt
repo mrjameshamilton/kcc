@@ -495,13 +495,16 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             Complement -> if (expr.type is DoubleType || expr.type is PointerType) {
                 error("'${expression.op}' operator cannot be applied to '${expr.type}' types.")
             }
+
             Negate -> if (expr.type is PointerType) {
                 error("'${expression.op}' operator cannot be applied to '${expr.type}' types.")
             }
+
             PrefixIncrement, PrefixDecrement, PostfixIncrement, PostfixDecrement -> if (expr is AddrOf) {
                 error("lvalue required as '${expression.op}' operand.")
             }
-            else -> { }
+
+            else -> {}
         }
         val type = when (expression.op) {
             Not -> IntType
@@ -691,7 +694,7 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     is For -> {
         val init: ForInit = when (blockItem.init) {
             is InitDecl -> {
-                if (blockItem.init.declaration.storageClass != StorageClass.NONE) {
+                if (blockItem.init.declaration.storageClass != NONE) {
                     error(0, "For initializer cannot have storage specifiers.")
                 }
 

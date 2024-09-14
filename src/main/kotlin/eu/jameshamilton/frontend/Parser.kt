@@ -618,7 +618,7 @@ class Parser(private val tokens: List<Token>) {
             else -> {}
         }
 
-        return expr;
+        return expr
     }
 
     private fun expression(minPrecedence: Int = 0): Expression {

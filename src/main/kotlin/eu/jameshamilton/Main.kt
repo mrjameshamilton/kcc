@@ -89,7 +89,7 @@ fun main(args: Array<String>) {
 fun preprocess(file: File): File {
     val output = File.createTempFile(file.name.removeSuffix(".c"), ".i")
     output.deleteOnExit()
-    val r = Runtime.getRuntime().exec(arrayOf("gcc", "-E", "-P", file.absolutePath, "-o", output.absolutePath))
+    val r = Runtime.getRuntime().exec(arrayOf("gcc", "-E", file.absolutePath, "-o", output.absolutePath))
     if (r.waitFor() != 0) {
         println(r.errorReader().readText())
         exitProcess(r.exitValue())
