@@ -294,11 +294,11 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private sealed class Declarator
-    private class Ident(val identifier: Identifier) : Declarator()
-    private class PointerDeclarator(val declarator: Declarator) : Declarator()
-    private class ArrayDeclarator(val declarator: Declarator, val size: Constant): Declarator()
-    private class FunctionDeclarator(val params: List<ParamInfo>, val declarator: Declarator) : Declarator()
-    private class ParamInfo(val type: Type, val declarator: Declarator)
+    private data class Ident(val identifier: Identifier) : Declarator()
+    private data class PointerDeclarator(val declarator: Declarator) : Declarator()
+    private data class ArrayDeclarator(val declarator: Declarator, val size: Int) : Declarator()
+    private data class FunctionDeclarator(val params: List<ParamInfo>, val declarator: Declarator) : Declarator()
+    private data class ParamInfo(val type: Type, val declarator: Declarator)
 
 
     private fun declarator(): Declarator = when {
