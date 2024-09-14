@@ -211,12 +211,17 @@ class Scanner(private val source: String) {
             ' ', '\t', '\r' -> {}
             '\n' -> line++
             '#' -> {
-                // https://gcc.gnu.org/onlinedocs/cpp/Preprocessor-Output.html
-                if (match(' ')) {
-                    start = current
-                    line = integer()
+                val isBeginningOfLine = current == 1 || prevprev() == '\n'
+                if (isBeginningOfLine) {
+                    // https://gcc.gnu.org/onlinedocs/cpp/Preprocessor-Output.html
+                    if (match(' ')) {
+                        start = current
+                        line = integer()
+                    }
+                    skipToEndOfLine()
+                } else {
+                    error(line, "Unexpected character '$c'")
                 }
-                skipToEndOfLine()
             }
 
             else -> when {
@@ -328,6 +333,7 @@ class Scanner(private val source: String) {
 
     private fun peek(): Char = if (isAtEnd()) 0.toChar() else source[current]
     private fun prev(): Char = if (current <= 0) 0.toChar() else source[current - 1]
+    private fun prevprev(): Char = if (current - 2 < 0) 0.toChar() else source[current - 2]
 
     private fun peekNext(): Char = if (current + 1 >= source.length) 0.toChar() else source[current + 1]
 
