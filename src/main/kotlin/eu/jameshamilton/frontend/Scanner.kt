@@ -335,8 +335,6 @@ class Scanner(private val source: String) {
     private fun prev(): Char = if (current <= 0) 0.toChar() else source[current - 1]
     private fun prevprev(): Char = if (current - 2 < 0) 0.toChar() else source[current - 2]
 
-    private fun peekNext(): Char = if (current + 1 >= source.length) 0.toChar() else source[current + 1]
-
     private fun match(expected: Char, ignoreCase: Boolean = false): Boolean {
         if (isAtEnd()) return false
         if (ignoreCase) {
@@ -347,23 +345,6 @@ class Scanner(private val source: String) {
 
         current++
         return true
-    }
-
-    private fun match(expected: Char, expectedNext: Char, ignoreCase: Boolean = false): Boolean {
-        if (isAtEnd()) return false
-        if (ignoreCase) {
-            if (peek().lowercaseChar() == expected && peekNext().lowercaseChar() == expectedNext) {
-                current += 2
-                return true
-            }
-        } else {
-            if (peek() == expected && peekNext() == expectedNext) {
-                current += 2
-                return true
-            }
-        }
-
-        return false
     }
 
     private fun addToken(type: TokenType) = addToken(type, null)
