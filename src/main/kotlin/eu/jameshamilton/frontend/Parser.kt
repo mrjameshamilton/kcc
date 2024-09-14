@@ -266,6 +266,7 @@ class Parser(private val tokens: List<Token>) {
             } while (!match(RIGHT_BRACE))
             CompoundInit(initializers)
         }
+
         else -> SingleInit(expression())
     }
 
@@ -400,6 +401,7 @@ class Parser(private val tokens: List<Token>) {
                     expect(RIGHT_PAREN, "Expected ')'.")
                 }
             }
+
             else -> AbstractBase
         }
 
@@ -577,14 +579,10 @@ class Parser(private val tokens: List<Token>) {
         )
     }
 
-    private fun prefix(): Expression = when {
-        match(INCREMENT) -> UnaryExpr(PrefixIncrement, primary())
-        match(DECREMENT) -> UnaryExpr(PrefixDecrement, primary())
-        else -> unary()
-    }
-
     private fun unary(): Expression = when {
-        match(MINUS) -> when (val expression = prefix()) {
+        match(INCREMENT) -> UnaryExpr(PrefixIncrement, unary())
+        match(DECREMENT) -> UnaryExpr(PrefixDecrement, unary())
+        match(MINUS) -> when (val expression = unary()) {
             is Constant -> when (expression.value) {
                 is Int -> Constant(-expression.value)
                 is Long -> Constant(-expression.value)
@@ -595,34 +593,33 @@ class Parser(private val tokens: List<Token>) {
             else -> UnaryExpr(Negate, expression)
         }
 
-        match(TILDE) -> UnaryExpr(Complement, prefix())
-        match(EXCLAMATION) -> UnaryExpr(Not, prefix())
-        match(ASTERISK) -> Dereference(prefix())
-        match(AMPERSAND) -> AddrOf(prefix())
+        match(TILDE) -> UnaryExpr(Complement, unary())
+        match(EXCLAMATION) -> UnaryExpr(Not, unary())
+        match(ASTERISK) -> Dereference(unary())
+        match(AMPERSAND) -> AddrOf(unary())
         else -> postfix()
     }
 
     private fun postfix(): Expression {
         var expr = primary()
 
-        while (match(LEFT_BRACKET)) {
-            expr = Subscript(expr, expression())
-            expect(RIGHT_BRACKET, "Expected closing ']' after expression.")
+        while (match(LEFT_BRACKET, INCREMENT, DECREMENT)) when (previous().type) {
+            INCREMENT -> expr = UnaryExpr(PostfixIncrement, expr)
+            DECREMENT -> expr = UnaryExpr(PostfixDecrement, expr)
+            LEFT_BRACKET -> expr = Subscript(expr, expression()).also {
+                expect(RIGHT_BRACKET, "Expected closing ']' after expression.")
+            }
+
+            else -> {}
         }
 
-        while (match(INCREMENT, DECREMENT)) {
-            val op = previous().type
-            expr = UnaryExpr(if (op == INCREMENT) PostfixIncrement else PostfixDecrement, expr)
-        }
-
-        return expr
+        return expr;
     }
 
     private fun expression(minPrecedence: Int = 0): Expression {
         fun precedence(op: Token): Int = when (op.type) {
             EQUAL, PLUS_EQUAL, MINUS_EQUAL, ASTERISK_EQUAL, SLASH_EQUAL, PERCENT_EQUAL,
             AMPERSAND_EQUAL, PIPE_EQUAL, HAT_EQUAL, DOUBLE_LESS_EQUAL, DOUBLE_GREATER_EQUAL -> 1
-
             QUESTION -> 2
             DOUBLE_PIPE -> 5
             DOUBLE_AMPERSAND -> 10
@@ -637,7 +634,7 @@ class Parser(private val tokens: List<Token>) {
             else -> unreachable("Unexpected token ${op}.")
         }
 
-        var left = prefix()
+        var left = unary()
         while (checkAny(
                 QUESTION, EQUAL, PLUS_EQUAL, MINUS_EQUAL, ASTERISK_EQUAL, SLASH_EQUAL, PERCENT_EQUAL,
                 AMPERSAND_EQUAL, PIPE_EQUAL, HAT_EQUAL, DOUBLE_LESS_EQUAL, DOUBLE_GREATER_EQUAL,
