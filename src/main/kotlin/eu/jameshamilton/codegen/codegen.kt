@@ -37,7 +37,13 @@ import eu.jameshamilton.codegen.RegisterSize.QUAD
 import eu.jameshamilton.codegen.RegisterSize.WORD
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
-import eu.jameshamilton.unreachable
+import eu.jameshamilton.frontend.check.DoubleInit
+import eu.jameshamilton.frontend.check.IntInit
+import eu.jameshamilton.frontend.check.LongInit
+import eu.jameshamilton.frontend.check.StaticInit
+import eu.jameshamilton.frontend.check.UIntInit
+import eu.jameshamilton.frontend.check.ULongInit
+import eu.jameshamilton.frontend.check.ZeroInit
 import eu.jameshamilton.codegen.FunctionDef as x86FunctionDef
 import eu.jameshamilton.codegen.Program as x86Program
 
@@ -60,9 +66,12 @@ fun emit(x86program: x86Program): String = buildString {
             XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7, XMM14, XMM15 -> "%${operand.name.name.lowercase()}"
         }
 
-        is Pseudo -> "%${operand.identifier}" //unreachable("pseudo instruction not emitted")
         is Mem -> if (operand.position == 0) "(${format(operand.base)})" else "${operand.position}(${format(operand.base)})"
         is Data -> if (operand.isConstant) ".L${operand.identifier}(%rip)" else "${operand.identifier}(%rip)"
+        is Indexed -> "(${format(operand.base)}, ${format(operand.index)}, ${operand.scale})"
+        // Only for debugging purposes: these are not valid assembly.
+        is Pseudo -> "%${operand.identifier}"
+        is PseudoMem -> "%${operand.identifier}@${operand.offset}"
     }
 
     fun format(op: UnaryOp, type: TypeX86): String = when (op) {
@@ -125,29 +134,43 @@ fun emit(x86program: x86Program): String = buildString {
         }
     }
 
+    fun emit(staticInit: StaticInit<*>) {
+        fun type(initType: StaticInit<*>) = when (initType) {
+            is IntInit, is UIntInit -> "long"
+            is LongInit, is ULongInit -> "quad"
+            is DoubleInit -> "double"
+            is ZeroInit -> "zero"
+        }
+
+        when (staticInit) {
+            is ZeroInit -> appendLine("    .zero ${staticInit.bytes}")
+            else -> appendLine("    .${type(staticInit)} ${staticInit.value}")
+        }
+    }
+
     fun emit(staticVariable: StaticVariable) {
         if (staticVariable.global) {
             appendLine("    .globl ${staticVariable.name}")
         }
 
-        if (staticVariable.init == 0) {
+        if (staticVariable.init.singleOrNull() is ZeroInit) {
             appendLine(
                 """
             |    .bss
             |    .align ${staticVariable.alignment}
             |${staticVariable.name}:
-            |    .zero ${staticVariable.size}
             """.trimMargin()
             )
+            emit(staticVariable.init.single())
         } else {
             appendLine(
                 """
             |    .data
             |    .align ${staticVariable.alignment}
             |${staticVariable.name}:
-            |    .${staticVariable.initType} ${staticVariable.init}  
             """.trimMargin()
             )
+            staticVariable.init.forEach(::emit)
         }
         appendLine()
     }
@@ -159,10 +182,10 @@ fun emit(x86program: x86Program): String = buildString {
             """.trimMargin()
         )
 
-        when (staticConstant.init) {
-            is Double -> appendLine("    .quad ${staticConstant.init.toBits()} # ${staticConstant.init}")
-            is ULong -> appendLine("    .double ${staticConstant.init}")
-            else -> unreachable("invalid constant")
+        when (staticConstant.init.value) {
+            is Double -> appendLine("    .quad ${(staticConstant.init.value as Double).toBits()} # ${staticConstant.init.value}")
+            is ULong -> appendLine("    .double ${staticConstant.init.value}")
+            else -> emit(staticConstant.init)
         }
     }
 

@@ -49,6 +49,18 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         return dst
     }
 
+    fun sub(src1: Value, src2: Value, dst: Value): Value {
+        return binaryOp(BinaryOp.Subtract, src1, src2, dst)
+    }
+
+    fun add(src1: Value, src2: Value, dst: Value): Value {
+        return binaryOp(BinaryOp.Add, src1, src2, dst)
+    }
+
+    fun div(src1: Value, src2: Value, dst: Value): Value {
+        return binaryOp(BinaryOp.Divide, src1, src2, dst)
+    }
+
     fun equal(src1: Value, src2: Value, dst: Value): Value {
         return binaryOp(BinaryOp.Equal, src1, src2, dst)
     }
@@ -61,6 +73,10 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     fun unaryOp(unaryOp: UnaryOp, src: Value, dst: Value): Value {
         instructions += Unary(unaryOp, src, dst)
         return dst
+    }
+
+    fun neg(src: Value, dst: Value): Value {
+        return unaryOp(UnaryOp.Negate, src, dst)
     }
 
     fun ret(value: Value) {
@@ -104,6 +120,15 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
 
     fun uitod(src: Value, dst: Value): Value {
         instructions += UIntToDouble(src, dst)
+        return dst
+    }
+
+    fun copytooffset(src: Value, dst: Var, offset: Int) {
+        instructions += CopyToOffset(src, dst, offset)
+    }
+
+    fun addptr(ptr: Value, index: Value, scale: Int, dst: Value): Value {
+        instructions += AddPtr(ptr, index, scale, dst)
         return dst
     }
 

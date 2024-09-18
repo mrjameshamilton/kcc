@@ -1,5 +1,6 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.ArrayType
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.Type
 import eu.jameshamilton.frontend.check.StaticInit
@@ -20,9 +21,9 @@ data class FunctionDef(
     val parameters by lazy { type.paramsTypes.zip(parameterNames) }
 }
 
-data class StaticVariable(val name: String, val global: Boolean, val type: Type, val init: List<StaticInit>) :
+data class StaticVariable(val name: String, val global: Boolean, val type: Type, val init: List<StaticInit<*>>) :
     TopLevel() {
-    constructor(name: String, global: Boolean, type: Type, init: StaticInit) : this(name, global, type, listOf(init))
+    constructor(name: String, global: Boolean, type: Type, init: StaticInit<*>) : this(name, global, type, listOf(init))
 }
 
 sealed class Instruction
@@ -63,6 +64,13 @@ data class Copy(val src: Value, val dst: Value) : Instruction()
 data class GetAddress(val src: Value, val dst: Value) : Instruction()
 data class Load(val ptr: Value, val dst: Value) : Instruction()
 data class Store(val src: Value, val ptr: Value) : Instruction()
+data class AddPtr(val ptr: Value, val index: Value, val scale: Int, val dst: Value) : Instruction()
+data class CopyToOffset(val src: Value, val dst: Var, val offset: Int) : Instruction() {
+    init {
+        require(dst.type is ArrayType)
+    }
+}
+
 data class Jump(val target: LabelIdentifier) : Instruction()
 data class JumpIfZero(val condition: Value, val target: LabelIdentifier) : Instruction()
 data class JumpIfNotZero(val condition: Value, val target: LabelIdentifier) : Instruction()

@@ -22,19 +22,52 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 
+private typealias Registers = LinkedHashMap<String, Mem>
+
+private val Registers.max: Int
+    get() = lastEntry()?.value?.position ?: 0
 
 fun replacePseudoRegisters(program: Program): Program {
-    val registers = LinkedHashMap<Pseudo, Mem>()
+    val registers = Registers()
 
     fun allocate(op: Operand): Operand = when (op) {
-        is Pseudo -> if (op.isStatic) {
-            Data(op.type, op.identifier)
-        } else {
-            // Always allocate 8 bytes to ensure correct alignment
-            // even if the type requires less space than 8.
-            registers.computeIfAbsent(op) {
-                Mem(BP, -((registers.size + 1) * Quadword.size))
+        is Pseudo -> when {
+            op.isStatic -> Data(op.type, op.identifier)
+            else ->
+                // Always allocate 8 bytes to ensure correct alignment
+                // even if the type requires less space than 8.
+                registers.computeIfAbsent(op.identifier) {
+                    val position = (registers.max - op.type.size).roundDownToNearestMultiple(8)
+                    Mem(BP, position)
+                }
+        }
+
+        is PseudoMem -> when {
+            op.isStatic && op.offset == 0 -> {
+                // Should not happen that offset > 0, because we only use
+                // pseudomem operands with nonzero offsets to initialize arrays with
+                // automatic storage duration, not to access arrays with static storage duration.
+                Data(op.type, op.identifier)
             }
+
+            op.isStatic -> unreachable("PseudoMem static offset must be zero")
+            op.type is ByteArray && op.identifier !in registers -> {
+                // First time allocating an array, allocate space for the whole array.
+                val position =
+                    (registers.max - op.type.size).roundDownToNearestMultiple((op.type as ByteArray).alignment)
+                registers.computeIfAbsent(op.identifier) {
+                    Mem(BP, position)
+                }
+            }
+
+            op.type is ByteArray && op.identifier in registers -> {
+                // Subsequent times, return offsets into the existing array allocation.
+                val array = registers[op.identifier]!!
+                val position = (array.position + op.offset)//.roundDownToNearestMultiple(alignment)
+                Mem(array.base, position)
+            }
+
+            else -> unreachable("Invalid type for PseudoMem: $op")
         }
 
         else -> op
@@ -388,8 +421,7 @@ fun replacePseudoRegisters(program: Program): Program {
 
     fun fixup(functionDef: FunctionDef): FunctionDef = with(functionDef.instructions.flatMap(::fixup)) {
         val prologue = buildX86 {
-            val maxStack = registers.lastEntry()?.value?.position ?: 0
-            allocate(abs(maxStack).roundUpToNearestMultiple(STACK_ALIGNMENT_BYTES))
+            allocate(abs(registers.max).roundUpToNearestMultiple(STACK_ALIGNMENT_BYTES))
         }
         return FunctionDef(functionDef.name, functionDef.global, functionDef.defined, prologue + this)
     }

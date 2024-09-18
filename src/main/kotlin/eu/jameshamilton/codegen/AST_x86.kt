@@ -8,6 +8,7 @@ import eu.jameshamilton.codegen.RegisterSize.BYTE
 import eu.jameshamilton.codegen.RegisterSize.LONG
 import eu.jameshamilton.codegen.RegisterSize.QUAD
 import eu.jameshamilton.codegen.RegisterSize.WORD
+import eu.jameshamilton.frontend.check.StaticInit
 import eu.jameshamilton.unreachable
 
 const val STACK_ALIGNMENT_BYTES = 16
@@ -22,36 +23,10 @@ data class FunctionDef(
     val instructions: List<Instruction>
 ) : TopLevel()
 
-// TODO: make this a type?
-typealias StaticInit = Any
+data class StaticVariable(val name: String, val global: Boolean, val alignment: Int, val init: List<StaticInit<*>>) :
+    TopLevel()
 
-data class StaticVariable(val name: String, val global: Boolean, val alignment: Int, val init: StaticInit) :
-    TopLevel() {
-    init {
-        require(init is Int || init is Long || init is UInt || init is ULong || init is Double)
-    }
-
-    val size: Int
-        get() = when (this.init) {
-            is Int, is UInt -> 4
-            is Long, is ULong -> 8
-            else -> unreachable("No size for ${this}.")
-        }
-
-    val initType: String
-        get() = when (this.init) {
-            is Int, is UInt -> "long"
-            is Long, is ULong -> "quad"
-            is Double -> "double"
-            else -> unreachable("No size for ${this.init}.")
-        }
-}
-
-data class StaticConstant(val name: String, val alignment: Int, val init: StaticInit) : TopLevel() {
-    init {
-        require(init is Double || init is ULong)
-    }
-}
+data class StaticConstant(val name: String, val alignment: Int, val init: StaticInit<*>) : TopLevel()
 
 sealed class Instruction
 
@@ -172,6 +147,7 @@ fun RegisterName.x(type: TypeX86) = when (type) {
     Quadword -> Register(this, QUAD)
     Unknown -> unreachable("No size for ${this}.")
     Double_ -> unreachable("Use XMM registers for double types.")
+    is ByteArray -> Register(this, QUAD)// TODO
 }
 
 val Register.b: Register
@@ -183,6 +159,7 @@ typealias Bytes = Int
 
 sealed interface Memory
 data class Pseudo(override val type: TypeX86, val identifier: String) : Operand(type)
+data class PseudoMem(override val type: TypeX86, val identifier: String, val offset: Int) : Operand(type), Memory
 data class Mem(val base: Register, val position: Int) : Operand(Unknown), Memory
-
+data class Indexed(val base: Register, val index: Register, val scale: Int) : Operand(Unknown), Memory
 data class Data(override val type: TypeX86, val identifier: String) : Operand(type), Memory

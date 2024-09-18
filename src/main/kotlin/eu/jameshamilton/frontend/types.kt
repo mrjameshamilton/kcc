@@ -200,3 +200,5 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
         else -> Cast(targetType, this, targetType)
     }
 }
+
+fun Type.pointerTo(): PointerType = PointerType(this)

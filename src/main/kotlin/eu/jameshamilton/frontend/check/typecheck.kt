@@ -60,7 +60,6 @@ import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.SingleInit
 import eu.jameshamilton.frontend.Statement
-import eu.jameshamilton.frontend.StorageClass
 import eu.jameshamilton.frontend.StorageClass.EXTERN
 import eu.jameshamilton.frontend.StorageClass.NONE
 import eu.jameshamilton.frontend.StorageClass.STATIC
@@ -87,6 +86,7 @@ import eu.jameshamilton.frontend.commonPointerType
 import eu.jameshamilton.frontend.commonType
 import eu.jameshamilton.frontend.error
 import eu.jameshamilton.frontend.plus
+import eu.jameshamilton.isNegativeZero
 import java.util.*
 
 typealias SymbolTable = HashMap<String, SymbolTableEntry>
@@ -101,19 +101,19 @@ data class StaticAttr(val initialValue: InitialValue, val global: Boolean) : Ide
 data object LocalAttr : IdentifierAttr()
 sealed class InitialValue
 data object Tentative : InitialValue()
-data class Initial(val value: List<StaticInit>) : InitialValue() {
-    constructor(vararg value: StaticInit) : this(value.toList())
+data class Initial(val value: List<StaticInit<*>>) : InitialValue() {
+    constructor(vararg value: StaticInit<*>) : this(value.toList())
 }
 
 data object NoInitializer : InitialValue()
 
-sealed class StaticInit
-data class IntInit(val value: Int) : StaticInit()
-data class LongInit(val value: Long) : StaticInit()
-data class UIntInit(val value: UInt) : StaticInit()
-data class ULongInit(val value: ULong) : StaticInit()
-data class DoubleInit(val value: Double) : StaticInit()
-data class ZeroInit(val bytes: Int) : StaticInit()
+sealed class StaticInit<T>(open val value: T)
+data class IntInit(override val value: Int) : StaticInit<Int>(value)
+data class LongInit(override val value: Long) : StaticInit<Long>(value)
+data class UIntInit(override val value: UInt) : StaticInit<UInt>(value)
+data class ULongInit(override val value: ULong) : StaticInit<ULong>(value)
+data class DoubleInit(override val value: Double) : StaticInit<Double>(value)
+data class ZeroInit(val bytes: Int) : StaticInit<Int>(0)
 
 fun typecheck(program: Program): Program {
     return Program(program.declarations.map {
@@ -195,10 +195,11 @@ private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
         }
     }
 
+    val body = funDeclaration.body?.map { typecheck(funDeclaration, it) }
     return FunDeclaration(
         funDeclaration.name,
         params,
-        funDeclaration.body?.map { typecheck(funDeclaration, it) },
+        body,
         type,
         funDeclaration.storageClass
     )
@@ -231,7 +232,7 @@ private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
 
         STATIC -> {
             val initialValue = when (varDeclaration.initializer) {
-                null -> Initial(ZeroInit(0))
+                null -> Initial(ZeroInit(varDeclaration.type.sizeInBytes))
                 else -> Initial(convertStaticInitializer(varDeclaration.type, varDeclaration.initializer))
             }
 
@@ -586,7 +587,7 @@ private fun typecheckInit(targetType: Type, init: Initializer): Initializer = wh
         val initializers = init.expressions.map {
             typecheckInit(targetType.element, it)
         }
-        val zeroinitializers = (0 until init.expressions.size - initializers.size).map {
+        val zeroinitializers = (initializers.size until targetType.length).map {
             zeroinit(targetType.element)
         }
 
@@ -596,10 +597,17 @@ private fun typecheckInit(targetType: Type, init: Initializer): Initializer = wh
     else -> error("Can't initialize a scalar object with a compound initializer.")
 }
 
-val Double.isNegativeZero
-    get() = this.toBits().toULong() > 0u
+private fun zeroinit(targetType: Type): Initializer = when (targetType) {
+    is ArrayType -> CompoundInit((0 until targetType.length).map { zeroinit(targetType.element) }, targetType)
+    DoubleType -> SingleInit(Constant(0.0, targetType), targetType)
+    IntType -> SingleInit(Constant(0, targetType), targetType)
+    LongType -> SingleInit(Constant(0L, targetType), targetType)
+    UIntType -> SingleInit(Constant(0U, targetType), targetType)
+    ULongType -> SingleInit(Constant(0UL, targetType), targetType)
+    Unknown, is FunType, is PointerType -> error("Invalid type for zeroinit: '${targetType}'.")
+}
 
-private fun convertStaticInitializer(targetType: Type, init: Initializer): List<StaticInit> = when {
+private fun convertStaticInitializer(targetType: Type, init: Initializer): List<StaticInit<*>> = when {
     init is SingleInit -> {
         val expr = typecheckAndConvert(init.expression).castForAssignment(targetType)
 
@@ -638,16 +646,6 @@ private fun convertStaticInitializer(targetType: Type, init: Initializer): List<
     }
 
     else -> error("Can't initialize static '${targetType}' with a compound initializer.")
-}
-
-private fun zeroinit(targetType: Type): Initializer = when (targetType) {
-    is ArrayType -> CompoundInit((0..targetType.length).map { zeroinit(targetType.element) }, targetType)
-    DoubleType -> SingleInit(Constant(0.0), targetType)
-    IntType -> SingleInit(Constant(0), targetType)
-    LongType -> SingleInit(Constant(0L), targetType)
-    UIntType -> SingleInit(Constant(0U), targetType)
-    ULongType -> SingleInit(Constant(0UL), targetType)
-    Unknown, is FunType, is PointerType -> error("Invalid type for zeroinit: '${targetType}'.")
 }
 
 private fun typecheckAndConvert(expression: Expression): Expression {
@@ -719,7 +717,8 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     NullStatement -> NullStatement
     is ReturnStatement -> {
-        ReturnStatement(typecheckAndConvert(blockItem.value).castForAssignment(currentFunction.type.returnType))
+        val expression = typecheckAndConvert(blockItem.value)
+        ReturnStatement(expression.castForAssignment(currentFunction.type.returnType))
     }
 
     is Switch -> {

@@ -53,7 +53,7 @@ private fun printTacky(staticVariable: StaticVariable) {
     println()
 }
 
-private fun printStaticInit(type: Type, initializers: List<StaticInit>) {
+private fun printStaticInit(type: Type, initializers: List<StaticInit<*>>) {
     if (type is ArrayType) print("{ ")
     initializers.forEachIndexed { i, initializer ->
         when (initializer) {
@@ -158,13 +158,13 @@ private fun printTacky(instruction: Instruction) {
 
         is Unary -> {
             val op = when (instruction.op) {
-                UnaryOp.Complement -> "~"
-                UnaryOp.Negate -> "-"
-                UnaryOp.Not -> "!"
+                UnaryOp.Complement -> "complement"
+                UnaryOp.Negate -> "negate"
+                UnaryOp.Not -> "not"
             }
             print("    ")
             printTacky(instruction.dst, printType = false)
-            print(" = $op")
+            print(" = $op ")
             printTacky(instruction.src)
             println()
         }
@@ -247,6 +247,27 @@ private fun printTacky(instruction: Instruction) {
             printTacky(instruction.src)
             print(" in ")
             printTacky(instruction.ptr)
+            println()
+        }
+
+        is AddPtr -> {
+            print("    ")
+            printTacky(instruction.dst, printType = false)
+            print(" = addptr ")
+            printTacky(instruction.ptr)
+            print(" ")
+            printTacky(instruction.index)
+            print(" ")
+            print(instruction.scale)
+            println()
+        }
+
+        is CopyToOffset -> {
+            print("    _ = copytooffset ")
+            printTacky(instruction.src)
+            print(" to ")
+            printTacky(instruction.dst)
+            print(" @ ${instruction.offset}")
             println()
         }
     }

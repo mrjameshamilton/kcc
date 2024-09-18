@@ -34,3 +34,9 @@ data object Double_ : TypeX86 {
     override val suffix: String
         get() = "sd"
 }
+
+data class ByteArray(override val size: Int, val alignment: Int) : TypeX86 {
+
+    override val suffix: String
+        get() = TODO()
+}

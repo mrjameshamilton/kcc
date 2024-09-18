@@ -139,11 +139,7 @@ fun printInitialValue(type: Type, initialValue: InitialValue) {
             if (type is ArrayType) os.print("{ ")
             initialValue.value.forEachIndexed { index, it ->
                 when (it) {
-                    is DoubleInit -> os.print(it.value)
-                    is IntInit -> os.print(it.value)
-                    is LongInit -> os.print(it.value)
-                    is UIntInit -> os.print(it.value)
-                    is ULongInit -> os.print(it.value)
+                    is DoubleInit, is IntInit, is UIntInit, is LongInit, is ULongInit -> os.print(it.value)
                     is ZeroInit -> repeat(it.bytes / type.baseType.sizeInBytes) { os.print(0) }
                 }
                 if (index != initialValue.value.lastIndex) os.print(",")
@@ -198,7 +194,16 @@ fun printBlockItem(blockItem: BlockItem) {
         }
 
         is Continue -> os.printlnIndent("continue ${blockItem.identifier}")
-        is DoWhile -> TODO()
+        is DoWhile -> {
+            os.printlnIndent("do {")
+            os.scoped {
+                printBlockItem(blockItem.body)
+            }
+            os.printIndent("} while (")
+            printExpression(blockItem.condition)
+            os.println(");")
+        }
+
         is ExpressionStatement -> {
             os.printIndent()
             printExpression(blockItem.expression)

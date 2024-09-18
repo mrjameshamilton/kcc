@@ -29,11 +29,16 @@ import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.Unknown
+import eu.jameshamilton.frontend.check.DoubleInit
 import eu.jameshamilton.frontend.check.FunAttr
 import eu.jameshamilton.frontend.check.LocalAttr
 import eu.jameshamilton.frontend.check.StaticAttr
+import eu.jameshamilton.frontend.check.StaticInit
+import eu.jameshamilton.frontend.check.ULongInit
+import eu.jameshamilton.frontend.check.ZeroInit
 import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.frontend.isSigned
+import eu.jameshamilton.tacky.AddPtr
 import eu.jameshamilton.tacky.BinaryOp.Add
 import eu.jameshamilton.tacky.BinaryOp.And
 import eu.jameshamilton.tacky.BinaryOp.Divide
@@ -53,6 +58,7 @@ import eu.jameshamilton.tacky.BinaryOp.Subtract
 import eu.jameshamilton.tacky.BinaryOp.Xor
 import eu.jameshamilton.tacky.Constant
 import eu.jameshamilton.tacky.Copy
+import eu.jameshamilton.tacky.CopyToOffset
 import eu.jameshamilton.tacky.DoubleToInt
 import eu.jameshamilton.tacky.DoubleToUInt
 import eu.jameshamilton.tacky.FunctionCall
@@ -103,6 +109,8 @@ private val backendSymbolTable: Map<String, Boolean> by lazy {
 
 val Pseudo.isStatic: Boolean
     get() = backendSymbolTable[identifier] == true
+val PseudoMem.isStatic: Boolean
+    get() = backendSymbolTable[identifier] == true
 
 val TackyValue.isSigned: Boolean
     get() = when (this) {
@@ -117,16 +125,16 @@ val TackyValue.isSigned: Boolean
 val Data.isConstant: Boolean
     get() = constants.containsValue(identifier)
 
-private data class UnnamedStaticConstant(val alignment: Int, val value: Any)
+private data class UnnamedStaticConstant(val alignment: Int, val value: StaticInit<*>)
 
 private val constants: MutableMap<UnnamedStaticConstant, String> = mutableMapOf()
 
-private fun makeconstant(value: Any, alignment: Int = 8): Data =
+private fun makeconstant(value: StaticInit<*>, alignment: Int = 8): Data =
     Data(x86DoubleType, constants.computeIfAbsent(UnnamedStaticConstant(alignment, value)) { _ ->
         "C" + constants.size
     })
 
-private fun zero(type: TypeX86) = if (type is x86DoubleType) makeconstant(0.0) else Imm(type, 0)
+private fun zero(type: TypeX86) = if (type is x86DoubleType) makeconstant(ZeroInit(Quadword.size)) else Imm(type, 0)
 
 fun convert(tackyProgram: TackyProgram): x86Program {
     val topLevelItems = tackyProgram.items.map {
@@ -147,7 +155,7 @@ private fun convert(staticVariable: TackyStaticVariable): StaticVariable =
     StaticVariable(
         staticVariable.name,
         staticVariable.global,
-        alignment = if (staticVariable.type == IntType) 4 else 8,
+        alignment = if (staticVariable.type == IntType) Longword.size else Quadword.size,
         staticVariable.init
     )
 
@@ -157,11 +165,10 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
     val prologue = buildX86 {
         val parameters = tackyFunctionDef.parameters.mapIndexed { index, (tackyType, param) ->
             val x86Type = when (tackyType) {
-                is FunType, Unknown -> unreachable("Invalid type")
+                is FunType, Unknown, is ArrayType -> unreachable("Invalid type $tackyType")
                 IntType, UIntType -> Longword
                 LongType, ULongType, is PointerType -> Quadword
                 DoubleType -> x86DoubleType
-                is ArrayType -> TODO()
             }
             Triple(index, x86Type, param)
         }
@@ -226,17 +233,23 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
         is TackyConstant -> when (value.value) {
             is Int, is UInt -> Imm(Longword, value.value)
             is Long, is ULong -> Imm(Quadword, value.value)
-            is Double -> makeconstant(value.value)
+            is Double -> makeconstant(DoubleInit(value.value))
             else -> unreachable("Invalid type ")
         }
 
         is TackyVar -> when (value.type) {
             IntType, UIntType -> Pseudo(Longword, value.name)
             LongType, ULongType -> Pseudo(Quadword, value.name)
-            is PointerType -> Pseudo(Quadword, value.name)
             DoubleType -> Pseudo(x86DoubleType, value.name)
+            is PointerType -> Pseudo(Quadword, value.name)
+            is ArrayType -> PseudoMem(
+                ByteArray(
+                    value.type.sizeInBytes,
+                    if (value.type.sizeInBytes >= STACK_ALIGNMENT_BYTES) STACK_ALIGNMENT_BYTES else value.type.baseType.sizeInBytes
+                ), value.name, 0
+            )
+
             is FunType, Unknown -> unreachable("Invalid type: ${value.type}")
-            is ArrayType -> TODO()
         }
     }
 
@@ -263,7 +276,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     Negate -> {
                         if (src.type is x86DoubleType) {
                             movsd(src, XMM0)
-                            xor(x86DoubleType, makeconstant(-0.0, 16), XMM0)
+                            xor(x86DoubleType, makeconstant(DoubleInit(-0.0), 16), XMM0)
                             movsd(XMM0, dst)
                         } else {
                             neg(src.type, dst)
@@ -514,7 +527,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     is Quadword -> {
                         val MAX_LONG_PLUS_ONE = 9223372036854775808u // 2^63
 
-                        val upperBound = makeconstant(MAX_LONG_PLUS_ONE)
+                        val upperBound = makeconstant(ULongInit(MAX_LONG_PLUS_ONE))
                         val outOfRange = makelabel("dotui_out_of_range")
                         val end = makelabel("dotui_end")
 
@@ -535,7 +548,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         label(end)
                     }
 
-                    x86DoubleType, x86UnknownType -> unreachable("invalid types")
+                    x86DoubleType, x86UnknownType, is ByteArray -> unreachable("invalid types")
                 }
             }
 
@@ -588,13 +601,14 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         label(end)
                     }
 
-                    is x86DoubleType, is x86UnknownType -> unreachable("Invalid type for src")
+                    is x86DoubleType, is x86UnknownType, is ByteArray -> unreachable("Invalid type for src")
                 }
             }
 
             is GetAddress -> {
                 val src = convert(tacky.src)
                 val dst = convert(tacky.dst)
+
                 lea(src, dst)
             }
 
@@ -612,6 +626,47 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
 
                 movq(ptr, AX.q)
                 mov(src.type, src, Mem(AX.q, 0))
+            }
+
+            is AddPtr -> {
+                val ptr = convert(tacky.ptr)
+                val scale = tacky.scale
+                val dst = convert(tacky.dst)
+
+                movq(ptr, AX.q)
+
+                when (scale) {
+                    1, 2, 4, 8 -> {
+                        val index = convert(tacky.index)
+                        movq(index, DX.q)
+                        lea(Indexed(AX.q, DX.q, scale), dst)
+                    }
+
+                    else -> {
+                        if (tacky.index is Constant) {
+                            val index = when (tacky.index.value) {
+                                is Int -> tacky.index.value.toInt()
+                                // TODO: long -> int?
+                                is Long -> tacky.index.value.toInt()
+                                else -> unreachable("Invalid scale type: ${tacky.index.value}")
+                            }
+                            movq(ptr, AX.q)
+                            lea(Mem(AX.q, index * scale), dst)
+                        } else {
+                            val index = convert(tacky.index)
+                            movq(index, DX.q)
+                            mul(Quadword, Imm(Quadword, scale), DX.q)
+                            lea(Indexed(AX.q, DX.q, scale = 1), dst)
+                        }
+                    }
+                }
+            }
+
+            is CopyToOffset -> {
+                val src = convert(tacky.src)
+                val value = convert(tacky.dst)
+                val dst = PseudoMem(value.type, tacky.dst.name, tacky.offset)
+                mov(src.type, src, dst)
             }
         }
     }
