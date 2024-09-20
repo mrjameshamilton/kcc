@@ -165,83 +165,95 @@ private fun convert(operator: BinaryOp): TackyBinaryOp = when (operator) {
     GreaterThanOrEqual -> TackyBinaryOp.GreaterThanOrEqual
 }
 
-private fun emitAndConvert(instructions: MutableList<Instruction>, expression: Expression): Value =
-    when (val result = emit(instructions, expression)) {
-        is DereferencedPointer -> {
-            val dst = maketemporary(expression.type)
-            instructions += Load(result.value, dst)
-            dst
-        }
-
-        is PlainOperand -> result.value
+private fun convert(instructions: MutableList<Instruction>, type: Type, result: ExprResult): Value = when (result) {
+    is DereferencedPointer -> {
+        val dst = maketemporary(type)
+        instructions += Load(result.value, dst)
+        dst
     }
+
+    is PlainOperand -> result.value
+}
+
+private fun emitAndConvert(instructions: MutableList<Instruction>, expression: Expression): Value =
+    convert(instructions, expression.type, emit(instructions, expression))
 
 private fun emit(instructions: MutableList<Instruction>, expression: Expression): ExprResult = when (expression) {
     is Constant -> PlainOperand(TackyConstant(expression.value))
     is UnaryExpr -> buildTacky(instructions) {
         when (expression.op) {
             PostfixIncrement, PostfixDecrement -> {
-                val dst = maketemporary(expression.type)
 
-                if (expression.type is PointerType) {
-                    // TODO
-                    //val lvalue = emit(instructions, expression.expression)
-                    //val rvalue = emitAndConvert(instructions, expression.expression)
-                    val v2 = TackyConstant(if (expression.op == PostfixIncrement) 1L else -1L)
-                    //copy(rvalue, dst)
-                    //addptr(rvalue, v2, expression.type.sizeInBytes, dst)
-                    //store(rvalue, lvalue.value)
-                    //PlainOperand(dst)
-                    TODO()
-                } else {
-                    val amount = when {
-                        expression.op == PostfixIncrement && expression.type is DoubleType -> 1.0
-                        expression.op == PostfixIncrement && expression.type is IntegerType -> 1
-                        expression.op == PostfixDecrement && expression.type is DoubleType -> -1.0
-                        expression.op == PostfixDecrement && expression.type is IntegerType -> -1
-                        else -> unreachable("Invalid expression: {${expression}}")
+                val amount = when {
+                    expression.op == PostfixIncrement && expression.type is DoubleType -> 1.0
+                    expression.op == PostfixDecrement && expression.type is IntegerType -> -1
+                    expression.op == PostfixIncrement && expression.type is IntegerType -> 1
+                    expression.op == PostfixDecrement && expression.type is DoubleType -> -1.0
+                    expression.op == PostfixIncrement && expression.type is PointerType -> 1L
+                    expression.op == PostfixDecrement && expression.type is PointerType -> -1L
+                    else -> unreachable("Invalid expression: {${expression}}")
+                }
+
+                when (val value = emit(instructions, expression.expression)) {
+                    is DereferencedPointer -> {
+                        val dst = maketemporary(expression.type)
+                        val tmp = convert(instructions, expression.type, value)
+                        copy(tmp, dst)
+                        increment(tmp, TackyConstant(amount))
+                        store(tmp, value.value)
+                        PlainOperand(dst)
                     }
 
-                    when (val lvalue = emit(instructions, expression.expression)) {
-                        is DereferencedPointer -> {
-                            val rvalue = emitAndConvert(instructions, expression.expression)
-                            copy(rvalue, dst)
-                            increment(rvalue, TackyConstant(amount))
-                            store(rvalue, lvalue.value)
-                            PlainOperand(dst)
+                    is PlainOperand -> {
+                        val dst = maketemporary(expression.type)
+                        copy(value.value, dst)
+                        if (expression.type is PointerType) {
+                            addptr(
+                                value.value,
+                                TackyConstant(amount),
+                                (expression.type as PointerType).referenced.sizeInBytes,
+                                value.value
+                            )
+                        } else {
+                            increment(value.value, TackyConstant(amount))
                         }
-
-                        is PlainOperand -> {
-                            copy(lvalue.value, dst)
-                            increment(lvalue.value, TackyConstant(amount))
-                            PlainOperand(dst)
-                        }
+                        PlainOperand(dst)
                     }
                 }
             }
 
             PrefixIncrement, PrefixDecrement -> {
-                // TODO: pointers
 
                 val amount = when {
-                    expression.op == PrefixIncrement && expression.type.baseType is DoubleType -> 1.0
-                    expression.op == PrefixIncrement && expression.type.baseType is IntegerType -> 1
-                    expression.op == PrefixDecrement && expression.type.baseType is DoubleType -> -1.0
-                    expression.op == PrefixDecrement && expression.type.baseType is IntegerType -> -1
+                    expression.op == PrefixIncrement && expression.type is IntegerType -> 1
+                    expression.op == PrefixDecrement && expression.type is IntegerType -> -1
+                    expression.op == PrefixIncrement && expression.type is DoubleType -> 1.0
+                    expression.op == PrefixDecrement && expression.type is DoubleType -> -1.0
+                    expression.op == PrefixIncrement && expression.type is PointerType -> 1L
+                    expression.op == PrefixDecrement && expression.type is PointerType -> -1L
                     else -> unreachable("Invalid expression: $expression")
                 }
 
-                when (val lvalue = emit(instructions, expression.expression)) {
+                when (val value = emit(instructions, expression.expression)) {
                     is DereferencedPointer -> {
-                        val rvalue = emitAndConvert(instructions, expression.expression)
-                        increment(rvalue, TackyConstant(amount))
-                        store(rvalue, lvalue.value)
-                        PlainOperand(rvalue)
+                        val dst = convert(instructions, expression.type, value)
+                        increment(dst, TackyConstant(amount))
+                        store(dst, value.value)
+                        PlainOperand(dst)
                     }
 
                     is PlainOperand -> {
-                        increment(lvalue.value, TackyConstant(amount))
-                        lvalue
+                        if (expression.type is PointerType) {
+                            addptr(
+                                value.value,
+                                TackyConstant(amount),
+                                (expression.type as PointerType).referenced.sizeInBytes,
+                                value.value
+                            )
+                        } else {
+                            increment(value.value, TackyConstant(amount))
+                        }
+                        value
                     }
                 }
             }
@@ -373,18 +385,11 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
 
     is Assignment -> {
         buildTacky(instructions) {
-            val lvalue = when {
-                // TODO: better way to do handle?
-                expression.compound && expression.lvalue is Dereference -> {
-                    // Don't accumulate any lvalue instructions for compound assignments,
-                    // as the lhs should only be evaluated once.
-                    // They will already be emitted and converted in the rvalue below.
-                    // e.g. *call() += 5; the function call should happen only once.
-                    emit(mutableListOf(), expression.lvalue)
-                }
-
-                else -> emit(instructions, expression.lvalue)
-            }
+            // Don't accumulate any lvalue instructions for compound assignments,
+            // as the lhs should only be evaluated once.
+            // They will already be emitted and converted in the rvalue below.
+            // e.g. *call() += 5; the function call should happen only once.
+            val lvalue = emit(if (expression.compound) mutableListOf() else instructions, expression.lvalue)
 
             val rvalueInstructions = mutableListOf<Instruction>()
             val rvalue = emitAndConvert(rvalueInstructions, expression.rvalue)
