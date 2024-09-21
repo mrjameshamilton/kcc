@@ -35,6 +35,7 @@ import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.SingleInit
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.StorageClass
+import eu.jameshamilton.frontend.StringConstant
 import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.UnaryExpr
@@ -168,6 +169,7 @@ private fun resolve(expression: Expression): Expression = when (expression) {
 
     is BinaryExpr -> BinaryExpr(resolve(expression.left), expression.operator, resolve(expression.right))
     is Constant -> Constant(expression.value)
+    is StringConstant -> StringConstant(expression.value)
     is UnaryExpr -> {
         when (expression.op) {
             PrefixIncrement, PostfixIncrement, PrefixDecrement, PostfixDecrement ->

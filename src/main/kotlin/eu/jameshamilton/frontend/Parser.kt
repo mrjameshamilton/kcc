@@ -25,8 +25,10 @@ import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
+import eu.jameshamilton.frontend.TokenType.CHAR
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
+import eu.jameshamilton.frontend.TokenType.CONSTANT_CHAR
 import eu.jameshamilton.frontend.TokenType.CONSTANT_DOUBLE
 import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
 import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
@@ -84,6 +86,7 @@ import eu.jameshamilton.frontend.TokenType.SIGNED
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STATIC
+import eu.jameshamilton.frontend.TokenType.STRING
 import eu.jameshamilton.frontend.TokenType.SWITCH
 import eu.jameshamilton.frontend.TokenType.TILDE
 import eu.jameshamilton.frontend.TokenType.UNSIGNED
@@ -418,16 +421,17 @@ class Parser(private val tokens: List<Token>) {
 
     private fun arraySize(): Int = when {
         match(CONSTANT_INT) -> (previous().literal as BigInteger).toInt()
+        match(CONSTANT_CHAR) -> (previous().literal as Char).code
         match(CONSTANT_LONG, CONSTANT_UINT, CONSTANT_ULONG) -> (previous().literal as BigInteger).toInt().also {
             System.err.println("Warning: array size truncated to integer.")
         }
-
         else -> throw error(peek(), "Invalid array size '${previous().lexeme}'.")
     }
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
     private fun checkStorageClass() = check(EXTERN) || check(STATIC)
-    private fun checkType() = check(INT) || check(LONG) || check(DOUBLE) || check(SIGNED) || check(UNSIGNED)
+    private fun checkType() =
+        check(INT) || check(CHAR) || check(LONG) || check(DOUBLE) || check(SIGNED) || check(UNSIGNED)
 
     private fun typeSpecifier() = specifier(allowStorageClass = false).first
     private fun specifier(allowStorageClass: Boolean = true): Pair<Type, StorageClass> {
@@ -488,7 +492,15 @@ class Parser(private val tokens: List<Token>) {
 
         types.containsAll(setOf(UNSIGNED, LONG)) -> ULongType
         types.contains(UNSIGNED) -> UIntType
-        types.contains(LONG) -> LongType
+        types == listOf(LONG) -> LongType
+
+        types == listOf(CHAR) -> CharType
+        types.containsAll(setOf(CHAR, UNSIGNED)) -> UCharType
+        types.containsAll(setOf(CHAR, SIGNED)) -> SCharType
+
+        types.contains(CHAR) -> {
+            throw error(previous(), "`char` cannot be combined with other types '${types.joinToString(", ")}'.")
+        }
 
         // Default type is int.
         else -> IntType
@@ -577,6 +589,18 @@ class Parser(private val tokens: List<Token>) {
         }
 
         match(CONSTANT_DOUBLE) -> Constant(previous().literal as Double)
+        match(CONSTANT_CHAR) -> Constant((previous().literal as Char).code)
+
+        match(STRING) -> {
+            val buffer = StringBuffer(previous().literal as String)
+
+            // adjacent strings get concatenated "a" "b" "c" -> "abc"
+            while (match(STRING)) {
+                buffer.append(previous().literal)
+            }
+
+            StringConstant(buffer.toString())
+        }
 
         else -> throw error(
             previous(),

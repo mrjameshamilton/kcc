@@ -7,9 +7,9 @@ import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
 import eu.jameshamilton.frontend.TokenType.CHAR
-import eu.jameshamilton.frontend.TokenType.CHAR_CONSTANT
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
+import eu.jameshamilton.frontend.TokenType.CONSTANT_CHAR
 import eu.jameshamilton.frontend.TokenType.CONSTANT_DOUBLE
 import eu.jameshamilton.frontend.TokenType.CONSTANT_INT
 import eu.jameshamilton.frontend.TokenType.CONSTANT_LONG
@@ -209,7 +209,7 @@ class Scanner(private val source: String) {
             }
 
             '\'' -> {
-                addToken(CHAR_CONSTANT, char(singleChar = true))
+                addToken(CONSTANT_CHAR, char(singleChar = true))
                 if (!match('\'')) {
                     error(line, "Unterminated character.")
                 }

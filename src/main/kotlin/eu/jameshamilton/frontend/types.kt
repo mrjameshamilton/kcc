@@ -17,8 +17,9 @@ sealed class Type(open val sizeInBits: Int) {
     }
 }
 
-sealed interface Arithmetic
-sealed interface IntegerType : Arithmetic
+sealed interface ArithmeticType
+sealed interface IntegerType : ArithmeticType
+sealed interface CharacterType
 
 val IntegerType.isSigned: Boolean
     get() = this is IntType || this is LongType
@@ -42,8 +43,20 @@ data object ULongType : Type(64), IntegerType {
     override fun toString(): String = "unsigned long"
 }
 
-data object DoubleType : Type(64), Arithmetic {
+data object DoubleType : Type(64), ArithmeticType {
     override fun toString(): String = "double"
+}
+
+data object CharType : Type(8), CharacterType {
+    override fun toString(): String = "char"
+}
+
+data object SCharType : Type(8), CharacterType {
+    override fun toString(): String = "signed char"
+}
+
+data object UCharType : Type(8), CharacterType {
+    override fun toString(): String = "unsigned char"
 }
 
 data class ArrayType(val element: Type, val length: Int) : Type(0) {
@@ -101,7 +114,7 @@ operator fun Type.plus(other: Type) = when {
 
 fun Expression.castForAssignment(targetType: Type): Expression = when {
     type == targetType -> this
-    type is Arithmetic && targetType is Arithmetic -> this.cast(targetType)
+    type is ArithmeticType && targetType is ArithmeticType -> this.cast(targetType)
     isNullPointerConstant && targetType is PointerType -> this.cast(targetType)
     else -> error(0, "Cannot convert type for assignment: '${this.type}' -> '$targetType'.")
 }
@@ -123,6 +136,9 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            CharType -> TODO()
+            SCharType -> TODO()
+            UCharType -> TODO()
         }
 
         is Long -> when (targetType) {
@@ -140,6 +156,9 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            CharType -> TODO()
+            SCharType -> TODO()
+            UCharType -> TODO()
         }
 
         is UInt -> when (targetType) {
@@ -157,6 +176,9 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            CharType -> TODO()
+            SCharType -> TODO()
+            UCharType -> TODO()
         }
 
         is ULong -> when (targetType) {
@@ -174,6 +196,9 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            CharType -> TODO()
+            SCharType -> TODO()
+            UCharType -> TODO()
         }
 
         is Double -> when (targetType) {
@@ -184,6 +209,9 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             DoubleType -> this
             is FunType, Unknown, is PointerType -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            CharType -> TODO()
+            SCharType -> TODO()
+            UCharType -> TODO()
         }
 
         else -> Cast(targetType, this, targetType)

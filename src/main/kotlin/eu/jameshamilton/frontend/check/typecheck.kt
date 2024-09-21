@@ -1,7 +1,7 @@
 package eu.jameshamilton.frontend.check
 
 import eu.jameshamilton.frontend.AddrOf
-import eu.jameshamilton.frontend.Arithmetic
+import eu.jameshamilton.frontend.ArithmeticType
 import eu.jameshamilton.frontend.ArrayType
 import eu.jameshamilton.frontend.Assignable
 import eu.jameshamilton.frontend.Assignment
@@ -27,6 +27,7 @@ import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
+import eu.jameshamilton.frontend.CharType
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.CompoundInit
 import eu.jameshamilton.frontend.Conditional
@@ -58,14 +59,17 @@ import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
+import eu.jameshamilton.frontend.SCharType
 import eu.jameshamilton.frontend.SingleInit
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.StorageClass.EXTERN
 import eu.jameshamilton.frontend.StorageClass.NONE
 import eu.jameshamilton.frontend.StorageClass.STATIC
+import eu.jameshamilton.frontend.StringConstant
 import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.Type
+import eu.jameshamilton.frontend.UCharType
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.UnaryExpr
@@ -371,7 +375,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
             Add -> {
                 when {
-                    left.type is Arithmetic && right.type is Arithmetic -> {
+                    left.type is ArithmeticType && right.type is ArithmeticType -> {
                         BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
@@ -391,7 +395,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
             Subtract -> {
                 when {
-                    left.type is Arithmetic && right.type is Arithmetic -> {
+                    left.type is ArithmeticType && right.type is ArithmeticType -> {
                         BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
@@ -411,7 +415,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
             Multiply, Divide, Remainder -> {
                 when {
-                    left.type is Arithmetic && right.type is Arithmetic -> {
+                    left.type is ArithmeticType && right.type is ArithmeticType -> {
                         BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
@@ -426,7 +430,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             }
 
             LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> when {
-                left.type is Arithmetic && right.type is Arithmetic -> {
+                left.type is ArithmeticType && right.type is ArithmeticType -> {
                     BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
                 }
 
@@ -462,6 +466,8 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         }
         Constant(expression.value, type)
     }
+
+    is StringConstant -> TODO()
 
     is FunctionCall -> {
         val identifier = expression.identifier
@@ -605,6 +611,9 @@ private fun zeroinit(targetType: Type): Initializer = when (targetType) {
     UIntType -> SingleInit(Constant(0U, targetType), targetType)
     ULongType -> SingleInit(Constant(0UL, targetType), targetType)
     Unknown, is FunType, is PointerType -> error("Invalid type for zeroinit: '${targetType}'.")
+    CharType -> TODO()
+    SCharType -> TODO()
+    UCharType -> TODO()
 }
 
 private fun convertStaticInitializer(targetType: Type, init: Initializer): List<StaticInit<*>> = when {

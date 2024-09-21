@@ -69,6 +69,9 @@ fun printVarDeclaration(type: Type, identifier: String = ""): Any = when (type) 
     ULongType -> os.print("unsigned long $identifier")
     Unknown -> os.print("???")
     is FunType -> unreachable("cannot use funtype for var declaration")
+    CharType -> os.print("char $identifier")
+    SCharType -> os.print("signed char $identifier")
+    UCharType -> os.print("unsigned char $identifier")
 }
 
 fun printDefinition(declaration: Declaration) {
@@ -294,6 +297,10 @@ fun printExpression(expression: Expression) {
         is Constant -> {
             // os.print("/* type = ${expression.type} */ ")
             os.print("${expression.value}")
+        }
+
+        is StringConstant -> {
+            os.print("\"${expression.value}\"")
         }
 
         is FunctionCall -> {

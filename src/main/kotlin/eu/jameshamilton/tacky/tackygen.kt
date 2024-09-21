@@ -55,6 +55,7 @@ import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.SingleInit
+import eu.jameshamilton.frontend.StringConstant
 import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
 import eu.jameshamilton.frontend.SwitchCase
@@ -180,6 +181,7 @@ private fun emitAndConvert(instructions: MutableList<Instruction>, expression: E
 
 private fun emit(instructions: MutableList<Instruction>, expression: Expression): ExprResult = when (expression) {
     is Constant -> PlainOperand(TackyConstant(expression.value))
+    is StringConstant -> PlainOperand(TackyConstant(expression.value))
     is UnaryExpr -> buildTacky(instructions) {
         when (expression.op) {
             PostfixIncrement, PostfixDecrement -> {

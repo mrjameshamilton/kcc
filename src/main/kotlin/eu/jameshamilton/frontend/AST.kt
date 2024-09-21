@@ -113,6 +113,7 @@ data class Switch(
 sealed class Expression(open val type: Type = Unknown)
 
 data class Constant(val value: Any, override val type: Type = Unknown) : Expression(type)
+data class StringConstant(val value: String, override val type: Type = Unknown) : Expression(type)
 
 data class UnaryExpr(val op: UnaryOp, val expression: Expression, override val type: Type = Unknown) : Expression(type)
 

@@ -20,12 +20,15 @@ import eu.jameshamilton.codegen.RegisterName.R8
 import eu.jameshamilton.codegen.RegisterName.R9
 import eu.jameshamilton.codegen.RegisterName.SI
 import eu.jameshamilton.frontend.ArrayType
+import eu.jameshamilton.frontend.CharType
 import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.IntType
 import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LongType
 import eu.jameshamilton.frontend.PointerType
+import eu.jameshamilton.frontend.SCharType
+import eu.jameshamilton.frontend.UCharType
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.Unknown
@@ -169,6 +172,9 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
                 IntType, UIntType -> Longword
                 LongType, ULongType, is PointerType -> Quadword
                 DoubleType -> x86DoubleType
+                CharType -> TODO()
+                SCharType -> TODO()
+                UCharType -> TODO()
             }
             Triple(index, x86Type, param)
         }
@@ -250,6 +256,9 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             )
 
             is FunType, Unknown -> unreachable("Invalid type: ${value.type}")
+            CharType -> TODO()
+            SCharType -> TODO()
+            UCharType -> TODO()
         }
     }
 
