@@ -6,6 +6,8 @@ import eu.jameshamilton.frontend.TokenType.ASTERISK
 import eu.jameshamilton.frontend.TokenType.ASTERISK_EQUAL
 import eu.jameshamilton.frontend.TokenType.BREAK
 import eu.jameshamilton.frontend.TokenType.CASE
+import eu.jameshamilton.frontend.TokenType.CHAR
+import eu.jameshamilton.frontend.TokenType.CHAR_CONSTANT
 import eu.jameshamilton.frontend.TokenType.COLON
 import eu.jameshamilton.frontend.TokenType.COMMA
 import eu.jameshamilton.frontend.TokenType.CONSTANT_DOUBLE
@@ -206,6 +208,13 @@ class Scanner(private val source: String) {
                 else -> error(line, "Unexpected character '$c'")
             }
 
+            '\'' -> {
+                addToken(CHAR_CONSTANT, char(singleChar = true))
+                if (!match('\'')) {
+                    error(line, "Unterminated character.")
+                }
+            }
+
             '"' -> string()
 
             ' ', '\t', '\r' -> {}
@@ -316,19 +325,40 @@ class Scanner(private val source: String) {
         addToken(CONSTANT_DOUBLE, (if (substring.startsWith('.')) "0$substring" else substring).toDouble())
     }
 
-    private fun string() {
-        while (peek() != '"' && !isAtEnd()) {
-            if (peek() == '\n') line++
-            advance()
+    private fun char(singleChar: Boolean = false): Char = when {
+        match('\\') -> when {
+            match('\'') -> '\''
+            match('"') -> '"'
+            match('?') -> '?'
+            match('\\') -> '\\'
+            match('a') -> '\u0007'
+            match('b') -> '\b'
+            match('f') -> '\u000C'
+            match('n') -> '\n'
+            match('r') -> '\r'
+            match('t') -> '\t'
+            match('v') -> '\u000B'
+            else -> error(line, "Invalid escape character: '${peek()}'")
         }
 
-        if (isAtEnd()) {
+        else -> when {
+            singleChar && match('\'') -> error(line, "Single quote character must be escaped.")
+            singleChar && match('\n') -> error(line, "Single newline character must be escaped.")
+            else -> advance()
+        }
+    }
+
+    private fun string() {
+        val buffer = StringBuffer()
+        while (peek() != '"' && peek() != '\n' && !isAtEnd()) {
+            buffer.append(char())
+        }
+
+        if (!match('\"')) {
             error(line, "Unterminated string.")
         }
 
-        advance()
-
-        addToken(STRING, (source.substring(start + 1, current - 1)))
+        addToken(STRING, buffer.toString())
     }
 
     private fun peek(): Char = if (isAtEnd()) 0.toChar() else source[current]
@@ -365,6 +395,7 @@ class Scanner(private val source: String) {
             "return" to RETURN,
             "void" to VOID,
             "int" to INT,
+            "char" to CHAR,
             "long" to LONG,
             "double" to DOUBLE,
             "signed" to SIGNED,
