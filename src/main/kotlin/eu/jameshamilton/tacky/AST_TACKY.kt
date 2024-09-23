@@ -52,7 +52,7 @@ enum class BinaryOp {
 sealed class Value
 data class Constant(val value: Any) : Value() {
     init {
-        require(value is Int || value is Long || value is UInt || value is ULong || value is Double)
+        require(value is Int || value is Long || value is UInt || value is ULong || value is Double || value is Char)
     }
 }
 

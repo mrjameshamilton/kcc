@@ -14,6 +14,14 @@ data object Unknown : TypeX86 {
         get() = unreachable("Unknown suffix $this")
 }
 
+data object Byte_ : TypeX86 {
+    override val size: Bytes
+        get() = 1
+    override val suffix: String
+        get() = "b"
+
+}
+
 data object Longword : TypeX86 {
     override val size: Bytes
         get() = 4

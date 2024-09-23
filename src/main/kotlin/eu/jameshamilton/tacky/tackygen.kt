@@ -79,6 +79,7 @@ import eu.jameshamilton.frontend.check.StaticAttr
 import eu.jameshamilton.frontend.check.SymbolTableEntry
 import eu.jameshamilton.frontend.check.Tentative
 import eu.jameshamilton.frontend.check.ZeroInit
+import eu.jameshamilton.frontend.check.makestringconstant
 import eu.jameshamilton.frontend.check.resolveSwitchCases
 import eu.jameshamilton.frontend.check.symbolTable
 import eu.jameshamilton.frontend.isSigned
@@ -181,7 +182,12 @@ private fun emitAndConvert(instructions: MutableList<Instruction>, expression: E
 
 private fun emit(instructions: MutableList<Instruction>, expression: Expression): ExprResult = when (expression) {
     is Constant -> PlainOperand(TackyConstant(expression.value))
-    is StringConstant -> PlainOperand(TackyConstant(expression.value))
+    is StringConstant -> buildTacky(instructions) {
+        val name = makestringconstant(expression.value)
+        val dst = maketemporary(expression.type)
+        getaddress(TackyVar(expression.type, name), dst)
+        PlainOperand(dst)
+    }
     is UnaryExpr -> buildTacky(instructions) {
         when (expression.op) {
             PostfixIncrement, PostfixDecrement -> {
@@ -515,34 +521,69 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
     val switches = resolveSwitchCases(funDeclaration)
 
+    fun emitInitializer(instructions: MutableList<Instruction>, statement: VarDeclaration) {
+        if (symbolTable[statement.name.identifier]?.attr !is LocalAttr || statement.initializer == null) {
+            return
+        }
+
+        var offset = 0
+        fun emit(initializer: Initializer) {
+            buildTacky(instructions) {
+                when {
+                    initializer is CompoundInit -> initializer.expressions.forEach(::emit)
+                    initializer is SingleInit && initializer.expression is StringConstant -> {
+                        val type = statement.initializer.type as ArrayType
+                        val string = initializer.expression.value
+                        val dst = maketemporary(type)
+
+                        (0 until type.length).forEach { index ->
+                            if (index < string.length) {
+                                copytooffset(TackyConstant(string[index]), dst, index)
+                            } else {
+                                copytooffset(TackyConstant(0.toChar()), dst, index)
+                            }
+                        }
+                    }
+
+                    initializer is SingleInit && statement.initializer.type is ArrayType -> {
+                        val src = emitAndConvert(instructions, initializer.expression)
+                        val dst = TackyVar(statement.initializer.type, statement.name.identifier)
+
+                        copytooffset(src, dst, offset)
+                        offset += initializer.expression.type.sizeInBytes
+                    }
+
+                    initializer is SingleInit -> {
+                        val src = emitAndConvert(instructions, initializer.expression)
+                        val dst = TackyVar(statement.initializer.type, statement.name.identifier)
+                        copy(src, dst)
+                    }
+
+                    else -> unreachable("ERROR")
+                }
+                PlainOperand(nop())
+            }
+        }
+
+        emit(statement.initializer)
+    }
+
     fun emit(instructions: MutableList<Instruction>, statement: BlockItem) {
         buildTacky(instructions) {
             when (statement) {
-                is ReturnStatement -> ret(emitAndConvert(instructions, statement.value))
-                is ExpressionStatement -> emit(instructions, statement.expression)
-                is NullStatement -> emptyList<Instruction>()
-                is VarDeclaration -> {
-                    if (symbolTable[statement.name.identifier]?.attr is LocalAttr && statement.initializer != null) {
-                        var offset = 0
-                        fun emit(initializer: Initializer) {
-                            when {
-                                initializer is CompoundInit -> initializer.expressions.forEach(::emit)
-                                initializer is SingleInit && statement.initializer.type is ArrayType -> {
-                                    val src = emitAndConvert(instructions, initializer.expression)
-                                    val dst = TackyVar(statement.initializer.type, statement.name.identifier)
-                                    copytooffset(src, dst, offset)
-                                    offset += initializer.expression.type.sizeInBytes
-                                }
+                is ReturnStatement -> {
+                    ret(emitAndConvert(instructions, statement.value))
+                }
 
-                                initializer is SingleInit -> {
-                                    val src = emitAndConvert(instructions, initializer.expression)
-                                    val dst = TackyVar(statement.initializer.type, statement.name.identifier)
-                                    copy(src, dst)
-                                }
-                            }
-                        }
-                        emit(statement.initializer)
-                    }
+                is ExpressionStatement -> {
+                    emit(instructions, statement.expression)
+                }
+
+                is NullStatement -> {
+                    // Nothing to do here.
+                }
+                is VarDeclaration -> {
+                    emitInitializer(instructions, statement)
                 }
 
                 is FunDeclaration -> {
@@ -605,7 +646,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
 
                 is For -> {
                     when (statement.init) {
-                        is InitDecl -> emit(instructions, statement.init.declaration)
+                        is InitDecl -> emitInitializer(instructions, statement.init.declaration)
                         is InitExpr -> statement.init.expression?.let { emit(instructions, it) }
                     }
                     val startLabel = makelabel("start")

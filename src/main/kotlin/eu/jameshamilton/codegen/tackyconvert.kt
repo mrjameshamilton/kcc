@@ -560,6 +560,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     }
 
                     x86DoubleType, x86UnknownType, is ByteArray -> unreachable("invalid types")
+                    Byte_ -> TODO()
                 }
             }
 
@@ -613,6 +614,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     }
 
                     is x86DoubleType, is x86UnknownType, is ByteArray -> unreachable("Invalid type for src")
+                    Byte_ -> TODO()
                 }
             }
 

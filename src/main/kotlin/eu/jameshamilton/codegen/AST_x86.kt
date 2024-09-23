@@ -148,6 +148,7 @@ fun RegisterName.x(type: TypeX86) = when (type) {
     Unknown -> unreachable("No size for ${this}.")
     Double_ -> unreachable("Use XMM registers for double types.")
     is ByteArray -> Register(this, QUAD)// TODO
+    Byte_ -> TODO()
 }
 
 val Register.b: Register

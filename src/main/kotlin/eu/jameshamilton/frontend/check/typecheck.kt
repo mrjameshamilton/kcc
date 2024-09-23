@@ -125,6 +125,17 @@ data class ZeroInit(val bytes: Int) : StaticInit<Int>(0)
 data class StringInit(override val value: String, val isNullTerminated: Boolean) : StaticInit<String>(value)
 data class PointerInit(override val value: String) : StaticInit<String>(value)
 
+fun makestringconstant(value: String): String {
+    val count =
+        symbolTable.count { it.value.attr is ConstantAttr<*> && (it.value.attr as ConstantAttr<*>).staticInit is StringInit }
+    val name = "string.${count + 1}"
+    symbolTable[name] = SymbolTableEntry(
+        ArrayType(CharType, value.length + 1),
+        ConstantAttr(StringInit(value, true))
+    )
+    return name
+}
+
 fun typecheck(program: Program): Program {
     return Program(program.declarations.map {
         checkfilescope(it)
@@ -616,7 +627,7 @@ private fun typecheckInit(targetType: Type, init: Initializer): Initializer = wh
         if (init.expression.value.length > targetType.length) {
             error("Too many characeters in string literal")
         }
-        SingleInit(init.expression, targetType)
+        SingleInit(StringConstant(init.expression.value, targetType), targetType)
     }
     init is SingleInit -> {
         val expression = typecheckAndConvert(init.expression)
@@ -681,13 +692,7 @@ private fun convertStaticInitializer(targetType: Type, init: Initializer): List<
             error("Can't initialize $targetType type with a string literal.")
         }
 
-        val count =
-            symbolTable.count { it.value.attr is ConstantAttr<*> && (it.value.attr as ConstantAttr<*>).staticInit is StringInit }
-        val name = "string.${count + 1}"
-        symbolTable[name] = SymbolTableEntry(
-            ArrayType(CharType, init.expression.value.length + 1),
-            ConstantAttr(StringInit(init.expression.value, true))
-        )
+        val name = makestringconstant(init.expression.value)
         listOf(PointerInit(name))
     }
     init is SingleInit -> {
