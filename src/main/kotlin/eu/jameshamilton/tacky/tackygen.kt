@@ -184,9 +184,7 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
     is Constant -> PlainOperand(TackyConstant(expression.value))
     is StringConstant -> buildTacky(instructions) {
         val name = makestringconstant(expression.value)
-        val dst = maketemporary(expression.type)
-        getaddress(TackyVar(expression.type, name), dst)
-        PlainOperand(dst)
+        PlainOperand(TackyVar(expression.type, name))
     }
     is UnaryExpr -> buildTacky(instructions) {
         when (expression.op) {
