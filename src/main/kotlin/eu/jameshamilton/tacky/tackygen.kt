@@ -532,8 +532,9 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                     initializer is SingleInit && initializer.expression is StringConstant -> {
                         val type = statement.initializer.type as ArrayType
                         val string = initializer.expression.value
-                        val dst = maketemporary(type)
+                        val dst = TackyVar(type, statement.name.identifier)
 
+                        // TODO: copy multiple bytes at a time
                         (0 until type.length).forEach { index ->
                             if (index < string.length) {
                                 copytooffset(TackyConstant(string[index]), dst, index)
