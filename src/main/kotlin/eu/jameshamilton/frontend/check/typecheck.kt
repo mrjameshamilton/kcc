@@ -3,7 +3,6 @@ package eu.jameshamilton.frontend.check
 import eu.jameshamilton.frontend.AddrOf
 import eu.jameshamilton.frontend.ArithmeticType
 import eu.jameshamilton.frontend.ArrayType
-import eu.jameshamilton.frontend.Assignable
 import eu.jameshamilton.frontend.Assignment
 import eu.jameshamilton.frontend.BinaryExpr
 import eu.jameshamilton.frontend.BinaryOp.Add
@@ -28,6 +27,7 @@ import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.CharType
+import eu.jameshamilton.frontend.CharacterType
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.CompoundInit
 import eu.jameshamilton.frontend.Conditional
@@ -89,6 +89,7 @@ import eu.jameshamilton.frontend.castForAssignment
 import eu.jameshamilton.frontend.commonPointerType
 import eu.jameshamilton.frontend.commonType
 import eu.jameshamilton.frontend.error
+import eu.jameshamilton.frontend.isLValue
 import eu.jameshamilton.frontend.plus
 import eu.jameshamilton.isNegativeZero
 import java.util.*
@@ -102,6 +103,7 @@ val symbolTable = SymbolTable()
 sealed class IdentifierAttr
 data class FunAttr(val defined: Boolean, val global: Boolean) : IdentifierAttr()
 data class StaticAttr(val initialValue: InitialValue, val global: Boolean) : IdentifierAttr()
+data class ConstantAttr<T>(val staticInit: StaticInit<T>) : IdentifierAttr()
 data object LocalAttr : IdentifierAttr()
 sealed class InitialValue
 data object Tentative : InitialValue()
@@ -113,11 +115,15 @@ data object NoInitializer : InitialValue()
 
 sealed class StaticInit<T>(open val value: T)
 data class IntInit(override val value: Int) : StaticInit<Int>(value)
+data class CharInit(override val value: Int) : StaticInit<Int>(value)
+data class UCharInit(override val value: UInt) : StaticInit<UInt>(value)
 data class LongInit(override val value: Long) : StaticInit<Long>(value)
 data class UIntInit(override val value: UInt) : StaticInit<UInt>(value)
 data class ULongInit(override val value: ULong) : StaticInit<ULong>(value)
 data class DoubleInit(override val value: Double) : StaticInit<Double>(value)
 data class ZeroInit(val bytes: Int) : StaticInit<Int>(0)
+data class StringInit(override val value: String, val isNullTerminated: Boolean) : StaticInit<String>(value)
+data class PointerInit(override val value: String) : StaticInit<String>(value)
 
 fun typecheck(program: Program): Program {
     return Program(program.declarations.map {
@@ -321,7 +327,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     is Assignment -> {
         val left = typecheckAndConvert(expression.lvalue)
 
-        if (left !is Assignable) {
+        if (!left.isLValue) {
             error(0, "Expression is not an lvalue.")
         }
 
@@ -387,6 +393,10 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                         BinaryExpr(left.cast(LongType), expression.operator, right, right.type)
                     }
 
+                    left.type is CharacterType || right.type is CharacterType -> {
+                        BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
+                    }
+
                     else -> {
                         error("Invalid operands for '${expression.operator}': ${left.type} ${expression.operator} ${right.type}")
                     }
@@ -405,6 +415,10 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
                     left.type is PointerType && left.type == right.type -> {
                         BinaryExpr(left, expression.operator, right, LongType)
+                    }
+
+                    left.type is CharacterType || right.type is CharacterType -> {
+                        BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
                     else -> {
@@ -430,6 +444,10 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             }
 
             LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> when {
+                left.type is CharacterType || right.type is CharacterType -> {
+                    BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                }
+
                 left.type is ArithmeticType && right.type is ArithmeticType -> {
                     BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
                 }
@@ -467,7 +485,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         Constant(expression.value, type)
     }
 
-    is StringConstant -> TODO()
+    is StringConstant -> StringConstant(expression.value, ArrayType(CharType, expression.value.length + 1))
 
     is FunctionCall -> {
         val identifier = expression.identifier
@@ -513,11 +531,21 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
             else -> {}
         }
-        val type = when (expression.op) {
-            Not -> IntType
-            else -> expr.type
+
+        when {
+            expression.op == Not -> {
+                UnaryExpr(expression.op, expr, IntType)
+            }
+
+            expression.op in setOf(Complement, Negate) && expr.type is CharacterType -> {
+                UnaryExpr(expression.op, expr.cast(IntType), IntType)
+            }
+
+            else -> {
+                UnaryExpr(expression.op, expr, expr.type)
+            }
         }
-        UnaryExpr(expression.op, expr, type)
+
     }
 
     is Var -> {
@@ -541,7 +569,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     }
 
     is AddrOf -> {
-        if (expression.expression !is Assignable) {
+        if (!expression.expression.isLValue) {
             error(0, "Can only get the address of an assignable/lvalue; found '${expression.expression}'.")
         }
         val expr = typecheck(expression.expression)
@@ -581,8 +609,18 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 }
 
 private fun typecheckInit(targetType: Type, init: Initializer): Initializer = when {
+    init is SingleInit && targetType is ArrayType && init.expression is StringConstant -> {
+        if (targetType.element !is CharacterType) {
+            error("Can't initialize a non-character type with a string literal")
+        }
+        if (init.expression.value.length > targetType.length) {
+            error("Too many characeters in string literal")
+        }
+        SingleInit(init.expression, targetType)
+    }
     init is SingleInit -> {
-        SingleInit(typecheckAndConvert(init.expression).castForAssignment(targetType), targetType)
+        val expression = typecheckAndConvert(init.expression)
+        SingleInit(expression.castForAssignment(targetType), targetType)
     }
 
     init is CompoundInit && targetType is ArrayType -> {
@@ -610,13 +648,48 @@ private fun zeroinit(targetType: Type): Initializer = when (targetType) {
     LongType -> SingleInit(Constant(0L, targetType), targetType)
     UIntType -> SingleInit(Constant(0U, targetType), targetType)
     ULongType -> SingleInit(Constant(0UL, targetType), targetType)
-    Unknown, is FunType, is PointerType -> error("Invalid type for zeroinit: '${targetType}'.")
-    CharType -> TODO()
-    SCharType -> TODO()
-    UCharType -> TODO()
+    is CharType, SCharType -> SingleInit(Constant(0, targetType), targetType)
+    is UCharType -> SingleInit(Constant(0U, targetType), targetType)
+    is PointerType -> when (targetType.referenced) {
+        is CharType, SCharType -> SingleInit(Constant(0, targetType), targetType)
+        is UCharType -> SingleInit(Constant(0U, targetType), targetType)
+        else -> error("Invalid type for zeroinit: '${targetType}'.")
+    }
+
+    Unknown, is FunType -> error("Invalid type for zeroinit: '${targetType}'.")
 }
 
 private fun convertStaticInitializer(targetType: Type, init: Initializer): List<StaticInit<*>> = when {
+    init is SingleInit && targetType is ArrayType && init.expression is StringConstant -> {
+        if (targetType.baseType !is CharacterType) {
+            error("Can't initialize a non-character type with a string literal.")
+        }
+        val length = init.expression.value.length
+        if (length > targetType.length) {
+            error("Too many characeters in string literal")
+        }
+
+        val isNullTerminated = (length < targetType.length)
+        val padding = if (targetType.length - length - 1 > 0) targetType.length - length - 1 else 0
+        val stringInit = StringInit(init.expression.value, isNullTerminated)
+
+        if (padding > 0) listOf(stringInit, ZeroInit(padding)) else listOf(stringInit)
+    }
+
+    init is SingleInit && init.expression is StringConstant && targetType is PointerType && targetType.referenced is CharacterType -> {
+        if (targetType.referenced !is CharType) {
+            error("Can't initialize $targetType type with a string literal.")
+        }
+
+        val count =
+            symbolTable.count { it.value.attr is ConstantAttr<*> && (it.value.attr as ConstantAttr<*>).staticInit is StringInit }
+        val name = "string.${count + 1}"
+        symbolTable[name] = SymbolTableEntry(
+            ArrayType(CharType, init.expression.value.length + 1),
+            ConstantAttr(StringInit(init.expression.value, true))
+        )
+        listOf(PointerInit(name))
+    }
     init is SingleInit -> {
         val expr = typecheckAndConvert(init.expression).castForAssignment(targetType)
 

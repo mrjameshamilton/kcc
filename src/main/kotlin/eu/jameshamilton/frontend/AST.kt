@@ -113,7 +113,7 @@ data class Switch(
 sealed class Expression(open val type: Type = Unknown)
 
 data class Constant(val value: Any, override val type: Type = Unknown) : Expression(type)
-data class StringConstant(val value: String, override val type: Type = Unknown) : Expression(type)
+data class StringConstant(val value: String, override val type: Type = Unknown) : Expression(type), Assignable
 
 data class UnaryExpr(val op: UnaryOp, val expression: Expression, override val type: Type = Unknown) : Expression(type)
 
@@ -200,3 +200,6 @@ class Identifier(val identifier: String, val line: Int) {
 
     override fun toString(): String = identifier
 }
+
+val Expression.isLValue: Boolean
+    get() = this is Assignable

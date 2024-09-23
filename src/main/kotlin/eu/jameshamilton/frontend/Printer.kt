@@ -1,13 +1,18 @@
 package eu.jameshamilton.frontend
 
+import eu.jameshamilton.frontend.check.CharInit
+import eu.jameshamilton.frontend.check.ConstantAttr
 import eu.jameshamilton.frontend.check.DoubleInit
 import eu.jameshamilton.frontend.check.Initial
 import eu.jameshamilton.frontend.check.InitialValue
 import eu.jameshamilton.frontend.check.IntInit
 import eu.jameshamilton.frontend.check.LongInit
 import eu.jameshamilton.frontend.check.NoInitializer
+import eu.jameshamilton.frontend.check.PointerInit
 import eu.jameshamilton.frontend.check.StaticAttr
+import eu.jameshamilton.frontend.check.StringInit
 import eu.jameshamilton.frontend.check.Tentative
+import eu.jameshamilton.frontend.check.UCharInit
 import eu.jameshamilton.frontend.check.UIntInit
 import eu.jameshamilton.frontend.check.ULongInit
 import eu.jameshamilton.frontend.check.ZeroInit
@@ -136,6 +141,14 @@ fun print(declaration: Declaration) = os.scoped {
     os.println()
 }
 
+fun escape(s: String) = s.map {
+    when (it) {
+        '\t' -> "\\t"
+        '\n' -> "\\n"
+        else -> it
+    }
+}.joinToString("")
+
 fun printInitialValue(type: Type, initialValue: InitialValue) {
     when (initialValue) {
         is Initial -> {
@@ -144,6 +157,10 @@ fun printInitialValue(type: Type, initialValue: InitialValue) {
                 when (it) {
                     is DoubleInit, is IntInit, is UIntInit, is LongInit, is ULongInit -> os.print(it.value)
                     is ZeroInit -> repeat(it.bytes / type.baseType.sizeInBytes) { os.print(0) }
+                    is CharInit -> TODO()
+                    is UCharInit -> TODO()
+                    is PointerInit -> os.print("\"${(symbolTable[it.value]?.attr as ConstantAttr<*>).staticInit.value}\"")
+                    is StringInit -> os.print(""""${escape(it.value)}"""")
                 }
                 if (index != initialValue.value.lastIndex) os.print(",")
                 os.print(" ")
@@ -300,7 +317,7 @@ fun printExpression(expression: Expression) {
         }
 
         is StringConstant -> {
-            os.print("\"${expression.value}\"")
+            os.print("\"${escape(expression.value)}\"")
         }
 
         is FunctionCall -> {

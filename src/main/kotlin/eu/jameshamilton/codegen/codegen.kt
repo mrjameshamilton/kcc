@@ -37,10 +37,14 @@ import eu.jameshamilton.codegen.RegisterSize.QUAD
 import eu.jameshamilton.codegen.RegisterSize.WORD
 import eu.jameshamilton.codegen.UnaryOp.Neg
 import eu.jameshamilton.codegen.UnaryOp.Not
+import eu.jameshamilton.frontend.check.CharInit
 import eu.jameshamilton.frontend.check.DoubleInit
 import eu.jameshamilton.frontend.check.IntInit
 import eu.jameshamilton.frontend.check.LongInit
+import eu.jameshamilton.frontend.check.PointerInit
 import eu.jameshamilton.frontend.check.StaticInit
+import eu.jameshamilton.frontend.check.StringInit
+import eu.jameshamilton.frontend.check.UCharInit
 import eu.jameshamilton.frontend.check.UIntInit
 import eu.jameshamilton.frontend.check.ULongInit
 import eu.jameshamilton.frontend.check.ZeroInit
@@ -140,6 +144,10 @@ fun emit(x86program: x86Program): String = buildString {
             is LongInit, is ULongInit -> "quad"
             is DoubleInit -> "double"
             is ZeroInit -> "zero"
+            is CharInit -> TODO()
+            is UCharInit -> TODO()
+            is PointerInit -> TODO()
+            is StringInit -> TODO()
         }
 
         when (staticInit) {

@@ -32,6 +32,7 @@ import eu.jameshamilton.frontend.UCharType
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.Unknown
+import eu.jameshamilton.frontend.check.ConstantAttr
 import eu.jameshamilton.frontend.check.DoubleInit
 import eu.jameshamilton.frontend.check.FunAttr
 import eu.jameshamilton.frontend.check.LocalAttr
@@ -105,6 +106,7 @@ private val backendSymbolTable: Map<String, Boolean> by lazy {
         val isStatic = when (it.value.attr) {
             is FunAttr, LocalAttr, null -> false
             is StaticAttr -> true
+            is ConstantAttr<*> -> TODO()
         }
         key to isStatic
     }.toMap()

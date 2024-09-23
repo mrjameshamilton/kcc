@@ -483,27 +483,28 @@ class Parser(private val tokens: List<Token>) {
         }
 
         types.contains(SIGNED) && types.contains(UNSIGNED) -> {
-            throw error(previous(), "Invalid type specifier '${types.joinToString(", ")}'")
+            throw error(previous(), "A type cannot be both signed and unsigned '${types.joinToString(", ")}'")
         }
 
         types.distinct().size != types.count() -> {
             throw error(previous(), "Duplicate type specifiers '${types.joinToString(", ")}'.")
         }
 
-        types.containsAll(setOf(UNSIGNED, LONG)) -> ULongType
-        types.contains(UNSIGNED) -> UIntType
-        types == listOf(LONG) -> LongType
+        else -> when (types.toSet()) {
+            setOf(SIGNED, INT), setOf(SIGNED), setOf(INT) -> IntType
+            setOf(UNSIGNED, INT), setOf(UNSIGNED), setOf(INT) -> UIntType
 
-        types == listOf(CHAR) -> CharType
-        types.containsAll(setOf(CHAR, UNSIGNED)) -> UCharType
-        types.containsAll(setOf(CHAR, SIGNED)) -> SCharType
+            setOf(UNSIGNED, LONG), setOf(UNSIGNED, LONG, INT) -> ULongType
+            setOf(SIGNED, LONG), setOf(SIGNED, LONG, INT), setOf(LONG), setOf(LONG, INT) -> LongType
 
-        types.contains(CHAR) -> {
-            throw error(previous(), "`char` cannot be combined with other types '${types.joinToString(", ")}'.")
+            setOf(CHAR) -> CharType
+            setOf(SIGNED, CHAR) -> SCharType
+            setOf(UNSIGNED, CHAR) -> UCharType
+
+            else -> {
+                throw error(previous(), "Invalid type combinations '${types.joinToString(", ")}'.")
+            }
         }
-
-        // Default type is int.
-        else -> IntType
     }
 
     private fun primary(): Expression = when {

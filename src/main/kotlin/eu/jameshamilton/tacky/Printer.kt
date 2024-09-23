@@ -3,10 +3,14 @@ package eu.jameshamilton.tacky
 import eu.jameshamilton.frontend.ArrayType
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.Type
+import eu.jameshamilton.frontend.check.CharInit
 import eu.jameshamilton.frontend.check.DoubleInit
 import eu.jameshamilton.frontend.check.IntInit
 import eu.jameshamilton.frontend.check.LongInit
+import eu.jameshamilton.frontend.check.PointerInit
 import eu.jameshamilton.frontend.check.StaticInit
+import eu.jameshamilton.frontend.check.StringInit
+import eu.jameshamilton.frontend.check.UCharInit
 import eu.jameshamilton.frontend.check.UIntInit
 import eu.jameshamilton.frontend.check.ULongInit
 import eu.jameshamilton.frontend.check.ZeroInit
@@ -63,6 +67,10 @@ private fun printStaticInit(type: Type, initializers: List<StaticInit<*>>) {
             is UIntInit -> print(initializer.value)
             is ULongInit -> print(initializer.value)
             is ZeroInit -> print("zero ${initializer.bytes}")
+            is CharInit -> TODO()
+            is UCharInit -> TODO()
+            is PointerInit -> TODO()
+            is StringInit -> TODO()
         }
         if (i != initializers.lastIndex) print(", ")
     }
