@@ -173,7 +173,7 @@ fun replacePseudoRegisters(program: Program): Program {
                 when (instruction.op) {
                     Add, Sub, And, Or, Xor -> when {
                         left is Imm && left.type is Quadword -> {
-                            if (right.type is Quadword) {
+                            if (right is Imm && right.type is Quadword) {
                                 mov(instruction.type, left, R10.q)
                                 mov(instruction.type, right, R11.q)
                                 binary(instruction.type, instruction.op, R10.q, R11.q)
