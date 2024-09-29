@@ -1,5 +1,7 @@
 package eu.jameshamilton.tacky
 
+import eu.jameshamilton.frontend.IntType
+
 class Builder(private val instructions: MutableList<Instruction> = mutableListOf()) {
     fun jump(target: String): Value {
         instructions += Jump(target)
@@ -25,7 +27,7 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
     }
 
     fun copy(i: Int, dst: Value): Value {
-        instructions += Copy(Constant(i), dst)
+        instructions += Copy(Constant(IntType, i), dst)
         return dst
     }
 
@@ -132,7 +134,7 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         return dst
     }
 
-    fun nop(): Value = Constant(0)
+    fun nop(): Value = Constant(IntType, 0)
 }
 
 fun buildTacky(instructions: MutableList<Instruction>, block: Builder.() -> ExprResult): ExprResult =

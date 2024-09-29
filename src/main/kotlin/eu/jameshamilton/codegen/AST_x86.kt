@@ -1,9 +1,26 @@
 package eu.jameshamilton.codegen
 
 import eu.jameshamilton.codegen.RegisterName.AX
+import eu.jameshamilton.codegen.RegisterName.BP
 import eu.jameshamilton.codegen.RegisterName.CX
+import eu.jameshamilton.codegen.RegisterName.DI
 import eu.jameshamilton.codegen.RegisterName.DX
+import eu.jameshamilton.codegen.RegisterName.R10
+import eu.jameshamilton.codegen.RegisterName.R11
+import eu.jameshamilton.codegen.RegisterName.R8
+import eu.jameshamilton.codegen.RegisterName.R9
 import eu.jameshamilton.codegen.RegisterName.SI
+import eu.jameshamilton.codegen.RegisterName.SP
+import eu.jameshamilton.codegen.RegisterName.XMM0
+import eu.jameshamilton.codegen.RegisterName.XMM1
+import eu.jameshamilton.codegen.RegisterName.XMM14
+import eu.jameshamilton.codegen.RegisterName.XMM15
+import eu.jameshamilton.codegen.RegisterName.XMM2
+import eu.jameshamilton.codegen.RegisterName.XMM3
+import eu.jameshamilton.codegen.RegisterName.XMM4
+import eu.jameshamilton.codegen.RegisterName.XMM5
+import eu.jameshamilton.codegen.RegisterName.XMM6
+import eu.jameshamilton.codegen.RegisterName.XMM7
 import eu.jameshamilton.codegen.RegisterSize.BYTE
 import eu.jameshamilton.codegen.RegisterSize.LONG
 import eu.jameshamilton.codegen.RegisterSize.QUAD
@@ -31,8 +48,8 @@ data class StaticConstant(val name: String, val alignment: Int, val init: Static
 sealed class Instruction
 
 data class Mov(val type: TypeX86, val src: Operand, val dst: Operand) : Instruction()
-data class Movsx(val src: Operand, val dst: Operand) : Instruction()
-data class Movzx(val src: Operand, val dst: Operand) : Instruction()
+data class Movsx(val srcType: TypeX86, val dstType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
+data class Movzx(val srcType: TypeX86, val dstType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data class Lea(val src: Operand, val dst: Operand) : Instruction()
 data class Cvttsd2si(val dstType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
 data class Cvtsi2sd(val srcType: TypeX86, val src: Operand, val dst: Operand) : Instruction()
@@ -78,11 +95,33 @@ data class Call(val identifier: String) : Instruction()
 sealed class Operand(open val type: TypeX86)
 data class Imm(override val type: TypeX86, val value: Any) : Operand(type) {
     init {
-        require(value is Int || value is Long || value is UInt || value is ULong)
+        require(value is Byte || value is UByte || value is Int || value is Long || value is UInt || value is ULong) { "${value.javaClass.simpleName} is not a supported type $type" }
     }
 }
 
-data class Register(val name: RegisterName, val size: RegisterSize) : Operand(Unknown)
+data class Register(val name: RegisterName, val size: RegisterSize) : Operand(Unknown) {
+    // TODO
+    override val type: TypeX86
+        get() = when (name) {
+            AX, CX, DX, DI, SI, R8, R9, R10, R11, SP, BP -> when (size) {
+                BYTE -> Byte_
+                WORD -> Longword // TODO: wrong size?
+                LONG -> Longword
+                QUAD -> Quadword
+            }
+
+            XMM0,
+            XMM1,
+            XMM2,
+            XMM3,
+            XMM4,
+            XMM5,
+            XMM6,
+            XMM7,
+            XMM14,
+            XMM15 -> Double_
+        }
+}
 
 // EAX is the full 32-bit value
 // AX is the lower 16-bits
@@ -143,12 +182,12 @@ val RegisterName.sd: Register
     get() = Register(this, QUAD)
 
 fun RegisterName.x(type: TypeX86) = when (type) {
+    Byte_ -> Register(this, BYTE)
     Longword -> Register(this, LONG)
     Quadword -> Register(this, QUAD)
     Unknown -> unreachable("No size for ${this}.")
     Double_ -> unreachable("Use XMM registers for double types.")
     is ByteArray -> Register(this, QUAD)// TODO
-    Byte_ -> TODO()
 }
 
 val Register.b: Register
@@ -161,6 +200,7 @@ typealias Bytes = Int
 sealed interface Memory
 data class Pseudo(override val type: TypeX86, val identifier: String) : Operand(type)
 data class PseudoMem(override val type: TypeX86, val identifier: String, val offset: Int) : Operand(type), Memory
-data class Mem(val base: Register, val position: Int) : Operand(Unknown), Memory
-data class Indexed(val base: Register, val index: Register, val scale: Int) : Operand(Unknown), Memory
+data class Mem(override val type: TypeX86, val base: Register, val position: Int) : Operand(type), Memory
+data class Indexed(override val type: TypeX86, val base: Register, val index: Register, val scale: Int) : Operand(type),
+    Memory
 data class Data(override val type: TypeX86, val identifier: String) : Operand(type), Memory

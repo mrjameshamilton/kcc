@@ -26,6 +26,7 @@ import eu.jameshamilton.frontend.BinaryOp.Xor
 import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
+import eu.jameshamilton.frontend.CharType
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.CompoundInit
 import eu.jameshamilton.frontend.Conditional
@@ -181,7 +182,9 @@ private fun emitAndConvert(instructions: MutableList<Instruction>, expression: E
     convert(instructions, expression.type, emit(instructions, expression))
 
 private fun emit(instructions: MutableList<Instruction>, expression: Expression): ExprResult = when (expression) {
-    is Constant -> PlainOperand(TackyConstant(expression.value))
+    is Constant -> {
+        PlainOperand(TackyConstant(expression.type, expression.value))
+    }
     is StringConstant -> buildTacky(instructions) {
         val name = makestringconstant(expression.value)
         PlainOperand(TackyVar(expression.type, name))
@@ -205,7 +208,7 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
                         val dst = maketemporary(expression.type)
                         val tmp = convert(instructions, expression.type, value)
                         copy(tmp, dst)
-                        increment(tmp, TackyConstant(amount))
+                        increment(tmp, TackyConstant(expression.type, amount))
                         store(tmp, value.value)
                         PlainOperand(dst)
                     }
@@ -216,12 +219,12 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
                         if (expression.type is PointerType) {
                             addptr(
                                 value.value,
-                                TackyConstant(amount),
+                                TackyConstant(LongType, amount),
                                 (expression.type as PointerType).referenced.sizeInBytes,
                                 value.value
                             )
                         } else {
-                            increment(value.value, TackyConstant(amount))
+                            increment(value.value, TackyConstant(expression.type, amount))
                         }
                         PlainOperand(dst)
                     }
@@ -243,7 +246,7 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
                 when (val value = emit(instructions, expression.expression)) {
                     is DereferencedPointer -> {
                         val dst = convert(instructions, expression.type, value)
-                        increment(dst, TackyConstant(amount))
+                        increment(dst, TackyConstant(expression.type, amount))
                         store(dst, value.value)
                         PlainOperand(dst)
                     }
@@ -252,12 +255,12 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
                         if (expression.type is PointerType) {
                             addptr(
                                 value.value,
-                                TackyConstant(amount),
+                                TackyConstant(LongType, amount),
                                 (expression.type as PointerType).referenced.sizeInBytes,
                                 value.value
                             )
                         } else {
-                            increment(value.value, TackyConstant(amount))
+                            increment(value.value, TackyConstant(expression.type, amount))
                         }
                         value
                     }
@@ -331,7 +334,7 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
                     val ptrType = expression.left.type as PointerType
                     val diff = maketemporary(LongType)
                     sub(v1, v2, diff)
-                    div(diff, TackyConstant(ptrType.referenced.sizeInBytes), dst)
+                    div(diff, TackyConstant(IntType, ptrType.referenced.sizeInBytes), dst)
                 }
 
                 expression.left.type is PointerType -> {
@@ -529,17 +532,18 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                 when {
                     initializer is CompoundInit -> initializer.expressions.forEach(::emit)
                     initializer is SingleInit && initializer.expression is StringConstant -> {
-                        val type = statement.initializer.type as ArrayType
+                        val type = initializer.type as ArrayType
                         val string = initializer.expression.value
                         val dst = TackyVar(type, statement.name.identifier)
 
                         // TODO: copy multiple bytes at a time
                         (0 until type.length).forEach { index ->
                             if (index < string.length) {
-                                copytooffset(TackyConstant(string[index]), dst, index)
+                                copytooffset(TackyConstant(CharType, string[index]), dst, offset)
                             } else {
-                                copytooffset(TackyConstant(0.toChar()), dst, index)
+                                copytooffset(TackyConstant(CharType, 0.toChar()), dst, offset)
                             }
+                            offset += 1
                         }
                     }
 
@@ -731,6 +735,6 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         funDeclaration.body != null,
         funDeclaration.params?.map { it.name.identifier } ?: emptyList(),
         // TODO: don't add return for declarations?
-        convert(funDeclaration.body) + listOf(Return(TackyConstant(0)))
+        convert(funDeclaration.body) + listOf(Return(TackyConstant(IntType, 0)))
     )
 }

@@ -21,9 +21,9 @@ sealed interface ArithmeticType
 sealed interface IntegerType : ArithmeticType
 sealed interface CharacterType : IntegerType
 
-val IntegerType.isSigned: Boolean
+val Type.isSigned: Boolean
     get() = this is IntType || this is LongType || this is CharType || this is SCharType
-val IntegerType.isUnsigned: Boolean
+val Type.isUnsigned: Boolean
     get() = !this.isSigned
 
 data object Unknown : Type(0)
@@ -103,14 +103,19 @@ infix fun Expression.commonType(other: Expression): Type = when {
     else -> this.type + other.type
 }
 
-operator fun Type.plus(other: Type) = when {
-    this == other -> this
-    this == DoubleType || other is DoubleType -> DoubleType
-    this is CharacterType || other is CharacterType -> IntType
-    this is Unknown -> this
-    this.sizeInBits == other.sizeInBits -> if (this is IntegerType && this.isSigned) other else this
-    this.sizeInBits > other.sizeInBits -> this
-    else -> other
+operator fun Type.plus(other: Type): Type {
+    // char types are promoted to integers
+    val a = if (this is CharacterType) IntType else this
+    val b = if (other is CharacterType) IntType else other
+
+    return when {
+        a == b -> a
+        a == DoubleType || other is DoubleType -> DoubleType
+        a is Unknown -> a
+        a.sizeInBits == b.sizeInBits -> if (a is IntegerType && a.isSigned) b else a
+        a.sizeInBits > b.sizeInBits -> a
+        else -> b
+    }
 }
 
 fun Expression.castForAssignment(targetType: Type): Expression = when {
@@ -128,8 +133,9 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             UIntType -> Constant(value.toUInt(), targetType)
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> Constant(value.toDouble(), targetType)
-            CharType -> Constant(value.toInt(), targetType)
-            SCharType -> Constant(value.toInt(), targetType)
+            CharType -> Constant(value.toChar(), targetType)
+            SCharType -> Constant(value.toChar(), targetType)
+            // TODO: chars are char but uchar is uint.
             UCharType -> Constant(value.toUInt(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
@@ -148,8 +154,8 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             UIntType -> Constant(value.toUInt(), targetType)
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> Constant(value.toDouble(), targetType)
-            CharType -> Constant(value.toInt(), targetType)
-            SCharType -> Constant(value.toInt(), targetType)
+            CharType -> Constant(value.toInt().toChar(), targetType)
+            SCharType -> Constant(value.toInt().toChar(), targetType)
             UCharType -> Constant(value.toUInt(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
@@ -168,8 +174,8 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             UIntType -> this
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> Constant(value.toDouble(), targetType)
-            CharType -> Constant(value.toInt(), targetType)
-            SCharType -> Constant(value.toInt(), targetType)
+            CharType -> Constant(value.toInt().toChar(), targetType)
+            SCharType -> Constant(value.toInt().toChar(), targetType)
             UCharType -> Constant(value.toUInt(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
@@ -188,8 +194,8 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             UIntType -> Constant(value.toUInt(), targetType)
             ULongType -> this
             DoubleType -> Constant(value.toDouble(), targetType)
-            CharType -> Constant(value.toInt(), targetType)
-            SCharType -> Constant(value.toInt(), targetType)
+            CharType -> Constant(value.toInt().toChar(), targetType)
+            SCharType -> Constant(value.toInt().toChar(), targetType)
             UCharType -> Constant(value.toUInt(), targetType)
             is PointerType -> {
                 if (isNullPointerConstant)
@@ -208,8 +214,8 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             UIntType -> Constant(value.toUInt(), targetType)
             ULongType -> Constant(value.toULong(), targetType)
             DoubleType -> this
-            CharType -> Constant(value.toInt(), targetType)
-            SCharType -> Constant(value.toInt(), targetType)
+            CharType -> Constant(value.toInt().toChar(), targetType)
+            SCharType -> Constant(value.toInt().toChar(), targetType)
             UCharType -> Constant(value.toUInt(), targetType)
             is FunType, Unknown, is PointerType -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()

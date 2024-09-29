@@ -21,10 +21,10 @@ import eu.jameshamilton.codegen.RegisterName.R9
 import eu.jameshamilton.codegen.RegisterName.SI
 import eu.jameshamilton.frontend.ArrayType
 import eu.jameshamilton.frontend.CharType
+import eu.jameshamilton.frontend.CharacterType
 import eu.jameshamilton.frontend.DoubleType
 import eu.jameshamilton.frontend.FunType
 import eu.jameshamilton.frontend.IntType
-import eu.jameshamilton.frontend.IntegerType
 import eu.jameshamilton.frontend.LongType
 import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.SCharType
@@ -38,6 +38,7 @@ import eu.jameshamilton.frontend.check.FunAttr
 import eu.jameshamilton.frontend.check.LocalAttr
 import eu.jameshamilton.frontend.check.StaticAttr
 import eu.jameshamilton.frontend.check.StaticInit
+import eu.jameshamilton.frontend.check.StringInit
 import eu.jameshamilton.frontend.check.ULongInit
 import eu.jameshamilton.frontend.check.ZeroInit
 import eu.jameshamilton.frontend.check.symbolTable
@@ -81,7 +82,6 @@ import eu.jameshamilton.tacky.UIntToDouble
 import eu.jameshamilton.tacky.UnaryOp.Complement
 import eu.jameshamilton.tacky.UnaryOp.Negate
 import eu.jameshamilton.tacky.UnaryOp.Not
-import eu.jameshamilton.tacky.Var
 import eu.jameshamilton.tacky.ZeroExtend
 import eu.jameshamilton.unreachable
 import eu.jameshamilton.codegen.Double_ as x86DoubleType
@@ -106,7 +106,7 @@ private val backendSymbolTable: Map<String, Boolean> by lazy {
         val isStatic = when (it.value.attr) {
             is FunAttr, LocalAttr, null -> false
             is StaticAttr -> true
-            is ConstantAttr<*> -> TODO()
+            is ConstantAttr<*> -> it.value.attr is StaticAttr
         }
         key to isStatic
     }.toMap()
@@ -116,16 +116,6 @@ val Pseudo.isStatic: Boolean
     get() = backendSymbolTable[identifier] == true
 val PseudoMem.isStatic: Boolean
     get() = backendSymbolTable[identifier] == true
-
-val TackyValue.isSigned: Boolean
-    get() = when (this) {
-        is Constant -> when (value) {
-            is Int, is Long -> true
-            else -> false
-        }
-
-        is Var -> type is IntegerType && type.isSigned
-    }
 
 val Data.isConstant: Boolean
     get() = constants.containsValue(identifier)
@@ -160,7 +150,11 @@ private fun convert(staticVariable: TackyStaticVariable): StaticVariable =
     StaticVariable(
         staticVariable.name,
         staticVariable.global,
-        alignment = if (staticVariable.type == IntType) Longword.size else Quadword.size,
+        alignment = when (staticVariable.type) {
+            IntType -> Longword.size
+            is ArrayType -> if (staticVariable.type.baseType is CharacterType) 16 else Longword.size
+            else -> Quadword.size
+        },
         staticVariable.init
     )
 
@@ -171,12 +165,10 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
         val parameters = tackyFunctionDef.parameters.mapIndexed { index, (tackyType, param) ->
             val x86Type = when (tackyType) {
                 is FunType, Unknown, is ArrayType -> unreachable("Invalid type $tackyType")
+                CharType, SCharType, UCharType -> Byte_
                 IntType, UIntType -> Longword
                 LongType, ULongType, is PointerType -> Quadword
                 DoubleType -> x86DoubleType
-                CharType -> TODO()
-                SCharType -> TODO()
-                UCharType -> TODO()
             }
             Triple(index, x86Type, param)
         }
@@ -223,7 +215,7 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
             .mapIndexed { index, (_, type, param) -> Triple(index + stackParameterOffset, type, param) }
             .asReversed()
             .forEach { (index, type, param) ->
-                mov(type, Mem(BP, position = index * size), Pseudo(type, param))
+                mov(type, Mem(type, BP, position = index * size), Pseudo(type, param))
             }
     }
 
@@ -238,29 +230,59 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
 private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> = instructions.flatMap { tacky ->
 
     fun convert(value: TackyValue): Operand = when (value) {
-        is TackyConstant -> when (value.value) {
-            is Int, is UInt -> Imm(Longword, value.value)
-            is Long, is ULong -> Imm(Quadword, value.value)
-            is Double -> makeconstant(DoubleInit(value.value))
-            else -> unreachable("Invalid type ")
+        is TackyConstant -> when (value.type) {
+            is CharacterType -> when (value.value) {
+                is Char -> Imm(Byte_, value.value.code.toByte())
+                is Int -> Imm(Byte_, value.value.toByte())
+                is UInt -> Imm(Byte_, value.value.toByte())
+                else -> unreachable("Invalid type ${value.value.javaClass}")
+            }
+
+            is IntType, is UIntType -> Imm(Longword, value.value)
+            is LongType, is ULongType -> Imm(Quadword, value.value)
+            is DoubleType -> when (value.value) {
+                is Double -> makeconstant(DoubleInit(value.value))
+                is ULong -> makeconstant(ULongInit(value.value))
+                else -> unreachable("Invalid type ${value.type}")
+            }
+
+            is PointerType -> when (value.value) {
+                is ULong -> {
+                    require(value.value == 0UL) { "only nullpointer constant allowed" }
+                    Imm(Quadword, value.value)
+                }
+
+                else -> unreachable("Invalid type ${value.value.javaClass.simpleName}")
+            }
+
+            is ArrayType, is FunType, Unknown -> unreachable("Invalid type ${value.type.baseType}")
+
         }
 
         is TackyVar -> when (value.type) {
+            CharType, SCharType, UCharType -> Pseudo(Byte_, value.name)
             IntType, UIntType -> Pseudo(Longword, value.name)
             LongType, ULongType -> Pseudo(Quadword, value.name)
             DoubleType -> Pseudo(x86DoubleType, value.name)
             is PointerType -> Pseudo(Quadword, value.name)
-            is ArrayType -> PseudoMem(
-                ByteArray(
-                    value.type.sizeInBytes,
-                    if (value.type.sizeInBytes >= STACK_ALIGNMENT_BYTES) STACK_ALIGNMENT_BYTES else value.type.baseType.sizeInBytes
-                ), value.name, 0
-            )
+            is ArrayType -> {
+                val symbol = symbolTable[value.name]
+                if (symbol?.attr is ConstantAttr<*> && symbol.attr.staticInit is StringInit) {
+                    val init = symbol.attr.staticInit
+                    makeconstant(StringInit(init.value, init.isNullTerminated))
+                } else if (symbol != null) {
+                    PseudoMem(
+                        ByteArray(
+                            symbol.type.sizeInBytes,
+                            if (symbol.type.sizeInBytes >= STACK_ALIGNMENT_BYTES) STACK_ALIGNMENT_BYTES else symbol.type.baseType.sizeInBytes
+                        ), value.name, 0
+                    )
+                } else {
+                    unreachable("Symbol ${value.name} is not defined")
+                }
+            }
 
             is FunType, Unknown -> unreachable("Invalid type: ${value.type}")
-            CharType -> TODO()
-            SCharType -> TODO()
-            UCharType -> TODO()
         }
     }
 
@@ -325,7 +347,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                             // division / remainder use EAX + EDX together:
                             // the division result is stored in EAX; the remainder in EDX.
                             mov(src1.type, src1, AX.x(src1.type))
-                            if (tacky.src1.isSigned) {
+                            if (tacky.src1.type.isSigned) {
                                 cdq(src1.type)
                                 idiv(src1.type, src2)
                             } else {
@@ -347,7 +369,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                         // zero out the dst before setting the byte with set*.
                         mov(dst.type, zero(dst.type), dst)
 
-                        if (tacky.src1.isSigned) {
+                        if (tacky.src1.type.isSigned) {
                             when (tacky.op) {
                                 LessThan -> setl(dst)
                                 LessThanOrEqual -> setle(dst)
@@ -445,7 +467,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     allocate(stackPadding)
                 }
 
-                integerArguments.forEachIndexed { index, (originalIndex, arg) ->
+                integerArguments.forEachIndexed { index, (_, arg) ->
                     when (index) {
                         0 -> mov(arg.type, arg, DI.x(arg.type))
                         1 -> mov(arg.type, arg, SI.x(arg.type))
@@ -497,7 +519,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             is SignExtend -> {
                 val src = convert(tacky.src)
                 val dst = convert(tacky.dst)
-                movsx(src, dst)
+                movsx(src.type, dst.type, src, dst)
             }
 
             is Truncate -> {
@@ -516,13 +538,20 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             is ZeroExtend -> {
                 val src = convert(tacky.src)
                 val dst = convert(tacky.dst)
-                movzx(src, dst)
+                movzx(src.type, dst.type, src, dst)
             }
 
             is DoubleToInt -> {
                 val src = convert(tacky.src)
                 val dst = convert(tacky.dst)
-                cvttsd2si(dst.type, src, dst)
+                when (dst.type) {
+                    Byte_ -> {
+                        cvttsd2si(Longword, src, AX.d)
+                        mov(Byte_, AX.b, dst)
+                    }
+
+                    else -> cvttsd2si(dst.type, src, dst)
+                }
             }
 
             is DoubleToUInt -> {
@@ -530,6 +559,11 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val dst = convert(tacky.dst)
 
                 when (dst.type) {
+                    Byte_ -> {
+                        cvttsd2si(Longword, src, AX.d)
+                        mov(Byte_, AX.b, dst)
+                    }
+
                     is Longword -> {
                         cvttsd2siq(src, AX.q)
                         movl(AX.d, dst)
@@ -560,14 +594,23 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     }
 
                     x86DoubleType, x86UnknownType, is ByteArray -> unreachable("invalid types")
-                    Byte_ -> TODO()
                 }
             }
 
             is IntToDouble -> {
                 val src = convert(tacky.src)
                 val dst = convert(tacky.dst)
-                cvtsi2sd(src.type, src, dst)
+
+                when (src.type) {
+                    Byte_ -> {
+                        movsxbl(src, AX.d)
+                        cvtsi2sdl(AX.d, dst)
+                    }
+
+                    else -> {
+                        cvtsi2sd(src.type, src, dst)
+                    }
+                }
             }
 
             is UIntToDouble -> {
@@ -575,6 +618,11 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val dst = convert(tacky.dst)
 
                 when (src.type) {
+                    Byte_ -> {
+                        movzx(Byte_, Longword, src, AX.d)
+                        cvtsi2sd(Longword, AX.d, dst)
+                    }
+
                     is Longword -> {
                         // zero extend, since moving it into a registers lower 32-bits
                         // will zero out the top 32 bits.
@@ -614,7 +662,6 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     }
 
                     is x86DoubleType, is x86UnknownType, is ByteArray -> unreachable("Invalid type for src")
-                    Byte_ -> TODO()
                 }
             }
 
@@ -630,7 +677,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val dst = convert(tacky.dst)
 
                 movq(ptr, AX.q)
-                mov(dst.type, Mem(AX.q, 0), dst)
+                mov(dst.type, Mem(Quadword, AX.q, 0), dst)
             }
 
             is Store -> {
@@ -638,7 +685,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 val ptr = convert(tacky.ptr)
 
                 movq(ptr, AX.q)
-                mov(src.type, src, Mem(AX.q, 0))
+                mov(src.type, src, Mem(Quadword, AX.q, 0))
             }
 
             is AddPtr -> {
@@ -652,7 +699,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     1, 2, 4, 8 -> {
                         val index = convert(tacky.index)
                         movq(index, DX.q)
-                        lea(Indexed(AX.q, DX.q, scale), dst)
+                        lea(Indexed(Quadword, AX.q, DX.q, scale), dst)
                     }
 
                     else -> {
@@ -664,12 +711,12 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                                 else -> unreachable("Invalid scale type: ${tacky.index.value}")
                             }
                             movq(ptr, AX.q)
-                            lea(Mem(AX.q, index * scale), dst)
+                            lea(Mem(Quadword, AX.q, index * scale), dst)
                         } else {
                             val index = convert(tacky.index)
                             movq(index, DX.q)
                             mul(Quadword, Imm(Quadword, scale), DX.q)
-                            lea(Indexed(AX.q, DX.q, scale = 1), dst)
+                            lea(Indexed(Quadword, AX.q, DX.q, scale = 1), dst)
                         }
                     }
                 }

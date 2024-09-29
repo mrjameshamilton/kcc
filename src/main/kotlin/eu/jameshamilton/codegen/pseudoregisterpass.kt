@@ -38,7 +38,7 @@ fun replacePseudoRegisters(program: Program): Program {
                 // even if the type requires less space than 8.
                 registers.computeIfAbsent(op.identifier) {
                     val position = (registers.max - op.type.size).roundDownToNearestMultiple(8)
-                    Mem(BP, position)
+                    Mem(op.type, BP, position)
                 }
         }
 
@@ -56,7 +56,7 @@ fun replacePseudoRegisters(program: Program): Program {
                 val position =
                     (registers.max - op.type.size).roundDownToNearestMultiple((op.type as ByteArray).alignment)
                 registers.computeIfAbsent(op.identifier) {
-                    Mem(BP, position)
+                    Mem(op.type, BP, position)
                 }
             }
 
@@ -64,7 +64,7 @@ fun replacePseudoRegisters(program: Program): Program {
                 // Subsequent times, return offsets into the existing array allocation.
                 val array = registers[op.identifier]!!
                 val position = (array.position + op.offset)//.roundDownToNearestMultiple(alignment)
-                Mem(array.base, position)
+                Mem(op.type, array.base, position)
             }
 
             else -> unreachable("Invalid type for PseudoMem: $op")
@@ -80,6 +80,18 @@ fun replacePseudoRegisters(program: Program): Program {
                 val dst = allocate(instruction.dst)
 
                 when {
+                    src is Imm && dst.type is Byte_ && src.type in setOf(Longword, Quadword) -> {
+                        val truncated = when (src.value) {
+                            // Truncate immediates to byte if they don't fit.
+                            is Int -> Imm(Byte_, src.value.toByte())
+                            is UInt -> Imm(Byte_, src.value.toUByte())
+                            is Long -> Imm(Byte_, src.value.toByte())
+                            is ULong -> Imm(Byte_, src.value.toUByte())
+                            else -> unreachable("Invalid type for Imm: $src")
+                        }
+                        movb(truncated, dst)
+                    }
+
                     src is Imm && src.type == Quadword && dst is Memory -> {
                         // cannot mov quadwords directly into memory.
                         mov(instruction.type, src, R10.q)
@@ -117,22 +129,28 @@ fun replacePseudoRegisters(program: Program): Program {
                 val dst = allocate(instruction.dst)
 
                 when {
-                    src is Imm && dst is Memory -> {
-                        movl(src, R10.d)
-                        movsx(R10.d, R11.q)
-                        movq(R11.q, dst)
-                    }
+                    src is Imm -> when {
+                        dst is Memory -> {
+                            movl(src, R10.d)
+                            movsx(Longword, Quadword, R10.d, R11.q)
+                            movq(R11.q, dst)
+                        }
 
-                    src is Imm -> {
-                        // mov src into long register, which
-                        // results in the upper 32bits set to zero.
-                        movl(src, R10.d)
-                        movsx(R10.q, dst)
+                        else -> {
+                            // mov src into long register, which
+                            // results in the upper 32bits set to zero.
+                            movl(src, R10.d)
+                            movsx(Quadword, dst.type, R10.q, dst)
+                        }
                     }
 
                     dst is Memory -> {
-                        movsx(src, R10.q)
+                        movsx(src.type, Quadword, src, R10.q)
                         movq(R10.q, dst)
+                    }
+
+                    else -> {
+                        movsx(src.type, dst.type, src, dst)
                     }
                 }
             }
@@ -142,13 +160,19 @@ fun replacePseudoRegisters(program: Program): Program {
                 val dst = allocate(instruction.dst)
 
                 when {
-                    dst is Register -> {
-                        movl(src, dst)
+                    src.type is Byte_ && (src is Imm || dst !is Register) -> {
+                        movb(src, R10.b)
+                        movzxbq(R10.b, R11.q)
+                        movq(R11.q, dst)
                     }
 
                     dst is Memory -> {
                         movl(src, R11.d)
                         movq(R11.q, dst)
+                    }
+
+                    else -> {
+                        movzx(src.type, dst.type, src, dst)
                     }
                 }
             }
@@ -353,7 +377,7 @@ fun replacePseudoRegisters(program: Program): Program {
                 // the instructions sign extend their operands from 32-bit to 64-bit.
                 val immFitsInSignedInteger by lazy {
                     operand is Imm && when (operand.value) {
-                        is Int -> true
+                        is Int, is Byte -> true
                         is UInt -> operand.value < 2147483647u
                         is Long, is ULong -> false
                         else -> unreachable("unknown type ${operand.value.javaClass}")
@@ -363,7 +387,7 @@ fun replacePseudoRegisters(program: Program): Program {
                 when {
                     operand is Register && operand.type is Double_ -> {
                         subq(Imm(Quadword, 8), SP)
-                        movsd(operand, Mem(SP, 0))
+                        movsd(operand, Mem(Quadword, SP, 0))
                     }
 
                     operand is Imm && !immFitsInSignedInteger -> {

@@ -19,6 +19,10 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return this
     }
 
+    fun movb(src: Operand, dst: Operand): Builder {
+        return mov(Byte_, src, dst)
+    }
+
     fun movl(src: Operand, dst: Operand): Builder {
         return mov(Longword, src, dst)
     }
@@ -39,14 +43,26 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return mov(type, Imm(type, i), dst)
     }
 
-    fun movsx(src: Operand, dst: Operand): Builder {
-        instructions += Movsx(src, dst)
+    fun movsx(srcType: TypeX86, dstType: TypeX86, src: Operand, dst: Operand): Builder {
+        instructions += Movsx(srcType, dstType, src, dst)
         return this
     }
 
-    fun movzx(src: Operand, dst: Operand): Builder {
-        instructions += Movzx(src, dst)
+    fun movsxbl(src: Operand, dst: Operand): Builder {
+        return movsx(Byte_, Longword, src, dst)
+    }
+
+    fun movzx(srcType: TypeX86, dstType: TypeX86, src: Operand, dst: Operand): Builder {
+        instructions += Movzx(srcType, dstType, src, dst)
         return this
+    }
+
+    fun movzxbl(src: Operand, dst: Operand): Builder {
+        return movzx(Byte_, Longword, src, dst)
+    }
+
+    fun movzxbq(src: Operand, dst: Operand): Builder {
+        return movzx(Byte_, Quadword, src, dst)
     }
 
     fun cdq(type: TypeX86): Builder {

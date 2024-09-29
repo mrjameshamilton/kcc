@@ -58,8 +58,15 @@ fun emit(x86program: x86Program): String = buildString {
         is Register -> when (operand.name) {
             SP -> "%rsp"
             BP -> "%rbp"
-            AX, CX, DX, DI, SI -> when (operand.size) {
+            AX, CX, DX -> when (operand.size) {
                 BYTE -> "%${operand.name.name.lowercase().first()}l"
+                WORD -> "%${operand.name.name.lowercase()}"
+                LONG -> "%e${operand.name.name.lowercase()}"
+                QUAD -> "%r${operand.name.name.lowercase()}"
+            }
+
+            DI, SI -> when (operand.size) {
+                BYTE -> "%${operand.name.name.lowercase().substring(0, 2)}l"
                 WORD -> "%${operand.name.name.lowercase()}"
                 LONG -> "%e${operand.name.name.lowercase()}"
                 QUAD -> "%r${operand.name.name.lowercase()}"
@@ -102,8 +109,21 @@ fun emit(x86program: x86Program): String = buildString {
         instructions.forEach {
             when (it) {
                 is Mov -> appendLine("    mov${it.type.suffix} ${format(it.src)}, ${format(it.dst)}")
-                is Movsx -> appendLine("    movslq ${format(it.src)}, ${format(it.dst)}")
-                is Movzx -> appendLine("    movz ${format(it.src)}, ${format(it.dst)}")
+                is Movsx -> appendLine(
+                    "    movs${it.src.type.suffix}${it.dst.type.suffix} ${format(it.src)}, ${
+                        format(
+                            it.dst
+                        )
+                    }"
+                )
+
+                is Movzx -> appendLine(
+                    "    movz${it.src.type.suffix}${it.dst.type.suffix} ${format(it.src)}, ${
+                        format(
+                            it.dst
+                        )
+                    }"
+                )
                 is Lea -> appendLine("    leaq ${format(it.src)}, ${format(it.dst)}")
                 Ret -> appendLine(
                     """
@@ -144,7 +164,7 @@ fun emit(x86program: x86Program): String = buildString {
             is LongInit, is ULongInit -> "quad"
             is DoubleInit -> "double"
             is ZeroInit -> "zero"
-            is CharInit -> TODO()
+            is CharInit -> "byte"
             is UCharInit -> TODO()
             is PointerInit -> TODO()
             is StringInit -> TODO()
@@ -152,6 +172,17 @@ fun emit(x86program: x86Program): String = buildString {
 
         when (staticInit) {
             is ZeroInit -> appendLine("    .zero ${staticInit.bytes}")
+            is StringInit -> {
+                val string = staticInit.value.map {
+                    when (it) {
+                        '\\' -> "\\134"
+                        '"' -> "\\42"
+                        '\n' -> "\\12"
+                        else -> it.toString()
+                    }
+                }.joinToString("")
+                appendLine("""    .asci${if (staticInit.isNullTerminated) "z" else "i"} "$string"""")
+            }
             else -> appendLine("    .${type(staticInit)} ${staticInit.value}")
         }
     }

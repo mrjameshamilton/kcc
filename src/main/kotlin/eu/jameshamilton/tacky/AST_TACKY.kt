@@ -49,14 +49,14 @@ enum class BinaryOp {
     Equal, NotEqual, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual
 }
 
-sealed class Value
-data class Constant(val value: Any) : Value() {
+sealed class Value(open val type: Type)
+data class Constant(override val type: Type, val value: Any) : Value(type) {
     init {
         require(value is Int || value is Long || value is UInt || value is ULong || value is Double || value is Char)
     }
 }
 
-data class Var(val type: Type, val name: String) : Value()
+data class Var(override val type: Type, val name: String) : Value(type)
 
 typealias LabelIdentifier = String
 

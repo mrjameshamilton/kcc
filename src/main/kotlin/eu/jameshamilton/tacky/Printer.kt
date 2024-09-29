@@ -67,10 +67,10 @@ private fun printStaticInit(type: Type, initializers: List<StaticInit<*>>) {
             is UIntInit -> print(initializer.value)
             is ULongInit -> print(initializer.value)
             is ZeroInit -> print("zero ${initializer.bytes}")
-            is CharInit -> TODO()
-            is UCharInit -> TODO()
-            is PointerInit -> TODO()
-            is StringInit -> TODO()
+            is CharInit -> print(initializer.value)
+            is UCharInit -> print(initializer.value)
+            is PointerInit -> print(initializer.value)
+            is StringInit -> print(initializer.value)
         }
         if (i != initializers.lastIndex) print(", ")
     }

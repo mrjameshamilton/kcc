@@ -92,6 +92,7 @@ import eu.jameshamilton.frontend.error
 import eu.jameshamilton.frontend.isLValue
 import eu.jameshamilton.frontend.plus
 import eu.jameshamilton.isNegativeZero
+import eu.jameshamilton.unreachable
 import java.util.*
 
 typealias SymbolTable = HashMap<String, SymbolTableEntry>
@@ -115,8 +116,8 @@ data object NoInitializer : InitialValue()
 
 sealed class StaticInit<T>(open val value: T)
 data class IntInit(override val value: Int) : StaticInit<Int>(value)
-data class CharInit(override val value: Int) : StaticInit<Int>(value)
-data class UCharInit(override val value: UInt) : StaticInit<UInt>(value)
+data class CharInit(override val value: Byte) : StaticInit<Byte>(value)
+data class UCharInit(override val value: UByte) : StaticInit<UByte>(value)
 data class LongInit(override val value: Long) : StaticInit<Long>(value)
 data class UIntInit(override val value: UInt) : StaticInit<UInt>(value)
 data class ULongInit(override val value: ULong) : StaticInit<ULong>(value)
@@ -383,7 +384,12 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             }
 
             LeftShift, RightShift -> {
-                BinaryExpr(left, expression.operator, right, left.type)
+                if (left.type is CharacterType) {
+                    // promote character to integer type.
+                    BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                } else {
+                    BinaryExpr(left, expression.operator, right, left.type)
+                }
             }
 
             And, Or, Xor -> {
@@ -661,12 +667,7 @@ private fun zeroinit(targetType: Type): Initializer = when (targetType) {
     ULongType -> SingleInit(Constant(0UL, targetType), targetType)
     is CharType, SCharType -> SingleInit(Constant(0, targetType), targetType)
     is UCharType -> SingleInit(Constant(0U, targetType), targetType)
-    is PointerType -> when (targetType.referenced) {
-        is CharType, SCharType -> SingleInit(Constant(0, targetType), targetType)
-        is UCharType -> SingleInit(Constant(0U, targetType), targetType)
-        else -> error("Invalid type for zeroinit: '${targetType}'.")
-    }
-
+    is PointerType -> SingleInit(Constant(0UL, targetType), targetType)
     Unknown, is FunType -> error("Invalid type for zeroinit: '${targetType}'.")
 }
 
@@ -703,6 +704,7 @@ private fun convertStaticInitializer(targetType: Type, init: Initializer): List<
         }
 
         val result = when (expr.value) {
+            is Char -> if (expr.value == 0.toChar()) ZeroInit(expr.type.sizeInBytes) else CharInit(expr.value.code.toByte())
             is Int -> if (expr.value == 0) ZeroInit(expr.type.sizeInBytes) else IntInit(expr.value)
             is UInt -> if (expr.value == 0u) ZeroInit(expr.type.sizeInBytes) else UIntInit(expr.value)
             is Long -> if (expr.value == 0L) ZeroInit(expr.type.sizeInBytes) else LongInit(expr.value)
@@ -811,22 +813,30 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     is Switch -> {
         val expression = typecheckAndConvert(blockItem.expression)
 
-        if (expression.type !is IntegerType) {
-            error("Cannot switch on a '${expression.type}'.")
-        }
+        val type = when (expression.type) {
+            // Promote chars to integers.
+            is CharacterType -> IntType
 
-        if (expression is Var) {
-            val type = symbolTable[expression.identifier.identifier]?.type
-            if (type is FunType) {
-                error(
-                    expression.identifier.line,
-                    "Cannot switch on a function; '${expression.identifier}' is a function."
-                )
+            is IntegerType -> expression.type
+
+            else -> if (expression is Var) {
+                when (symbolTable[expression.identifier.identifier]?.type) {
+                    is IntegerType -> symbolTable[expression.identifier.identifier]?.type!!
+                    is FunType, is PointerType, is DoubleType, is ArrayType, Unknown -> error(
+                        expression.identifier.line,
+                        "Cannot switch on a '${expression.type}'."
+                    )
+
+                    null -> unreachable("Unexpected null type for ${expression.identifier}")
+                }
+            } else {
+                error("Cannot switch on a '${expression.type}'.")
             }
         }
-        switchType.push(expression.type)
+
+        switchType.push(type)
         val statement = typecheck(currentFunction, blockItem.statement) as Statement
-        Switch(expression, statement, blockItem.id, blockItem.caseLabels).also {
+        Switch(expression.cast(type), statement, blockItem.id, blockItem.caseLabels).also {
             switchType.pop()
         }
     }

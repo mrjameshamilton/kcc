@@ -157,8 +157,8 @@ fun printInitialValue(type: Type, initialValue: InitialValue) {
                 when (it) {
                     is DoubleInit, is IntInit, is UIntInit, is LongInit, is ULongInit -> os.print(it.value)
                     is ZeroInit -> repeat(it.bytes / type.baseType.sizeInBytes) { os.print(0) }
-                    is CharInit -> TODO()
-                    is UCharInit -> TODO()
+                    is CharInit -> os.print("'${it.value}'")
+                    is UCharInit -> os.print("'${it.value}'u")
                     is PointerInit -> os.print("\"${(symbolTable[it.value]?.attr as ConstantAttr<*>).staticInit.value}\"")
                     is StringInit -> os.print(""""${escape(it.value)}"""")
                 }
