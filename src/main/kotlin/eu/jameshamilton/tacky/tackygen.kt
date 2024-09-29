@@ -313,8 +313,7 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
             val v1 = emitAndConvert(instructions, expression.left)
             val v2 = emitAndConvert(instructions, expression.right)
             val dst = maketemporary(expression.type)
-            val leftType = expression.left.type
-            val tackyOp = when (leftType is IntegerType && leftType.isSigned) {
+            val tackyOp = when (expression.type is IntegerType && expression.type.isSigned) {
                 true -> TackyBinaryOp.RightShift
                 false -> TackyBinaryOp.LogicalRightShift
             }
