@@ -419,11 +419,14 @@ fun replacePseudoRegisters(program: Program): Program {
     fun fixup(staticConstant: StaticConstant): StaticConstant =
         staticConstant
 
-    fun fixup(functionDef: FunctionDef): FunctionDef = with(functionDef.instructions.flatMap(::fixup)) {
-        val prologue = buildX86 {
-            allocate(abs(registers.max).roundUpToNearestMultiple(STACK_ALIGNMENT_BYTES))
+    fun fixup(functionDef: FunctionDef): FunctionDef {
+        registers.clear()
+        with(functionDef.instructions.flatMap(::fixup)) {
+            val prologue = buildX86 {
+                allocate(abs(registers.max).roundUpToNearestMultiple(STACK_ALIGNMENT_BYTES))
+            }
+            return FunctionDef(functionDef.name, functionDef.global, functionDef.defined, prologue + this)
         }
-        return FunctionDef(functionDef.name, functionDef.global, functionDef.defined, prologue + this)
     }
 
     fun fixup(topLevel: TopLevel): TopLevel = when (topLevel) {
