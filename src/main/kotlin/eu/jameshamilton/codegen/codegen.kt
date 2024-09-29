@@ -165,7 +165,7 @@ fun emit(x86program: x86Program): String = buildString {
             is DoubleInit -> "double"
             is ZeroInit -> "zero"
             is CharInit -> "byte"
-            is UCharInit -> TODO()
+            is UCharInit -> "byte"
             is PointerInit -> TODO()
             is StringInit -> TODO()
         }

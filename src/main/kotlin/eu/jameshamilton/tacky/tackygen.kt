@@ -27,6 +27,7 @@ import eu.jameshamilton.frontend.BlockItem
 import eu.jameshamilton.frontend.Break
 import eu.jameshamilton.frontend.Cast
 import eu.jameshamilton.frontend.CharType
+import eu.jameshamilton.frontend.CharacterType
 import eu.jameshamilton.frontend.Compound
 import eu.jameshamilton.frontend.CompoundInit
 import eu.jameshamilton.frontend.Conditional
@@ -195,9 +196,11 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
 
                 val amount = when {
                     expression.op == PostfixIncrement && expression.type is DoubleType -> 1.0
+                    expression.op == PostfixDecrement && expression.type is DoubleType -> -1.0
+                    expression.op == PostfixDecrement && expression.type is CharacterType -> (-1).toUByte()
+                    expression.op == PostfixIncrement && expression.type is CharacterType -> 1.toByte()
                     expression.op == PostfixDecrement && expression.type is IntegerType -> -1
                     expression.op == PostfixIncrement && expression.type is IntegerType -> 1
-                    expression.op == PostfixDecrement && expression.type is DoubleType -> -1.0
                     expression.op == PostfixIncrement && expression.type is PointerType -> 1L
                     expression.op == PostfixDecrement && expression.type is PointerType -> -1L
                     else -> unreachable("Invalid expression: {${expression}}")
@@ -234,6 +237,8 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
             PrefixIncrement, PrefixDecrement -> {
 
                 val amount = when {
+                    expression.op == PrefixIncrement && expression.type is CharacterType -> 1.toByte()
+                    expression.op == PrefixDecrement && expression.type is CharacterType -> (-1).toUByte()
                     expression.op == PrefixIncrement && expression.type is IntegerType -> 1
                     expression.op == PrefixDecrement && expression.type is IntegerType -> -1
                     expression.op == PrefixIncrement && expression.type is DoubleType -> 1.0
@@ -539,9 +544,9 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                         // TODO: copy multiple bytes at a time
                         (0 until type.length).forEach { index ->
                             if (index < string.length) {
-                                copytooffset(TackyConstant(CharType, string[index]), dst, offset)
+                                copytooffset(TackyConstant(CharType, string[index].code.toByte()), dst, offset)
                             } else {
-                                copytooffset(TackyConstant(CharType, 0.toChar()), dst, offset)
+                                copytooffset(TackyConstant(CharType, 0.toByte()), dst, offset)
                             }
                             offset += 1
                         }

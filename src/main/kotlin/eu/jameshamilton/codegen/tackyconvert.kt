@@ -232,9 +232,8 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
     fun convert(value: TackyValue): Operand = when (value) {
         is TackyConstant -> when (value.type) {
             is CharacterType -> when (value.value) {
-                is Char -> Imm(Byte_, value.value.code.toByte())
-                is Int -> Imm(Byte_, value.value.toByte())
-                is UInt -> Imm(Byte_, value.value.toByte())
+                is Byte -> Imm(Byte_, value.value)
+                is UByte -> Imm(Byte_, value.value)
                 else -> unreachable("Invalid type ${value.value.javaClass}")
             }
 

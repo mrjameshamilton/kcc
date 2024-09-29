@@ -52,7 +52,7 @@ enum class BinaryOp {
 sealed class Value(open val type: Type)
 data class Constant(override val type: Type, val value: Any) : Value(type) {
     init {
-        require(value is Int || value is Long || value is UInt || value is ULong || value is Double || value is Char)
+        require(value is Byte || value is UByte || value is Int || value is UInt || value is Long || value is ULong || value is Double)
     }
 }
 

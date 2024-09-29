@@ -665,8 +665,8 @@ private fun zeroinit(targetType: Type): Initializer = when (targetType) {
     LongType -> SingleInit(Constant(0L, targetType), targetType)
     UIntType -> SingleInit(Constant(0U, targetType), targetType)
     ULongType -> SingleInit(Constant(0UL, targetType), targetType)
-    is CharType, SCharType -> SingleInit(Constant(0, targetType), targetType)
-    is UCharType -> SingleInit(Constant(0U, targetType), targetType)
+    is CharType, SCharType -> SingleInit(Constant(0.toByte(), targetType), targetType)
+    is UCharType -> SingleInit(Constant(0.toUByte(), targetType), targetType)
     is PointerType -> SingleInit(Constant(0UL, targetType), targetType)
     Unknown, is FunType -> error("Invalid type for zeroinit: '${targetType}'.")
 }
@@ -704,7 +704,8 @@ private fun convertStaticInitializer(targetType: Type, init: Initializer): List<
         }
 
         val result = when (expr.value) {
-            is Char -> if (expr.value == 0.toChar()) ZeroInit(expr.type.sizeInBytes) else CharInit(expr.value.code.toByte())
+            is Byte -> if (expr.value == 0.toByte()) ZeroInit(expr.type.sizeInBytes) else CharInit(expr.value)
+            is UByte -> if (expr.value == 0.toUByte()) ZeroInit(expr.type.sizeInBytes) else UCharInit(expr.value)
             is Int -> if (expr.value == 0) ZeroInit(expr.type.sizeInBytes) else IntInit(expr.value)
             is UInt -> if (expr.value == 0u) ZeroInit(expr.type.sizeInBytes) else UIntInit(expr.value)
             is Long -> if (expr.value == 0L) ZeroInit(expr.type.sizeInBytes) else LongInit(expr.value)
