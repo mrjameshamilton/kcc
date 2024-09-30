@@ -64,6 +64,7 @@ import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
 import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SIGNED
+import eu.jameshamilton.frontend.TokenType.SIZEOF
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STATIC
@@ -413,6 +414,7 @@ class Scanner(private val source: String) {
             "default" to DEFAULT,
             "extern" to EXTERN,
             "static" to STATIC,
+            "sizeof" to SIZEOF
         )
     }
 }
