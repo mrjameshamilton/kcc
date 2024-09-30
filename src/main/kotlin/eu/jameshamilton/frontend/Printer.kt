@@ -77,7 +77,7 @@ fun printVarDeclaration(type: Type, identifier: String = ""): Any = when (type) 
     CharType -> os.print("char $identifier")
     SCharType -> os.print("signed char $identifier")
     UCharType -> os.print("unsigned char $identifier")
-    VoidType -> TODO()
+    VoidType -> os.print("void ")
 }
 
 fun printDefinition(declaration: Declaration) {
@@ -384,5 +384,12 @@ fun printExpression(expression: Expression) {
             os.print("]")
             os.print(")")
         }
+
+        is SizeOf -> {
+            os.print("sizeof ")
+            printExpression(expression.expression)
+        }
+
+        is SizeOfT -> os.print("sizeof(" + expression.t + ")")
     }
 }

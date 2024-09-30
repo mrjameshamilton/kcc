@@ -57,6 +57,8 @@ import eu.jameshamilton.frontend.PointerType
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.SingleInit
+import eu.jameshamilton.frontend.SizeOf
+import eu.jameshamilton.frontend.SizeOfT
 import eu.jameshamilton.frontend.StringConstant
 import eu.jameshamilton.frontend.Subscript
 import eu.jameshamilton.frontend.Switch
@@ -520,6 +522,8 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
     }
 
     is CompoundInit, is SingleInit -> unreachable("special case")
+    is SizeOf -> TODO()
+    is SizeOfT -> TODO()
 }
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {

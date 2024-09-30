@@ -83,6 +83,7 @@ import eu.jameshamilton.frontend.TokenType.RIGHT_BRACKET
 import eu.jameshamilton.frontend.TokenType.RIGHT_PAREN
 import eu.jameshamilton.frontend.TokenType.SEMICOLON
 import eu.jameshamilton.frontend.TokenType.SIGNED
+import eu.jameshamilton.frontend.TokenType.SIZEOF
 import eu.jameshamilton.frontend.TokenType.SLASH
 import eu.jameshamilton.frontend.TokenType.SLASH_EQUAL
 import eu.jameshamilton.frontend.TokenType.STATIC
@@ -342,8 +343,8 @@ class Parser(private val tokens: List<Token>) {
     private fun params(): List<ParamInfo> {
         val params = mutableListOf<ParamInfo>()
         expect(LEFT_PAREN, "Expected '('.")
-        if (match(VOID)) {
-            // no params
+        if (check(VOID) && checkNext(RIGHT_PAREN)) {
+            advance()
         } else {
             do {
                 params.add(ParamInfo(typeSpecifier(), declarator()))
@@ -436,8 +437,7 @@ class Parser(private val tokens: List<Token>) {
 
     private fun checkSpecifier() = checkType() || checkStorageClass()
     private fun checkStorageClass() = check(EXTERN) || check(STATIC)
-    private fun checkType() =
-        check(VOID) || check(INT) || check(CHAR) || check(LONG) || check(DOUBLE) || check(SIGNED) || check(UNSIGNED)
+    private fun checkType() = checkAny(*types)
 
     private fun typeSpecifier() = specifier(allowStorageClass = false).first
     private fun specifier(allowStorageClass: Boolean = true): Pair<Type, StorageClass> {
@@ -475,6 +475,12 @@ class Parser(private val tokens: List<Token>) {
         match(STATIC) -> StorageClass.STATIC
         match(EXTERN) -> StorageClass.EXTERN
         else -> throw error(previous(), "Unexpected storage class '${peek().type}'.")
+    }
+
+    private fun typeName(): Type {
+        val type = typeSpecifier()
+        val declarator = abstractDeclarator()
+        return processAbstractDeclarator(declarator, type)
     }
 
     private fun type(types: List<TokenType>): Type = when {
@@ -520,17 +526,8 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun primary(): Expression = when {
-        match(LEFT_PAREN) -> when {
-            checkType() -> {
-                val type = typeSpecifier()
-                val declarator = abstractDeclarator()
-                expect(RIGHT_PAREN, "Expected ')' after expression.")
-                Cast(processAbstractDeclarator(declarator, type), unary())
-            }
-
-            else -> expression().also {
-                expect(RIGHT_PAREN, "Expected closing ')' after expression.")
-            }
+        match(LEFT_PAREN) -> expression().also {
+            expect(RIGHT_PAREN, "Expected closing ')' after expression.")
         }
 
         match(ASTERISK) -> Dereference(primary())
@@ -621,10 +618,24 @@ class Parser(private val tokens: List<Token>) {
         )
     }
 
+    private fun cast(): Expression = when {
+        check(LEFT_PAREN) && checkAnyNext(*types) -> {
+            advance()
+            val type = typeName()
+            expect(RIGHT_PAREN, "Expected ')' after cast type.")
+            Cast(type, cast())
+        }
+
+        else -> unary()
+    }
+
+
     private fun unary(): Expression = when {
-        match(INCREMENT) -> UnaryExpr(PrefixIncrement, unary())
-        match(DECREMENT) -> UnaryExpr(PrefixDecrement, unary())
-        match(MINUS) -> when (val expression = unary()) {
+
+
+        match(INCREMENT) -> UnaryExpr(PrefixIncrement, cast())
+        match(DECREMENT) -> UnaryExpr(PrefixDecrement, cast())
+        match(MINUS) -> when (val expression = cast()) {
             is Constant -> when (expression.value) {
                 is Int -> Constant(-expression.value)
                 is Long -> Constant(-expression.value)
@@ -635,10 +646,21 @@ class Parser(private val tokens: List<Token>) {
             else -> UnaryExpr(Negate, expression)
         }
 
-        match(TILDE) -> UnaryExpr(Complement, unary())
-        match(EXCLAMATION) -> UnaryExpr(Not, unary())
-        match(ASTERISK) -> Dereference(unary())
-        match(AMPERSAND) -> AddrOf(unary())
+        match(TILDE) -> UnaryExpr(Complement, cast())
+        match(EXCLAMATION) -> UnaryExpr(Not, cast())
+        match(ASTERISK) -> Dereference(cast())
+        match(AMPERSAND) -> AddrOf(cast())
+
+        match(SIZEOF) -> when {
+            check(LEFT_PAREN) && checkAnyNext(*types) -> {
+                advance()
+                SizeOfT(typeName()).also {
+                    expect(RIGHT_PAREN, "Expected ')' after type.")
+                }
+            }
+
+            else -> SizeOf(unary())
+        }
         else -> postfix()
     }
 
@@ -677,7 +699,7 @@ class Parser(private val tokens: List<Token>) {
             else -> unreachable("Unexpected token ${op}.")
         }
 
-        var left = unary()
+        var left = cast()
         while (checkAny(
                 QUESTION, EQUAL, PLUS_EQUAL, MINUS_EQUAL, ASTERISK_EQUAL, SLASH_EQUAL, PERCENT_EQUAL,
                 AMPERSAND_EQUAL, PIPE_EQUAL, HAT_EQUAL, DOUBLE_LESS_EQUAL, DOUBLE_GREATER_EQUAL,
@@ -802,6 +824,13 @@ class Parser(private val tokens: List<Token>) {
         return false
     }
 
+    private fun checkAnyNext(vararg types: TokenType): Boolean {
+        for (type in types) if (checkNext(type)) {
+            return true
+        }
+        return false
+    }
+
     private fun check(type: TokenType, nextType: TokenType? = null): Boolean = when {
         isAtEnd() -> false
         nextType == null -> peek().type == type
@@ -831,4 +860,8 @@ class Parser(private val tokens: List<Token>) {
     private fun previous(): Token = tokens[current - 1]
 
     class ParseError : RuntimeException()
+
+    companion object {
+        val types = arrayOf(VOID, INT, CHAR, LONG, DOUBLE, SIGNED, UNSIGNED)
+    }
 }

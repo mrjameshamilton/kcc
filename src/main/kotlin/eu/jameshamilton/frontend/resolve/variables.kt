@@ -33,6 +33,8 @@ import eu.jameshamilton.frontend.NullStatement
 import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.SingleInit
+import eu.jameshamilton.frontend.SizeOf
+import eu.jameshamilton.frontend.SizeOfT
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.StorageClass
 import eu.jameshamilton.frontend.StringConstant
@@ -203,6 +205,8 @@ private fun resolve(expression: Expression): Expression = when (expression) {
     is CompoundInit -> CompoundInit(expression.expressions.map { resolve(it) as Initializer })
     is SingleInit -> SingleInit(resolve(expression.expression))
     is Subscript -> Subscript(resolve(expression.expr1), resolve(expression.expr2))
+    is SizeOf -> SizeOf(resolve(expression.expression))
+    is SizeOfT -> SizeOfT(expression.t)
 }
 
 private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {

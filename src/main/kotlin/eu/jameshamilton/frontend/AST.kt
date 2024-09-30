@@ -185,6 +185,8 @@ data class Dereference(val expression: Expression, override val type: Type = Unk
 data class AddrOf(val expression: Expression, override val type: Type = Unknown) : Expression(type)
 data class Subscript(val expr1: Expression, val expr2: Expression, override val type: Type = Unknown) :
     Expression(type), Assignable
+data class SizeOf(val expression: Expression, override val type: Type = Unknown) : Expression(type)
+data class SizeOfT(val t: Type, override val type: Type = Unknown) : Expression(type)
 
 class Identifier(val identifier: String, val line: Int) {
     override fun equals(other: Any?): Boolean {

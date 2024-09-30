@@ -61,6 +61,8 @@ import eu.jameshamilton.frontend.Program
 import eu.jameshamilton.frontend.ReturnStatement
 import eu.jameshamilton.frontend.SCharType
 import eu.jameshamilton.frontend.SingleInit
+import eu.jameshamilton.frontend.SizeOf
+import eu.jameshamilton.frontend.SizeOfT
 import eu.jameshamilton.frontend.Statement
 import eu.jameshamilton.frontend.StorageClass.EXTERN
 import eu.jameshamilton.frontend.StorageClass.NONE
@@ -624,6 +626,9 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             else -> error("Invalid types for subscript: ${expr1.type} and ${expr2.type}.")
         }
     }
+
+    is SizeOf -> TODO()
+    is SizeOfT -> TODO()
 }
 
 private fun typecheckInit(targetType: Type, init: Initializer): Initializer = when {
