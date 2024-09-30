@@ -29,7 +29,7 @@ data class StaticVariable(val name: String, val global: Boolean, val type: Type,
 sealed class Instruction
 data class FunctionCall(val name: String, val arguments: List<Value>, val dst: Value) : Instruction()
 
-data class Return(val value: Value) : Instruction()
+data class Return(val value: Value?) : Instruction()
 data class SignExtend(val src: Value, val dst: Value) : Instruction()
 data class ZeroExtend(val src: Value, val dst: Value) : Instruction()
 data class Truncate(val src: Value, val dst: Value) : Instruction()

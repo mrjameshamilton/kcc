@@ -77,6 +77,7 @@ fun printVarDeclaration(type: Type, identifier: String = ""): Any = when (type) 
     CharType -> os.print("char $identifier")
     SCharType -> os.print("signed char $identifier")
     UCharType -> os.print("unsigned char $identifier")
+    VoidType -> TODO()
 }
 
 fun printDefinition(declaration: Declaration) {
@@ -260,8 +261,8 @@ fun printBlockItem(blockItem: BlockItem) {
 
         NullStatement -> os.print(";")
         is ReturnStatement -> {
-            os.printIndent("return ")
-            printExpression(blockItem.value)
+            os.printIndent("return")
+            blockItem.value?.let { os.print(" "); printExpression(it) }
             os.println(";")
         }
 

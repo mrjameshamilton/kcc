@@ -81,7 +81,7 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         return unaryOp(UnaryOp.Negate, src, dst)
     }
 
-    fun ret(value: Value) {
+    fun ret(value: Value?) {
         instructions += Return(value)
     }
 

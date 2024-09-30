@@ -32,6 +32,7 @@ import eu.jameshamilton.frontend.UCharType
 import eu.jameshamilton.frontend.UIntType
 import eu.jameshamilton.frontend.ULongType
 import eu.jameshamilton.frontend.Unknown
+import eu.jameshamilton.frontend.VoidType
 import eu.jameshamilton.frontend.check.ConstantAttr
 import eu.jameshamilton.frontend.check.DoubleInit
 import eu.jameshamilton.frontend.check.FunAttr
@@ -169,6 +170,7 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
                 IntType, UIntType -> Longword
                 LongType, ULongType, is PointerType -> Quadword
                 DoubleType -> x86DoubleType
+                VoidType -> TODO()
             }
             Triple(index, x86Type, param)
         }
@@ -255,7 +257,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             }
 
             is ArrayType, is FunType, Unknown -> unreachable("Invalid type ${value.type.baseType}")
-
+            VoidType -> TODO()
         }
 
         is TackyVar -> when (value.type) {
@@ -282,17 +284,20 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
             }
 
             is FunType, Unknown -> unreachable("Invalid type: ${value.type}")
+            VoidType -> TODO()
         }
     }
 
     buildX86 {
         when (tacky) {
             is Return -> {
-                val src = convert(tacky.value)
-                if (src.type is x86DoubleType) {
-                    movsd(src, XMM0)
-                } else {
-                    mov(src.type, src, AX.x(src.type))
+                if (tacky.value != null) {
+                    val src = convert(tacky.value)
+                    if (src.type is x86DoubleType) {
+                        movsd(src, XMM0)
+                    } else {
+                        mov(src.type, src, AX.x(src.type))
+                    }
                 }
                 ret()
             }

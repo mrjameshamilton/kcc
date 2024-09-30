@@ -78,6 +78,10 @@ data class PointerType(val referenced: Type) : Type(64) {
     override fun toString(): String = "$referenced*"
 }
 
+data object VoidType : Type(0) {
+    override fun toString(): String = "void"
+}
+
 val Expression.isNullPointerConstant: Boolean
     get() = when (this) {
         is Constant -> when (value) {
@@ -146,6 +150,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            VoidType -> TODO()
         }
 
         is Long -> when (targetType) {
@@ -166,6 +171,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            VoidType -> TODO()
         }
 
         is UInt -> when (targetType) {
@@ -186,6 +192,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            VoidType -> TODO()
         }
 
         is ULong -> when (targetType) {
@@ -206,6 +213,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
 
             is FunType, Unknown -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            VoidType -> TODO()
         }
 
         is Double -> when (targetType) {
@@ -219,6 +227,7 @@ fun Expression.cast(targetType: Type): Expression = when (this) {
             UCharType -> Constant(value.toInt().toUByte(), targetType)
             is FunType, Unknown, is PointerType -> unreachable("Invalid cast from '${this.type}' to '$targetType'.")
             is ArrayType -> TODO()
+            VoidType -> TODO()
         }
 
         else -> Cast(targetType, this, targetType)

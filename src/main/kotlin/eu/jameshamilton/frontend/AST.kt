@@ -62,7 +62,7 @@ data class ExpressionCase(
 data class DefaultCase(override val statement: Statement, override val label: Identifier? = null) : Statement(),
     SwitchCase
 
-data class ReturnStatement(val value: Expression) : UnlabeledStatement()
+data class ReturnStatement(val value: Expression? = null) : UnlabeledStatement()
 data class ExpressionStatement(val expression: Expression) : UnlabeledStatement()
 data object NullStatement : UnlabeledStatement()
 data class If(val condition: Expression, val thenBranch: Statement, val elseBranch: Statement? = null) :

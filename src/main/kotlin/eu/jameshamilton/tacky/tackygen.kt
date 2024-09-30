@@ -579,7 +579,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
         buildTacky(instructions) {
             when (statement) {
                 is ReturnStatement -> {
-                    ret(emitAndConvert(instructions, statement.value))
+                    ret(statement.value?.let { emitAndConvert(instructions, it) })
                 }
 
                 is ExpressionStatement -> {

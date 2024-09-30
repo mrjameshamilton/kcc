@@ -244,7 +244,7 @@ private fun resolve(blockItem: BlockItem): BlockItem = when (blockItem) {
     }
 
     is ExpressionStatement -> ExpressionStatement(resolve(blockItem.expression))
-    is ReturnStatement -> ReturnStatement(resolve(blockItem.value))
+    is ReturnStatement -> ReturnStatement(blockItem.value?.let { resolve(it) })
     is If -> If(
         resolve(blockItem.condition),
         resolve(blockItem.thenBranch) as Statement,

@@ -159,8 +159,8 @@ private fun printTacky(instruction: Instruction) {
 
         is Label -> println("  ${instruction.identifier}:")
         is Return -> {
-            print("    ret ")
-            printTacky(instruction.value)
+            print("    ret")
+            instruction.value?.let { print(" "); printTacky(it) }
             println()
         }
 

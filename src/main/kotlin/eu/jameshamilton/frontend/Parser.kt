@@ -126,8 +126,14 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun statement(): Statement = when {
-        match(RETURN) -> ReturnStatement(expression()).also {
-            expect(SEMICOLON, "Expected semicolon.")
+        match(RETURN) -> {
+            if (match(SEMICOLON)) {
+                ReturnStatement()
+            } else {
+                ReturnStatement(expression()).also {
+                    expect(SEMICOLON, "Expected semicolon.")
+                }
+            }
         }
 
         check(SEMICOLON) -> NullStatement.also {
@@ -431,7 +437,7 @@ class Parser(private val tokens: List<Token>) {
     private fun checkSpecifier() = checkType() || checkStorageClass()
     private fun checkStorageClass() = check(EXTERN) || check(STATIC)
     private fun checkType() =
-        check(INT) || check(CHAR) || check(LONG) || check(DOUBLE) || check(SIGNED) || check(UNSIGNED)
+        check(VOID) || check(INT) || check(CHAR) || check(LONG) || check(DOUBLE) || check(SIGNED) || check(UNSIGNED)
 
     private fun typeSpecifier() = specifier(allowStorageClass = false).first
     private fun specifier(allowStorageClass: Boolean = true): Pair<Type, StorageClass> {
@@ -472,6 +478,12 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun type(types: List<TokenType>): Type = when {
+        types == listOf(VOID) -> VoidType
+
+        types.contains(VOID) -> {
+            throw error(previous(), "`void` cannot be combined with other types '${types.joinToString(", ")}'.")
+        }
+
         types == listOf(DOUBLE) -> DoubleType
 
         types.contains(DOUBLE) -> {

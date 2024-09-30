@@ -83,6 +83,7 @@ import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
 import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
+import eu.jameshamilton.frontend.VoidType
 import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.cast
 import eu.jameshamilton.frontend.castForAssignment
@@ -659,6 +660,7 @@ private fun typecheckInit(targetType: Type, init: Initializer): Initializer = wh
 }
 
 private fun zeroinit(targetType: Type): Initializer = when (targetType) {
+    VoidType -> TODO()
     is ArrayType -> CompoundInit((0 until targetType.length).map { zeroinit(targetType.element) }, targetType)
     DoubleType -> SingleInit(Constant(0.0, targetType), targetType)
     IntType -> SingleInit(Constant(0, targetType), targetType)
@@ -807,8 +809,8 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     NullStatement -> NullStatement
     is ReturnStatement -> {
-        val expression = typecheckAndConvert(blockItem.value)
-        ReturnStatement(expression.castForAssignment(currentFunction.type.returnType))
+        val expression = blockItem.value?.let { typecheckAndConvert(it) }
+        ReturnStatement(expression?.castForAssignment(currentFunction.type.returnType))
     }
 
     is Switch -> {
@@ -822,6 +824,7 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
             else -> if (expression is Var) {
                 when (symbolTable[expression.identifier.identifier]?.type) {
+                    VoidType -> TODO()
                     is IntegerType -> symbolTable[expression.identifier.identifier]?.type!!
                     is FunType, is PointerType, is DoubleType, is ArrayType, Unknown -> error(
                         expression.identifier.line,
