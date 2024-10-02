@@ -90,9 +90,12 @@ import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.cast
 import eu.jameshamilton.frontend.castForAssignment
 import eu.jameshamilton.frontend.commonPointerType
-import eu.jameshamilton.frontend.commonType
 import eu.jameshamilton.frontend.error
+import eu.jameshamilton.frontend.isComplete
 import eu.jameshamilton.frontend.isLValue
+import eu.jameshamilton.frontend.isNullPointerConstant
+import eu.jameshamilton.frontend.isPointerToComplete
+import eu.jameshamilton.frontend.isScalar
 import eu.jameshamilton.frontend.plus
 import eu.jameshamilton.isNegativeZero
 import eu.jameshamilton.unreachable
@@ -158,9 +161,12 @@ private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
         error(funDeclaration.name.line, "Function '${funDeclaration.name}' cannot return an array type.")
     }
 
+    validateTypeSpecifier(funDeclaration.type)
+
     val paramsTypes = funDeclaration.params?.map {
         when (val type = it.type) {
             is ArrayType -> PointerType(type.element)
+            is VoidType -> error("Parameter '${it.name.identifier}' cannot have void type.")
             else -> type
         }
     }.orEmpty()
@@ -220,6 +226,7 @@ private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
         }
     }
 
+
     val body = funDeclaration.body?.map { typecheck(funDeclaration, it) }
     return FunDeclaration(
         funDeclaration.name,
@@ -231,6 +238,9 @@ private fun typecheck(funDeclaration: FunDeclaration): FunDeclaration {
 }
 
 private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
+    if (varDeclaration.type is VoidType) {
+        error("Cannot declare variable '${varDeclaration.name.identifier}' as void type.")
+    }
     var initializer: Initializer? = null
     when (varDeclaration.storageClass) {
         EXTERN -> {
@@ -271,6 +281,8 @@ private fun checklocalscope(varDeclaration: VarDeclaration): VarDeclaration {
                 varDeclaration.initializer?.let { typecheckInit(varDeclaration.type, varDeclaration.initializer) }
         }
     }
+
+    validateTypeSpecifier(varDeclaration.type)
 
     return VarDeclaration(
         varDeclaration.name,
@@ -330,6 +342,8 @@ private fun checkfilescope(varDeclaration: VarDeclaration): VarDeclaration {
     val attrs = StaticAttr(initialValue, global)
     symbolTable[varDeclaration.name.identifier] = SymbolTableEntry(varDeclaration.type, attrs)
 
+    validateTypeSpecifier(varDeclaration.type)
+
     return VarDeclaration(
         varDeclaration.name,
         varDeclaration.initializer,
@@ -344,6 +358,8 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
         if (!left.isLValue) {
             error(0, "Expression is not an lvalue.")
+        } else if (expression.compound && left.type is PointerType && (left.type as PointerType).referenced is VoidType) {
+            error("Compound assignment type cannot be void pointer.")
         }
 
         val right = typecheckAndConvert(expression.rvalue)
@@ -358,7 +374,11 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             expression.operator in setOf(
                 Equal,
                 NotEqual
-            ) && (left.type is PointerType || right.type is PointerType) -> left commonPointerType right
+            ) -> when {
+                left.type is PointerType || right.type is PointerType -> left commonPointerType right
+                left.type is ArithmeticType && right.type is ArithmeticType -> left.type + right.type
+                else -> error("'${expression.operator}' operator cannot be applied to '${left.type}' and '${right.type}' types.")
+            }
 
             else -> left.type + right.type
         }
@@ -367,7 +387,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
             error("'${expression.operator}' operator cannot be applied to '${commonType}' types.")
         }
 
-        if ((left.type is PointerType || right.type is PointerType) && expression.operator in setOf(
+        if (!(left.type is ArithmeticType && right.type is ArithmeticType) && expression.operator in setOf(
                 Multiply,
                 Divide,
                 Remainder,
@@ -378,7 +398,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                 RightShift
             )
         ) {
-            error("'${expression.operator}' operator cannot be applied to 'pointer' types.")
+            error("'${expression.operator}' operator can only be applied to arithmetic types.")
         }
 
         when (expression.operator) {
@@ -405,11 +425,11 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                         BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
-                    left.type is PointerType && right.type is IntegerType -> {
+                    left.type.isPointerToComplete && right.type is IntegerType -> {
                         BinaryExpr(left, expression.operator, right.cast(LongType), left.type)
                     }
 
-                    left.type is IntegerType && right.type is PointerType -> {
+                    left.type is IntegerType && right.type.isPointerToComplete -> {
                         BinaryExpr(left.cast(LongType), expression.operator, right, right.type)
                     }
 
@@ -429,11 +449,11 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                         BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), commonType)
                     }
 
-                    left.type is PointerType && right.type is IntegerType -> {
+                    left.type.isPointerToComplete && right.type is IntegerType -> {
                         BinaryExpr(left, expression.operator, right.cast(LongType), left.type)
                     }
 
-                    left.type is PointerType && left.type == right.type -> {
+                    left.type.isPointerToComplete && left.type == right.type -> {
                         BinaryExpr(left, expression.operator, right, LongType)
                     }
 
@@ -459,8 +479,26 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
                 }
             }
 
-            Equal, NotEqual -> {
-                BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+            Equal, NotEqual -> when {
+                left.type is PointerType && right.type is PointerType -> {
+                    BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                }
+
+                left.type is ArithmeticType && right.type is ArithmeticType -> {
+                    BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                }
+
+                left.type is PointerType && right.isNullPointerConstant -> {
+                    BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                }
+
+                right.type is PointerType && left.isNullPointerConstant -> {
+                    BinaryExpr(left.cast(commonType), expression.operator, right.cast(commonType), IntType)
+                }
+
+                else -> {
+                    error("Invalid operands for '${expression.operator}': ${left.type} ${expression.operator} ${right.type}")
+                }
             }
 
             LessThan, GreaterThan, LessThanOrEqual, GreaterThanOrEqual -> when {
@@ -488,7 +526,13 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         val thenBranch = typecheckAndConvert(expression.thenBranch)
         val elseBranch = typecheckAndConvert(expression.elseBranch)
 
-        val commonType = thenBranch commonType elseBranch
+        val commonType = when {
+            !condition.type.isScalar -> error("Condition in conditional operator must be scalar.")
+            thenBranch.type is VoidType && elseBranch.type is VoidType -> VoidType
+            thenBranch.type is ArithmeticType && elseBranch.type is ArithmeticType -> thenBranch.type + elseBranch.type
+            thenBranch.type is PointerType || elseBranch.type is PointerType -> thenBranch commonPointerType elseBranch
+            else -> error("Cannot convert branches of conditional to a common type.")
+        }
 
         Conditional(condition, thenBranch.cast(commonType), elseBranch.cast(commonType), commonType)
     }
@@ -547,6 +591,8 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
             PrefixIncrement, PrefixDecrement, PostfixIncrement, PostfixDecrement -> if (expr is AddrOf) {
                 error("lvalue required as '${expression.op}' operand.")
+            } else if (expr.type is PointerType && (expr.type as PointerType).referenced is VoidType) {
+                error("'${expression.op}' operand must not be void pointer type.")
             }
 
             else -> {}
@@ -554,6 +600,9 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
 
         when {
             expression.op == Not -> {
+                if (!expr.type.isScalar) {
+                    error("'${expression.op}' operator cannot be applied to '${expr.type}'.")
+                }
                 UnaryExpr(expression.op, expr, IntType)
             }
 
@@ -581,11 +630,15 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     is Cast -> {
         val expr = typecheckAndConvert(expression.expression)
 
-        if (expression.targetType is ArrayType) {
-            error("Cannot cast to an array type.")
-        }
+        validateTypeSpecifier(expression.targetType)
 
-        expr.cast(expression.targetType)
+        when {
+            // TODO: explicit pointer / double
+            expression.targetType is VoidType -> expr.cast(VoidType)
+            !expression.targetType.isScalar -> error("Can only cast to scalar type or void")
+            !expr.type.isScalar -> error("Cannot cast non-scalar expression to a scalar type")
+            else -> expr.cast(expression.targetType)
+        }
     }
 
     is AddrOf -> {
@@ -599,10 +652,11 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
     is Dereference -> {
         val expr = typecheckAndConvert(expression.expression)
 
-        if (expr.type is PointerType) {
+        // GCC emits only a warning for dereferencing a void pointer.
+        if (expr.type is PointerType && (expr.type as PointerType).referenced !is VoidType) {
             Dereference(expr, (expr.type as PointerType).referenced)
         } else {
-            error(0, "Can only dereference a pointer type; found '${expr.type}'.")
+            error(0, "Can only dereference a non-void pointer type; found '${expr.type}'.")
         }
     }
 
@@ -615,11 +669,11 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         val expr2 = typecheckAndConvert(expression.expr2)
 
         when {
-            expr1.type is PointerType && expr2.type is IntegerType -> {
+            expr1.type is PointerType && expr1.type.isPointerToComplete && expr2.type is IntegerType -> {
                 Subscript(expr1, expr2.cast(LongType), (expr1.type as PointerType).referenced)
             }
 
-            expr2.type is PointerType && expr1.type is IntegerType -> {
+            expr2.type is PointerType && expr2.type.isPointerToComplete && expr1.type is IntegerType -> {
                 Subscript(expr1.cast(LongType), expr2, (expr2.type as PointerType).referenced)
             }
 
@@ -627,8 +681,22 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         }
     }
 
-    is SizeOf -> TODO()
-    is SizeOfT -> TODO()
+    is SizeOf -> {
+        val expr = typecheck(expression.expression)
+        if (!expr.type.isComplete) {
+            error("Cannot get the size of incomplete type for expression '${expr}'.")
+        }
+        SizeOf(expr, ULongType)
+    }
+
+    is SizeOfT -> {
+        validateTypeSpecifier(expression.t)
+
+        if (!expression.t.isComplete) {
+            error("Cannot get the size of incomplete type '${expression.t}'.")
+        }
+        SizeOfT(expression.t, ULongType)
+    }
 }
 
 private fun typecheckInit(targetType: Type, init: Initializer): Initializer = when {
@@ -781,6 +849,9 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     is Continue -> Continue(blockItem.identifier)
     is DoWhile -> {
         val condition = typecheckAndConvert(blockItem.condition)
+        if (!condition.type.isScalar) {
+            error("'${condition.type}' type cannot be used for loop condition.")
+        }
         val body = typecheck(currentFunction, blockItem.body) as Statement
         DoWhile(condition, body, blockItem.id)
     }
@@ -799,6 +870,9 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
             is InitExpr -> InitExpr(blockItem.init.expression?.let { typecheckAndConvert(it) })
         }
         val condition = blockItem.condition?.let { typecheckAndConvert(it) }
+        if (condition != null && !condition.type.isScalar) {
+            error("'${condition.type}' type cannot be used for loop condition.")
+        }
         val body = typecheck(currentFunction, blockItem.body) as Statement
         val post = blockItem.post?.let { typecheck(it) }
         For(init, condition, post, body, blockItem.id)
@@ -807,6 +881,9 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
     is Goto -> Goto(blockItem.identifier)
     is If -> {
         val condition = typecheckAndConvert(blockItem.condition)
+        if (condition.type is VoidType) {
+            error("Conditional condition cannot have void type.")
+        }
         val thenBranch = typecheck(currentFunction, blockItem.thenBranch) as Statement
         val elseBranch = blockItem.elseBranch?.let { typecheck(currentFunction, it) } as Statement?
         If(condition, thenBranch, elseBranch)
@@ -814,6 +891,12 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     NullStatement -> NullStatement
     is ReturnStatement -> {
+        if (currentFunction.type.returnType !is VoidType && blockItem.value == null) {
+            error(currentFunction.name.line, "non-void function must return a value.")
+        }
+        if (currentFunction.type.returnType is VoidType && blockItem.value != null) {
+            error(currentFunction.name.line, "void function must not return a value.")
+        }
         val expression = blockItem.value?.let { typecheckAndConvert(it) }
         ReturnStatement(expression?.castForAssignment(currentFunction.type.returnType))
     }
@@ -852,7 +935,27 @@ private fun typecheck(currentFunction: FunDeclaration, blockItem: BlockItem): Bl
 
     is While -> {
         val condition = typecheckAndConvert(blockItem.condition)
+        if (!condition.type.isScalar) {
+            error("'${condition.type}' type cannot be used for loop condition.")
+        }
         val body = typecheck(currentFunction, blockItem.body) as Statement
         While(condition, body, blockItem.id)
     }
+}
+
+fun validateTypeSpecifier(type: Type): Any? = when (type) {
+    is ArrayType -> {
+        if (!type.element.isComplete) {
+            error("Illegal array of incomplete type '${type}'.")
+        }
+        validateTypeSpecifier(type.element)
+    }
+
+    is PointerType -> validateTypeSpecifier(type.referenced)
+    is FunType -> {
+        type.paramsTypes.forEach { validateTypeSpecifier(it) }
+        validateTypeSpecifier(type.returnType)
+    }
+
+    else -> {}
 }

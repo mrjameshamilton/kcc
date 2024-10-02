@@ -26,6 +26,21 @@ val Type.isSigned: Boolean
 val Type.isUnsigned: Boolean
     get() = !this.isSigned
 
+val Type.isScalar: Boolean
+    get() = when (this) {
+        is VoidType, is ArrayType, is FunType -> false
+        else -> true
+    }
+
+val Type.isPointerToComplete: Boolean
+    get() = when (this) {
+        is PointerType -> referenced.isComplete
+        else -> false
+    }
+
+val Type.isComplete: Boolean
+    get() = this != VoidType
+
 data object Unknown : Type(0)
 data object IntType : Type(32), IntegerType {
     override fun toString() = "int"
@@ -78,6 +93,8 @@ data class PointerType(val referenced: Type) : Type(64) {
     override fun toString(): String = "$referenced*"
 }
 
+// clang and gcc permit pointer arithmetic with void pointers and size of operations on void,
+// assuming the void type has size 1.
 data object VoidType : Type(0) {
     override fun toString(): String = "void"
 }
@@ -95,10 +112,18 @@ val Expression.isNullPointerConstant: Boolean
         else -> false
     }
 
+
 infix fun Expression.commonPointerType(b: Expression): Type = when {
     this.type == b.type -> this.type
     this.isNullPointerConstant -> b.type
     b.isNullPointerConstant -> this.type
+    this.type is PointerType && (this.type as PointerType).referenced is VoidType && b.type is PointerType -> PointerType(
+        VoidType
+    )
+
+    b.type is PointerType && (b.type as PointerType).referenced is VoidType && this.type is PointerType -> PointerType(
+        VoidType
+    )
     else -> unreachable("Invalid pointer cast: either '${this.type}' and '${b.type}' are not valid pointer types.")
 }
 
@@ -126,6 +151,10 @@ fun Expression.castForAssignment(targetType: Type): Expression = when {
     type == targetType -> this
     type is ArithmeticType && targetType is ArithmeticType -> this.cast(targetType)
     isNullPointerConstant && targetType is PointerType -> this.cast(targetType)
+    targetType is PointerType && targetType.referenced is VoidType && this.type is PointerType -> this.cast(targetType)
+    targetType is PointerType && this.type is PointerType && (this.type as PointerType).referenced is VoidType -> this.cast(
+        targetType
+    )
     else -> error(0, "Cannot convert type for assignment: '${this.type}' -> '$targetType'.")
 }
 
