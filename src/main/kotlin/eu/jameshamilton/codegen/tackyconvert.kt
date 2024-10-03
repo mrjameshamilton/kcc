@@ -165,12 +165,11 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
     val prologue = buildX86 {
         val parameters = tackyFunctionDef.parameters.mapIndexed { index, (tackyType, param) ->
             val x86Type = when (tackyType) {
-                is FunType, Unknown, is ArrayType -> unreachable("Invalid type $tackyType")
+                is FunType, Unknown, is ArrayType, is VoidType -> unreachable("Invalid type $tackyType")
                 CharType, SCharType, UCharType -> Byte_
                 IntType, UIntType -> Longword
                 LongType, ULongType, is PointerType -> Quadword
                 DoubleType -> x86DoubleType
-                VoidType -> TODO()
             }
             Triple(index, x86Type, param)
         }
@@ -256,8 +255,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 else -> unreachable("Invalid type ${value.value.javaClass.simpleName}")
             }
 
-            is ArrayType, is FunType, Unknown -> unreachable("Invalid type ${value.type.baseType}")
-            VoidType -> TODO()
+            is ArrayType, is FunType, VoidType, Unknown -> unreachable("Invalid type ${value.type.baseType}")
         }
 
         is TackyVar -> when (value.type) {
@@ -283,8 +281,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 }
             }
 
-            is FunType, Unknown -> unreachable("Invalid type: ${value.type}")
-            VoidType -> TODO()
+            is FunType, VoidType, Unknown -> unreachable("Invalid type: ${value.type}")
         }
     }
 
@@ -511,12 +508,14 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                     deallocate(bytesToRemove)
                 }
 
-                val result = convert(tacky.dst)
+                if (tacky.dst.type !is VoidType) {
+                    val result = convert(tacky.dst)
 
-                if (result.type is x86DoubleType) {
-                    movsd(XMM0, result)
-                } else {
-                    mov(result.type, AX.x(result.type), result)
+                    if (result.type is x86DoubleType) {
+                        movsd(XMM0, result)
+                    } else {
+                        mov(result.type, AX.x(result.type), result)
+                    }
                 }
             }
 

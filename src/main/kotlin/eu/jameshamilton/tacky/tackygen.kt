@@ -72,8 +72,10 @@ import eu.jameshamilton.frontend.UnaryOp.PostfixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PostfixIncrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixDecrement
 import eu.jameshamilton.frontend.UnaryOp.PrefixIncrement
+import eu.jameshamilton.frontend.Unknown
 import eu.jameshamilton.frontend.Var
 import eu.jameshamilton.frontend.VarDeclaration
+import eu.jameshamilton.frontend.VoidType
 import eu.jameshamilton.frontend.While
 import eu.jameshamilton.frontend.check.FunAttr
 import eu.jameshamilton.frontend.check.Initial
@@ -444,14 +446,23 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
         val elseLabel = makelabel("else_label")
         val endLabel = makelabel("end_label")
         jumpIfZero(condition, elseLabel)
-        val e1 = emitAndConvert(instructions, expression.thenBranch)
-        copy(e1, result)
-        jump(endLabel)
-        label(elseLabel)
-        val e2 = emitAndConvert(instructions, expression.elseBranch)
-        copy(e2, result)
-        label(endLabel)
-        PlainOperand(result)
+        if (expression.type is VoidType) {
+            emitAndConvert(instructions, expression.thenBranch)
+            jump(endLabel)
+            label(elseLabel)
+            emitAndConvert(instructions, expression.elseBranch)
+            label(endLabel)
+            PlainOperand(TackyVar(Unknown, "DUMMY!-$"))
+        } else {
+            val e1 = emitAndConvert(instructions, expression.thenBranch)
+            copy(e1, result)
+            jump(endLabel)
+            label(elseLabel)
+            val e2 = emitAndConvert(instructions, expression.elseBranch)
+            copy(e2, result)
+            label(endLabel)
+            PlainOperand(result)
+        }
     }
 
     is FunctionCall -> buildTacky(instructions) {
@@ -463,26 +474,28 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
 
     is Cast -> buildTacky(instructions) {
         val result = emitAndConvert(instructions, expression.expression)
-        if (expression.targetType == expression.expression.type) {
-            PlainOperand(result)
-        } else {
-            val dst = maketemporary(expression.type)
-            symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
-            val targetType = expression.targetType
-            val exprType = expression.expression.type
-            when {
-                exprType is IntegerType && exprType.isUnsigned && targetType is DoubleType -> uitod(result, dst)
-                exprType is DoubleType && targetType is IntegerType && targetType.isUnsigned -> dtoui(result, dst)
-                exprType is IntegerType && targetType is DoubleType -> itod(result, dst)
-                exprType is DoubleType && targetType is IntegerType -> dtoi(result, dst)
-                // if both types are the same size, it doesn't matter
-                // if they are signed or unsigned when converted to assembly.
-                targetType.sizeInBits == exprType.sizeInBits -> copy(result, dst)
-                targetType.sizeInBits < exprType.sizeInBits -> truncate(result, dst)
-                exprType is IntegerType && exprType.isSigned -> signextend(result, dst)
-                else -> zeroextend(result, dst)
+        when (expression.targetType) {
+            VoidType -> PlainOperand(TackyVar(Unknown, "DUMMY$!-"))
+            expression.expression.type -> PlainOperand(result)
+            else -> {
+                val dst = maketemporary(expression.type)
+                symbolTable[dst.name] = SymbolTableEntry(expression.targetType, LocalAttr)
+                val targetType = expression.targetType
+                val exprType = expression.expression.type
+                when {
+                    exprType is IntegerType && exprType.isUnsigned && targetType is DoubleType -> uitod(result, dst)
+                    exprType is DoubleType && targetType is IntegerType && targetType.isUnsigned -> dtoui(result, dst)
+                    exprType is IntegerType && targetType is DoubleType -> itod(result, dst)
+                    exprType is DoubleType && targetType is IntegerType -> dtoi(result, dst)
+                    // if both types are the same size, it doesn't matter
+                    // if they are signed or unsigned when converted to assembly.
+                    targetType.sizeInBits == exprType.sizeInBits -> copy(result, dst)
+                    targetType.sizeInBits < exprType.sizeInBits -> truncate(result, dst)
+                    exprType is IntegerType && exprType.isSigned -> signextend(result, dst)
+                    else -> zeroextend(result, dst)
+                }
+                PlainOperand(dst)
             }
-            PlainOperand(dst)
         }
     }
 
@@ -521,9 +534,15 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
         DereferencedPointer(dst)
     }
 
+    is SizeOf -> {
+        PlainOperand(TackyConstant(ULongType, expression.expression.type.sizeInBytes.toULong()))
+    }
+
+    is SizeOfT -> {
+        PlainOperand(TackyConstant(ULongType, expression.t.sizeInBytes.toULong()))
+    }
+
     is CompoundInit, is SingleInit -> unreachable("special case")
-    is SizeOf -> TODO()
-    is SizeOfT -> TODO()
 }
 
 private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
@@ -548,7 +567,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
                         // TODO: copy multiple bytes at a time
                         (0 until type.length).forEach { index ->
                             if (index < string.length) {
-                                copytooffset(TackyConstant(CharType, string[index].code.toByte()), dst, offset)
+                                copytooffset(TackyConstant(CharType, string[index.toInt()].code.toByte()), dst, offset)
                             } else {
                                 copytooffset(TackyConstant(CharType, 0.toByte()), dst, offset)
                             }
