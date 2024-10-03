@@ -307,7 +307,7 @@ class Parser(private val tokens: List<Token>) {
     private sealed class Declarator
     private data class Ident(val identifier: Identifier) : Declarator()
     private data class PointerDeclarator(val declarator: Declarator) : Declarator()
-    private data class ArrayDeclarator(val declarator: Declarator, val size: Int) : Declarator()
+    private data class ArrayDeclarator(val declarator: Declarator, val size: Long) : Declarator()
     private data class FunctionDeclarator(val params: List<ParamInfo>, val declarator: Declarator) : Declarator()
     private data class ParamInfo(val type: Type, val declarator: Declarator)
 
@@ -398,7 +398,7 @@ class Parser(private val tokens: List<Token>) {
 
     private sealed class AbstractDeclarator
     private data class AbstractPointer(val abstractDeclarator: AbstractDeclarator) : AbstractDeclarator()
-    private data class AbstractArray(val abstractDeclarator: AbstractDeclarator, val size: Int) : AbstractDeclarator()
+    private data class AbstractArray(val abstractDeclarator: AbstractDeclarator, val size: Long) : AbstractDeclarator()
     private data object AbstractBase : AbstractDeclarator()
 
     private fun abstractDeclarator(): AbstractDeclarator = when {
@@ -426,11 +426,14 @@ class Parser(private val tokens: List<Token>) {
         return abstractDeclarator
     }
 
-    private fun arraySize(): Int = when {
-        match(CONSTANT_INT) -> (previous().literal as BigInteger).toInt()
-        match(CONSTANT_CHAR) -> (previous().literal as Char).code
-        match(CONSTANT_LONG, CONSTANT_UINT, CONSTANT_ULONG) -> (previous().literal as BigInteger).toInt().also {
-            System.err.println("Warning: array size truncated to integer.")
+    private fun arraySize(): Long = when {
+        match(CONSTANT_INT) -> (previous().literal as BigInteger).toLong()
+        match(CONSTANT_CHAR) -> (previous().literal as Char).code.toLong()
+        match(CONSTANT_LONG, CONSTANT_UINT, CONSTANT_ULONG) -> (previous().literal as BigInteger).toLong()
+        match(CONSTANT_ULONG) -> (previous().literal as BigInteger).toLong().also {
+            if (previous().literal as BigInteger > BigInteger.valueOf(Long.MAX_VALUE)) {
+                System.err.println("Warning: array size truncated to long.")
+            }
         }
         else -> throw error(peek(), "Invalid array size '${previous().lexeme}'.")
     }

@@ -28,7 +28,7 @@ import eu.jameshamilton.codegen.RegisterSize.WORD
 import eu.jameshamilton.frontend.check.StaticInit
 import eu.jameshamilton.unreachable
 
-const val STACK_ALIGNMENT_BYTES = 16
+const val STACK_ALIGNMENT_BYTES = 16L
 
 data class Program(val items: List<TopLevel>)
 
@@ -195,12 +195,12 @@ val Register.b: Register
 val Register.d: Register
     get() = Register(this.name, LONG)
 
-typealias Bytes = Int
+typealias Bytes = Long
 
 sealed interface Memory
 data class Pseudo(override val type: TypeX86, val identifier: String) : Operand(type)
-data class PseudoMem(override val type: TypeX86, val identifier: String, val offset: Int) : Operand(type), Memory
-data class Mem(override val type: TypeX86, val base: Register, val position: Int) : Operand(type), Memory
-data class Indexed(override val type: TypeX86, val base: Register, val index: Register, val scale: Int) : Operand(type),
+data class PseudoMem(override val type: TypeX86, val identifier: String, val offset: Long) : Operand(type), Memory
+data class Mem(override val type: TypeX86, val base: Register, val position: Long) : Operand(type), Memory
+data class Indexed(override val type: TypeX86, val base: Register, val index: Register, val scale: Long) : Operand(type),
     Memory
 data class Data(override val type: TypeX86, val identifier: String) : Operand(type), Memory

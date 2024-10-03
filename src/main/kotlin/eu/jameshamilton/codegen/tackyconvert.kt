@@ -152,9 +152,9 @@ private fun convert(staticVariable: TackyStaticVariable): StaticVariable =
         staticVariable.name,
         staticVariable.global,
         alignment = when (staticVariable.type) {
-            IntType -> Longword.size
-            is ArrayType -> if (staticVariable.type.baseType is CharacterType) 16 else Longword.size
-            else -> Quadword.size
+            IntType -> Longword.size.toInt()
+            is ArrayType -> if (staticVariable.type.baseType is CharacterType) 16 else Longword.size.toInt()
+            else -> Quadword.size.toInt()
         },
         staticVariable.init
     )
@@ -211,7 +211,7 @@ private fun convert(tackyFunctionDef: TackyFunctionDef): x86FunctionDef {
         // The base address of callers stack frame + return address of caller,
         // are on the stack before the parameters.
         val stackParameterOffset = 2
-        val size = 8
+        val size = 8L
         stackParameters
             .mapIndexed { index, (_, type, param) -> Triple(index + stackParameterOffset, type, param) }
             .asReversed()
@@ -699,7 +699,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                 movq(ptr, AX.q)
 
                 when (scale) {
-                    1, 2, 4, 8 -> {
+                    1L, 2L, 4L, 8L -> {
                         val index = convert(tacky.index)
                         movq(index, DX.q)
                         lea(Indexed(Quadword, AX.q, DX.q, scale), dst)
@@ -714,7 +714,7 @@ private fun convert(instructions: List<TackyInstruction>): List<x86Instruction> 
                                 else -> unreachable("Invalid scale type: ${tacky.index.value}")
                             }
                             movq(ptr, AX.q)
-                            lea(Mem(Quadword, AX.q, index * scale), dst)
+                            lea(Mem(Quadword, AX.q, index * scale.toLong()), dst)
                         } else {
                             val index = convert(tacky.index)
                             movq(index, DX.q)

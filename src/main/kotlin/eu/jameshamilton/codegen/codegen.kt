@@ -77,7 +77,7 @@ fun emit(x86program: x86Program): String = buildString {
             XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7, XMM14, XMM15 -> "%${operand.name.name.lowercase()}"
         }
 
-        is Mem -> if (operand.position == 0) "(${format(operand.base)})" else "${operand.position}(${format(operand.base)})"
+        is Mem -> if (operand.position == 0L) "(${format(operand.base)})" else "${operand.position}(${format(operand.base)})"
         is Data -> if (operand.isConstant) ".L${operand.identifier}(%rip)" else "${operand.identifier}(%rip)"
         is Indexed -> "(${format(operand.base)}, ${format(operand.index)}, ${operand.scale})"
         // Only for debugging purposes: these are not valid assembly.

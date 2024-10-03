@@ -24,8 +24,8 @@ import kotlin.math.floor
 
 private typealias Registers = LinkedHashMap<String, Mem>
 
-private val Registers.max: Int
-    get() = lastEntry()?.value?.position ?: 0
+private val Registers.max: Long
+    get() = lastEntry()?.value?.position ?: 0L
 
 fun replacePseudoRegisters(program: Program): Program {
     val registers = Registers()
@@ -43,7 +43,7 @@ fun replacePseudoRegisters(program: Program): Program {
         }
 
         is PseudoMem -> when {
-            op.isStatic && op.offset == 0 -> {
+            op.isStatic && op.offset == 0L -> {
                 // Should not happen that offset > 0, because we only use
                 // pseudomem operands with nonzero offsets to initialize arrays with
                 // automatic storage duration, not to access arrays with static storage duration.
@@ -447,7 +447,7 @@ fun replacePseudoRegisters(program: Program): Program {
         registers.clear()
         with(functionDef.instructions.flatMap(::fixup)) {
             val prologue = buildX86 {
-                allocate(abs(registers.max).roundUpToNearestMultiple(STACK_ALIGNMENT_BYTES))
+                allocate(abs(registers.max.toLong()).roundUpToNearestMultiple(STACK_ALIGNMENT_BYTES))
             }
             return FunctionDef(functionDef.name, functionDef.global, functionDef.defined, prologue + this)
         }
@@ -462,5 +462,5 @@ fun replacePseudoRegisters(program: Program): Program {
     return Program(program.items.map { fixup(it) })
 }
 
-fun Int.roundUpToNearestMultiple(n: Int) = (ceil(this / n.toFloat()) * n).toInt()
-fun Int.roundDownToNearestMultiple(n: Int) = (floor(this / n.toFloat()) * n).toInt()
+fun Long.roundUpToNearestMultiple(n: Long) = (ceil(this / n.toFloat()) * n).toLong()
+fun Long.roundDownToNearestMultiple(n: Long) = (floor(this / n.toFloat()) * n).toLong()

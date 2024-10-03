@@ -128,7 +128,7 @@ data class LongInit(override val value: Long) : StaticInit<Long>(value)
 data class UIntInit(override val value: UInt) : StaticInit<UInt>(value)
 data class ULongInit(override val value: ULong) : StaticInit<ULong>(value)
 data class DoubleInit(override val value: Double) : StaticInit<Double>(value)
-data class ZeroInit(val bytes: Int) : StaticInit<Int>(0)
+data class ZeroInit(val bytes: Long) : StaticInit<Int>(0)
 data class StringInit(override val value: String, val isNullTerminated: Boolean) : StaticInit<String>(value)
 data class PointerInit(override val value: String) : StaticInit<String>(value)
 
@@ -137,7 +137,7 @@ fun makestringconstant(value: String): String {
         symbolTable.count { it.value.attr is ConstantAttr<*> && (it.value.attr as ConstantAttr<*>).staticInit is StringInit }
     val name = "string.${count + 1}"
     symbolTable[name] = SymbolTableEntry(
-        ArrayType(CharType, value.length + 1),
+        ArrayType(CharType, value.length + 1L),
         ConstantAttr(StringInit(value, true))
     )
     return name
@@ -549,7 +549,7 @@ private fun typecheck(expression: Expression): Expression = when (expression) {
         Constant(expression.value, type)
     }
 
-    is StringConstant -> StringConstant(expression.value, ArrayType(CharType, expression.value.length + 1))
+    is StringConstant -> StringConstant(expression.value, ArrayType(CharType, expression.value.length + 1L))
 
     is FunctionCall -> {
         val identifier = expression.identifier

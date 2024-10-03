@@ -158,8 +158,8 @@ fun printInitialValue(type: Type, initialValue: InitialValue) {
                 when (it) {
                     is DoubleInit, is IntInit, is UIntInit, is LongInit, is ULongInit -> os.print(it.value)
                     is ZeroInit -> {
-                        if (type.baseType.sizeInBytes == 0) os.print(0)
-                        else repeat(it.bytes / type.baseType.sizeInBytes) { os.print(0) }
+                        if (type.baseType.sizeInBytes == 0L) os.print(0)
+                        else repeat((it.bytes / type.baseType.sizeInBytes).toInt()) { os.print(0) }
                     }
                     is CharInit -> os.print("'${it.value}'")
                     is UCharInit -> os.print("'${it.value}'u")

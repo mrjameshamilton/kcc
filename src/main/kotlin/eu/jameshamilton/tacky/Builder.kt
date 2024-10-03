@@ -125,11 +125,11 @@ class Builder(private val instructions: MutableList<Instruction> = mutableListOf
         return dst
     }
 
-    fun copytooffset(src: Value, dst: Var, offset: Int) {
+    fun copytooffset(src: Value, dst: Var, offset: Long) {
         instructions += CopyToOffset(src, dst, offset)
     }
 
-    fun addptr(ptr: Value, index: Value, scale: Int, dst: Value): Value {
+    fun addptr(ptr: Value, index: Value, scale: Long, dst: Value): Value {
         instructions += AddPtr(ptr, index, scale, dst)
         return dst
     }

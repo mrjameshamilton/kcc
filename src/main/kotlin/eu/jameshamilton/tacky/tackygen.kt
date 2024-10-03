@@ -539,7 +539,12 @@ private fun emit(instructions: MutableList<Instruction>, expression: Expression)
     }
 
     is SizeOfT -> {
-        PlainOperand(TackyConstant(ULongType, expression.t.sizeInBytes.toULong()))
+        if (expression.t is ArrayType) {
+            val arrayType = expression.t as ArrayType
+            PlainOperand(TackyConstant(ULongType, arrayType.length * arrayType.element.sizeInBytes))
+        } else {
+            PlainOperand(TackyConstant(ULongType, expression.t.sizeInBytes.toULong()))
+        }
     }
 
     is CompoundInit, is SingleInit -> unreachable("special case")
@@ -554,7 +559,7 @@ private fun convert(funDeclaration: FunDeclaration): TackyFunctionDef {
             return
         }
 
-        var offset = 0
+        var offset = 0L
         fun emit(initializer: Initializer) {
             buildTacky(instructions) {
                 when {

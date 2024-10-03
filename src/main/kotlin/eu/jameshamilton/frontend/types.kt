@@ -2,9 +2,10 @@ package eu.jameshamilton.frontend
 
 import eu.jameshamilton.unreachable
 
-sealed class Type(open val sizeInBits: Int) {
-    val sizeInBytes: Int
-        get() = sizeInBits / 8
+sealed class Type(open val sizeInBits: Long) {
+    constructor(size: Int) : this(size.toLong())
+    val sizeInBytes: Long
+        get() = sizeInBits / 8L
 
     val baseType: Type by lazy {
         fun baseType(type: Type): Type = when (type) {
@@ -74,9 +75,9 @@ data object UCharType : Type(8), CharacterType {
     override fun toString(): String = "unsigned char"
 }
 
-data class ArrayType(val element: Type, val length: Int) : Type(0) {
+data class ArrayType(val element: Type, val length: Long) : Type(0) {
 
-    override val sizeInBits: Int
+    override val sizeInBits: Long
         get() = length * element.sizeInBits
 
     override fun toString(): String {

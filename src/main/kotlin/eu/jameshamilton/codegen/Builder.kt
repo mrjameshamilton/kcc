@@ -314,6 +314,10 @@ class Builder(var instructions: List<Instruction> = mutableListOf()) {
         return sub(Quadword, Imm(Quadword, i), SP)
     }
 
+    fun allocate(i: Long): Builder {
+        return sub(Quadword, Imm(Quadword, i), SP)
+    }
+
     fun deallocate(i: Int): Builder {
         return add(Quadword, Imm(Quadword, i), SP)
     }

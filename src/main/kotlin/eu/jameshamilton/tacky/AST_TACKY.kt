@@ -64,8 +64,8 @@ data class Copy(val src: Value, val dst: Value) : Instruction()
 data class GetAddress(val src: Value, val dst: Value) : Instruction()
 data class Load(val ptr: Value, val dst: Value) : Instruction()
 data class Store(val src: Value, val ptr: Value) : Instruction()
-data class AddPtr(val ptr: Value, val index: Value, val scale: Int, val dst: Value) : Instruction()
-data class CopyToOffset(val src: Value, val dst: Var, val offset: Int) : Instruction() {
+data class AddPtr(val ptr: Value, val index: Value, val scale: Long, val dst: Value) : Instruction()
+data class CopyToOffset(val src: Value, val dst: Var, val offset: Long) : Instruction() {
     init {
         require(dst.type is ArrayType)
     }
